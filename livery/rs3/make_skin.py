@@ -226,11 +226,15 @@ def sponsor_row(names, h, maxw, fill=BLACK, sep="  ·  "):
 
 
 def meme(s, h, maxw):
-    """Мем-стикер: белая плашка, чёрный текст, красная рамка."""
-    txt = fit(s, h, maxw - 40, "ExtraBold Italic", fill=BLACK)
-    t = Image.new("RGBA", (txt.width + 40, txt.height + 18), (0, 0, 0, 0))
+    """Мем-стикер: белая плашка, чёрный текст (строки через \\n), красная рамка."""
+    lines = [fit(ln, h, maxw - 40, "ExtraBold Italic", fill=BLACK) for ln in s.split("\n")]
+    tw, th = max(l.width for l in lines), sum(l.height for l in lines)
+    t = Image.new("RGBA", (tw + 40, th + 18), (0, 0, 0, 0))
     ImageDraw.Draw(t).rounded_rectangle([1, 1, t.width - 2, t.height - 2], radius=12, fill=TXT_WHITE, outline=RED, width=4)
-    t.alpha_composite(txt, (20, 9))
+    y = 9
+    for l in lines:
+        t.alpha_composite(l, ((t.width - l.width) // 2, y))
+        y += l.height
     return t
 
 
@@ -243,23 +247,23 @@ def place(layer, cx, cy, angle=0):
     img.alpha_composite(full)
 
 
-# борта: правая колонка читается снизу вверх (+90), левая — сверху вниз (−90)
+# борта: правая колонка читается снизу вверх (+90), левая — сверху вниз (−90); «вниз» кузова = +x
 for side, ang in ((1, 90), (-1, -90)):
     X = (lambda x: x) if side == 1 else (lambda x: N - x)
-    place(castrol(170, 640), X(3215), 1420, ang)                                     # задняя дверь
-    place(meme("Работает на 2.0 TFSI и молитвах", 34, 620), X(3400), 1420, ang)    # под Castrol
-    place(number_plate(300), X(3230), 2230, ang)                                     # передняя дверь
-    place(name_plate(), X(3420), 2230, ang)                                          # под номером
-    place(sponsor_row(["BILSTEIN", "EIBACH", "RECARO", "SPARCO", "BREMBO", "MOTUL"], 50, 1560),
+    place(castrol(160, 600), X(3255), 1440, ang)                                     # задняя дверь, ниже окна
+    place(meme("Работает на 2.0 TFSI\nи молитвах", 36, 400), X(3435), 1585, ang)     # под Castrol, до арки
+    place(number_plate(290), X(3265), 2230, ang)                                     # передняя дверь, воздух сверху
+    place(name_plate(), X(3445), 2230, ang)                                          # под номером
+    place(sponsor_row(["BILSTEIN", "EIBACH", "RECARO", "SPARCO", "BREMBO", "MOTUL", "APR"], 50, 1560),
           X(3920), 1980, ang)                                                        # порог
-    place(fit("APR", 110, 260, fill=BLACK, stroke=4, stroke_fill=TXT_WHITE), X(3330), 640, ang)  # заднее крыло
 
-place(castrol(190, 700), 2050, 3040)                                   # капот
-place(fit("APR", 90, 240, fill=BLACK), 2050, 2920)                     # капот у лобового
+place(castrol(190, 700), 2050, 3170)                                   # капот (ниже, подальше от лобового)
 place(number_plate(520), 2050, 1790)                                   # крыша
-place(castrol(150, 620), 2050, 990, 180)                               # багажник (читается сзади)
-place(meme("Масло не жрёт (пока)", 40, 620), 2500, 95, 180)            # задний бампер (читается сзади)
-place(meme("Quattro? Не, передний", 40, 620), 1600, 95, 180)
+place(castrol(140, 560), 2050, 900, 180)                               # багажник, ближе к кольцам
+# задняя стенка под кольцами (бывшая надпись SMP ESPORTS) — единственный мем сзади
+place(meme("Масло не жрёт (пока)", 64, 900), 2120, 525, 180)
+# задний бампер под полосами: спонсоры
+place(sponsor_row(["CASTROL", "APR", "MOTUL", "BREMBO"], 44, 1300), 2050, 95, 180)
 
 img = img.convert("RGB")
 img.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "skin_preview.png"))
