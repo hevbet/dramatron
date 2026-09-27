@@ -355,11 +355,9 @@ place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
 place(label("@ARCASARATOV", 30, 600, A_YELLOW_L), 1285, 1000, -90)
 
 # ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
-place(simkart_mark(130), N - 1160, 950, 90)
+place(simkart_mark(130), N - 1160, 1030, 90)
 # «— КАРТИНГ В БРАУЗЕРЕ» прямо под словом, выровнено по его началу (как на баннере)
-place(solid(load_mask("simkart_tagline.png", 24), S_RED), N - 1055, 1010, 90)
-place(coat_of_arms(110, **COA_ARKA), 1130, 540, -90)
-place(coat_of_arms(110, **COA_SIMKART), N - 1130, 548, 90)
+place(solid(load_mask("simkart_tagline.png", 24), S_RED), N - 1055, 1066, 90)
 
 # Номерные панели: слева — в стиле Арки, справа — SimKart
 place(race_number(A_YELLOW, A_DARK, A_DARK, 125), 1185, 1825, -90)
@@ -391,12 +389,13 @@ def plate(w, h, bg, border):
 
 def driver_plate(border):
     """Табличка пилота: триколор, фамилия и имя."""
-    t = plate(236, 92, A_DARK, border)
+    t = plate(300, 112, A_DARK, border)
     d = ImageDraw.Draw(t)
     for k, c in enumerate([(245, 245, 245), (0, 57, 166), (213, 43, 30)]):
-        d.rectangle([12, 14 + k * 9, 46, 23 + k * 9], fill=c)
-    t.alpha_composite(label("ПОЗДНЯКОВ", 32, 170, WHITE, "Black Italic"), (56, 12))
-    t.alpha_composite(label("СТАНИСЛАВ", 24, 170, S_SILVER), (58, 54))
+        d.rectangle([16, 18 + k * 12, 60, 30 + k * 12], fill=c)
+    name = label("ПОЗДНЯКОВ", 46, 214, WHITE, "Black Italic")
+    t.alpha_composite(name, (74, 14))
+    t.alpha_composite(label("СТАНИСЛАВ", 32, 214, S_SILVER), (76, 20 + name.height + 8))
     return t
 
 
@@ -415,8 +414,8 @@ def coffee_sticker():
 
 
 # таблички пилота на «плавниках» за кокпитом
-place(driver_plate(A_YELLOW), 1212, 352, -90)
-place(driver_plate(S_RED), N - 1212, 372, 90)
+place(driver_plate(A_YELLOW), 1180, 520, -90)
+place(driver_plate(S_RED), N - 1180, 520, 90)
 # стикеры в нижней части боковин
 place(coffee_sticker().resize((220, 81), Image.LANCZOS), 1228, 1395, -90)
 
