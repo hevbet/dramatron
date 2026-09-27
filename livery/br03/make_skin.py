@@ -154,13 +154,14 @@ out[m] = (np.array(S_RED, float) * np.clip(fw, 0.6, 1.0))[m]
 # стык половин по оси машины: жёлтый кант | шахматка | красный кант
 shade = np.where(white[..., None], fw, np.where(red[..., None], fr, np.where(blue[..., None], fb, 0.8)))
 SW = [(-34, -24, A_YELLOW), (-24, -20, A_DARK), (20, 24, A_DARK), (24, 34, S_RED)]
-Y0 = 300   # антикрыло (верх развёртки) без полосы — только крыша, нос и днище
+Y0, Y1 = 820, 1400   # шахматка только на крыше (на антикрыле и носу её нет)
 for x0, x1, col in SW:
-    out[Y0:, HALF + x0:HALF + x1] = (np.array(col, float) * np.clip(shade[Y0:, HALF + x0:HALF + x1], 0.5, 1.05))
-cy_, cx_ = np.mgrid[Y0:N, HALF - 20:HALF + 20]
+    out[Y0:Y1, HALF + x0:HALF + x1] = (np.array(col, float) * np.clip(shade[Y0:Y1, HALF + x0:HALF + x1], 0.5, 1.05))
+cy_, cx_ = np.mgrid[Y0:Y1, HALF - 20:HALF + 20]
 chk = (((cy_ // 20) + ((cx_ - (HALF - 20)) // 20)) % 2 == 0)[..., None]
 cell = np.where(chk, np.array(WHITE, float), np.array(A_DARK, float))
-out[Y0:, HALF - 20:HALF + 20] = cell * np.clip(shade[Y0:, HALF - 20:HALF + 20], 0.5, 1.05)
+out[Y0:Y1, HALF - 20:HALF + 20] = cell * np.clip(shade[Y0:Y1, HALF - 20:HALF + 20], 0.5, 1.05)
+out[Y1:, HALF - 3:HALF + 3] = np.array(A_DARK, float)   # на носу — тонкая линия стыка
 
 img = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 white_mask = Image.fromarray((white * 255).astype(np.uint8), "L")
@@ -295,6 +296,24 @@ def place(layer, cx, cy, angle=0, clip=True):
     img.alpha_composite(full)
 
 
+def place_fit(make, seed, angle, size, margin=10):
+    """Ставит слой в центр детали развёртки, где лежит seed, и уменьшает, пока он целиком не влезет."""
+    lab, _ = ndimage.label(white)
+    isl = lab == lab[seed[1], seed[0]]
+    inner = ndimage.binary_erosion(isl, iterations=margin)
+    dist = ndimage.distance_transform_edt(inner)
+    cy, cx = np.unravel_index(np.argmax(dist), dist.shape)
+    while size > 20:
+        lay = make(size).rotate(angle, expand=True)
+        al = np.asarray(lay.getchannel("A")) > 20
+        y0, x0 = int(cy - lay.height / 2), int(cx - lay.width / 2)
+        win = inner[y0:y0 + lay.height, x0:x0 + lay.width]
+        if win.shape == al.shape and not (al & ~win).any():
+            break
+        size -= 4
+    place(make(size), cx, cy, angle)
+
+
 def sterlet(Lg, color):
     """Стерлядь: рыло слева (x=0), хвост справа."""
     h = int(Lg * 0.32)
@@ -356,17 +375,17 @@ def coat_of_arms(W, field=AZURE, border=GOLD, fish=HERALD_SILVER, crown=GOLD, ge
 
 
 # ЛЕВАЯ боковина — Арка (буквы «вверх» = +x → поворот −90)
-place(arka_mark(load_mask("arka_word.png", 240)), 1115, 1000, -90)
-place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
+place(arka_mark(load_mask("arka_word.png", 240)), 1180, 1130, -90)
+place(arka_mark(load_mask("arka_taimcafe.png", 64)), 965, 1150, -90)
 
 # ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
-place(simkart_mark(130), N - 1160, 1030, 90)
+place(simkart_mark(115), N - 1170, 1070, 90)
 # «— КАРТИНГ В БРАУЗЕРЕ» прямо под словом, выровнено по его началу (как на баннере)
-place(solid(load_mask("simkart_tagline.png", 24), S_RED), N - 1055, 1066, 90)
+place(solid(load_mask("simkart_tagline.png", 22), S_RED), N - 1083, 1115, 90)
 
 # Номерные панели: слева — в стиле Арки, справа — SimKart
-place(race_number(A_YELLOW, A_DARK, A_DARK, 125), 1185, 1825, -90)
-place(race_number(WHITE, S_RED, A_DARK, 125), N - 1195, 1835, 90)
+place_fit(lambda sz: race_number(A_YELLOW, A_DARK, A_DARK, sz), (1185, 1825), -90, 125)
+place_fit(lambda sz: race_number(WHITE, S_RED, A_DARK, sz), (N - 1195, 1835), 90, 125)
 
 # Крыша: номер в круге, обод пополам — жёлтый / красный
 disc = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
@@ -426,7 +445,7 @@ def coffee_sticker():
 place(driver_plate(A_YELLOW), 1180, 520, -90)
 place(driver_plate(S_RED), N - 1180, 520, 90)
 # стикеры в нижней части боковин
-place(coffee_sticker().resize((220, 81), Image.LANCZOS), 1228, 1395, -90)
+place(coffee_sticker().resize((220, 81), Image.LANCZOS), 1000, 720, -90)
 
 
 img = img.convert("RGB")
