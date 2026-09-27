@@ -7,6 +7,7 @@
 """
 import json
 import os
+import struct
 import sys
 
 import numpy as np
@@ -182,10 +183,22 @@ place(text_layer("SIMKART", font(FB, 58), WHITE), 2045, 3305, 0, clip=False)
 
 img = img.convert("RGB")
 img.save(os.path.join(HERE, "body_paint_preview.png"))
-img.convert("RGBA").save(os.path.join(OUT, "body_paint.dds"), pixel_format="DXT5")
+
+
+def save_dxt5(im, path):
+    """Pillow пишет в заголовок неверные pitch и RGBBitCount — правим как в оригинальных DDS."""
+    im.save(path, pixel_format="DXT5")
+    with open(path, "r+b") as fh:
+        fh.seek(20)
+        fh.write(struct.pack("<I", max(1, im.width // 4) * max(1, im.height // 4) * 16))
+        fh.seek(88)
+        fh.write(struct.pack("<I", 0))
+
+
+save_dxt5(img.convert("RGBA"), os.path.join(OUT, "body_paint.dds"))
 
 # ---------------------------------------------------------------- 4. диски, иконка, ui_skin.json
-Image.new("RGBA", (4, 4), (22, 24, 32, 255)).save(os.path.join(OUT, "car_paint_rims.dds"), pixel_format="DXT5")
+save_dxt5(Image.new("RGBA", (4, 4), (22, 24, 32, 255)), os.path.join(OUT, "car_paint_rims.dds"))
 
 ic = Image.new("RGB", (185, 185), (20, 22, 30))
 di = ImageDraw.Draw(ic)
