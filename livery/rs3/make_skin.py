@@ -279,13 +279,50 @@ def livery_banner(text, h, maxw):
 
 
 place(livery_banner("МАСЛО НЕ ЖРЁТ (ПОКА)", 112, 760), 2048, 530, 180)
+def badge(text, bg, fg, h, maxw, accent=None):
+    """Спонсорская наклейка под ливрею: скошенная плашка фирменного цвета, белая окантовка, наклонный текст."""
+    txt = fit(text, int(h * 0.66), maxw - int(h * 1.1), fill=fg)
+    w = txt.width + int(h * 1.1)
+    S = 3
+    t = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
+    d_ = ImageDraw.Draw(t)
+    sk = h * 0.32 * S
+    d_.polygon([(0, h * S), (sk, 0), (w * S, 0), (w * S - sk, h * S)], fill=TXT_WHITE)            # белая окантовка
+    b = 5 * S
+    d_.polygon([(b * 1.6, h * S - b), (sk + b * 0.6, b), (w * S - b * 1.6, b), (w * S - sk - b * 0.6, h * S - b)], fill=bg)
+    if accent:                                                                                   # фирменный скошенный акцент
+        d_.polygon([(w * S - sk - b * 0.6 - h * 0.5 * S, h * S - b), (w * S - b * 1.6 - h * 0.5 * S + sk * 0.2, b),
+                    (w * S - b * 1.6, b), (w * S - sk - b * 0.6, h * S - b)], fill=accent)
+    t = t.resize((w, h), Image.LANCZOS)
+    t.alpha_composite(txt, ((w - txt.width) // 2 - (int(h * 0.12) if accent else 0), (h - txt.height) // 2))
+    return t
+
+
+NVIDIA = lambda h, mw: badge("NVIDIA", (118, 185, 0), BLACK, h, mw)
+INTEL = lambda h, mw: badge("intel", (0, 113, 197), TXT_WHITE, h, mw)
+MOZA = lambda h, mw: badge("MOZA RACING", BLACK, TXT_WHITE, h, mw, accent=RED)
+
+# крыша: над и под номером
+place(NVIDIA(130, 560), 2050, 2250)
+place(INTEL(130, 480), 2050, 1330)
+# передняя дверь: перед номером MOZA, за номером intel
+for side, ang in ((1, 90), (-1, -90)):
+    X = (lambda x: x) if side == 1 else (lambda x: N - x)
+    place(MOZA(80, 300), X(3270), 2590, ang)
+    place(NVIDIA(64, 220), X(3270), 1905, ang)
+# багажник под Castrol
+place(MOZA(70, 380), 2050, 1080, 180)
+# капот по бокам воздухозаборника
+place(INTEL(56, 170), 1640, 3470, 0)
+place(NVIDIA(56, 190), N - 1640, 3470, 0)
+
 # передний бампер: мелкие спонсоры на нижних «клыках» губы и на боковых гранях
 place(fit("BREMBO", 32, 240, fill=TXT_WHITE), 1760, 3950, -6)
 place(fit("MOTUL", 32, 240, fill=TXT_WHITE), N - 1760, 3950, 6)
 place(fit("SMP ESPORTS", 40, 360, "ExtraBold Italic", fill=BLACK), 1090, 3750)
 place(fit("APR", 48, 200, fill=BLACK), N - 1090, 3750)
 # задний бампер под полосами: спонсоры
-place(sponsor_row(["SMP ESPORTS", "CASTROL", "APR", "MOTUL"], 44, 1300), 2050, 95, 180)
+place(sponsor_row(["SMP ESPORTS", "CASTROL", "NVIDIA", "INTEL", "MOZA", "APR"], 44, 1500), 2050, 95, 180)
 
 img = img.convert("RGB")
 img.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "skin_preview.png"))
