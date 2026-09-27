@@ -38,6 +38,9 @@ BLACK = (10, 10, 14)
 AZURE = (30, 110, 190)                      # геральдическая лазурь
 GOLD = (222, 178, 60)
 HERALD_SILVER = (232, 236, 242)
+# варианты герба: поле, кайма, стерляди, корона, центральный камень
+COA_ARKA = dict(field=(46, 46, 48), border=A_YELLOW, fish=A_YELLOW, crown=A_YELLOW, gem=A_RED, pearl=A_YELLOW_L)
+COA_SIMKART = dict(field=(20, 20, 30), border=S_RED, fish=S_SILVER, crown=S_SILVER, gem=S_RED, pearl=S_RED)
 
 FB = "/usr/share/fonts/truetype/liberation/LiberationSans-BoldItalic.ttf"
 FBN = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
@@ -261,7 +264,15 @@ def sterlet(Lg, color):
     return t
 
 
-def coat_of_arms(W):
+def coat_split(W):
+    """Герб пополам: левая половина в цветах Арки, правая — SimKart."""
+    left, right = coat_of_arms(W, **COA_ARKA), coat_of_arms(W, **COA_SIMKART)
+    out = right.copy()
+    out.paste(left.crop((0, 0, W // 2, left.height)), (0, 0))
+    return out
+
+
+def coat_of_arms(W, field=AZURE, border=GOLD, fish=HERALD_SILVER, crown=GOLD, gem=(200, 40, 50), pearl=HERALD_SILVER):
     """Герб Саратовской области (стилизация): лазоревый щит, три серебряные стерляди
     в вилообразный крест головами к центру, золотая кайма и корона."""
     S = 4                       # суперсэмплинг
@@ -284,34 +295,34 @@ def coat_of_arms(W):
         return pts
 
     d.polygon(shield(0), fill=A_DARK)
-    d.polygon(shield(int(w * 0.03)), fill=GOLD)
-    d.polygon(shield(int(w * 0.075)), fill=AZURE)
+    d.polygon(shield(int(w * 0.03)), fill=border)
+    d.polygon(shield(int(w * 0.075)), fill=field)
     # три стерляди: вилообразный крест, головы к центру
     cx, cy = w / 2, top + (h - top) * 0.44
-    fish = sterlet(int(w * 0.42), HERALD_SILVER + (255,))
+    fish_im = sterlet(int(w * 0.42), fish + (255,))
     for ang in (210, 330, 90):          # вверх-влево, вверх-вправо, вниз (y вниз)
-        rot = fish.rotate(-ang, expand=True, resample=Image.BICUBIC)
+        rot = fish_im.rotate(-ang, expand=True, resample=Image.BICUBIC)
         dx, dy = math.cos(math.radians(ang)), math.sin(math.radians(ang))
-        c = fish.width / 2 + w * 0.02   # центр рыбы смещён наружу, рыло у центра
+        c = fish_im.width / 2 + w * 0.02   # центр рыбы смещён наружу, рыло у центра
         t.alpha_composite(rot, (int(cx + dx * c - rot.width / 2), int(cy + dy * c - rot.height / 2)))
     # корона (упрощённая императорская): обруч, две полусферы, центральная дуга, держава с крестом
     ow = S * 2
     cb = top - int(h * 0.012)                  # низ обруча
     ch = h * 0.1                               # радиус полусфер по высоте
-    d.chord([w * 0.20, cb - ch * 2, w * 0.49, cb + ch * 0.1], 180, 360, fill=GOLD, outline=A_DARK, width=ow)
-    d.chord([w * 0.51, cb - ch * 2, w * 0.80, cb + ch * 0.1], 180, 360, fill=GOLD, outline=A_DARK, width=ow)
-    d.rounded_rectangle([w * 0.465, cb - ch * 1.08, w * 0.535, cb], radius=int(w * 0.02), fill=GOLD, outline=A_DARK, width=ow)
+    d.chord([w * 0.20, cb - ch * 2, w * 0.49, cb + ch * 0.1], 180, 360, fill=crown, outline=A_DARK, width=ow)
+    d.chord([w * 0.51, cb - ch * 2, w * 0.80, cb + ch * 0.1], 180, 360, fill=crown, outline=A_DARK, width=ow)
+    d.rounded_rectangle([w * 0.465, cb - ch * 1.08, w * 0.535, cb], radius=int(w * 0.02), fill=crown, outline=A_DARK, width=ow)
     orb_r = w * 0.045
     oy = cb - ch * 1.08 - orb_r * 0.8
-    d.ellipse([w / 2 - orb_r, oy - orb_r, w / 2 + orb_r, oy + orb_r], fill=GOLD, outline=A_DARK, width=ow)
+    d.ellipse([w / 2 - orb_r, oy - orb_r, w / 2 + orb_r, oy + orb_r], fill=crown, outline=A_DARK, width=ow)
     cw = w * 0.022
-    d.rectangle([w / 2 - cw / 2, oy - orb_r * 3.0, w / 2 + cw / 2, oy - orb_r * 0.8], fill=GOLD, outline=A_DARK, width=ow)
-    d.rectangle([w / 2 - cw * 2, oy - orb_r * 2.4, w / 2 + cw * 2, oy - orb_r * 2.4 + cw], fill=GOLD, outline=A_DARK, width=ow)
-    d.rounded_rectangle([w * 0.18, cb - h * 0.05, w * 0.82, cb], radius=int(w * 0.02), fill=GOLD, outline=A_DARK, width=ow)
+    d.rectangle([w / 2 - cw / 2, oy - orb_r * 3.0, w / 2 + cw / 2, oy - orb_r * 0.8], fill=crown, outline=A_DARK, width=ow)
+    d.rectangle([w / 2 - cw * 2, oy - orb_r * 2.4, w / 2 + cw * 2, oy - orb_r * 2.4 + cw], fill=crown, outline=A_DARK, width=ow)
+    d.rounded_rectangle([w * 0.18, cb - h * 0.05, w * 0.82, cb], radius=int(w * 0.02), fill=crown, outline=A_DARK, width=ow)
     cr = w * 0.03
     for fx in (0.27, 0.38, 0.5, 0.62, 0.73):   # камни на обруче
         d.ellipse([w * fx - cr / 2, cb - h * 0.025 - cr / 2, w * fx + cr / 2, cb - h * 0.025 + cr / 2],
-                  fill=(200, 40, 50) if fx == 0.5 else HERALD_SILVER)
+                  fill=gem if fx == 0.5 else pearl)
     return t.resize((W, int(h / S)), Image.LANCZOS)
 
 
@@ -321,18 +332,11 @@ place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
 place(arka_label("МОСКОВСКАЯ 56 · САРАТОВ", 30, 760), 1283, 1000, -90)
 
 # ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
-place(simkart_mark(170), N - 1170, 1000, 90)
+place(simkart_mark(150), N - 1165, 1010, 90)
 place(solid(load_mask("simkart_tagline.png", 30), S_RED), N - 950, 1000, 90)
 place(simkart_label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 36, 780), N - 1295, 1000, 90)
-tw = load_mask("simkart_track.png", 300)
-tr = load_mask("simkart_track_red.png", int(300 * 7142 / 7668))
-track = Image.new("RGBA", (tw.width + 80, tw.height + 80), (0, 0, 0, 0))
-gl = Image.new("L", track.size, 0)
-gl.paste(tw, (40, 40))
-track.alpha_composite(solid(gl.filter(ImageFilter.GaussianBlur(14)), S_RED))
-track.alpha_composite(solid(tw, WHITE), (40, 40))
-track.alpha_composite(solid(tr, S_RED), (40 + (tw.width - tr.width) // 2, 40 + (tw.height - tr.height) // 2))
-place(track, N - 1205, 380, 90)
+place(coat_of_arms(120, **COA_ARKA), 1130, 500, -90)
+place(coat_of_arms(120, **COA_SIMKART), N - 1130, 500, 90)
 
 # Номерные панели: слева — в стиле Арки, справа — SimKart
 place(arka_mark(text_layer("64", font(F_ARKA, 120), (255, 255, 255)).getchannel("A")), 1185, 1825, -90)
@@ -354,13 +358,16 @@ place(arka_label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 28, 480), 178
 place(simkart_label("САРАТОВСКАЯ ОБЛАСТЬ · 64", 34, 480), 2310, 214)
 
 # Нос: герб Саратовской области вместо орла, под ним оба логотипа
-place(coat_of_arms(170), 2045, 2925, 0, clip=False)
+place(coat_split(170), 2045, 2925, 0, clip=False)
 place(arka_mark(load_mask("arka_word.png", 56)), 1960, 3305, 0, clip=False)
 place(simkart_mark(40), 2145, 3305, 0, clip=False)
 
 img = img.convert("RGB")
 img.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "body_paint_preview.png"))
-coat_of_arms(600).save(os.path.join(HERE, "coat_of_arms_preview.png"))
+prev = Image.new("RGBA", (1880, 900), (12, 12, 16, 255))
+for k, c in enumerate([coat_of_arms(600, **COA_ARKA), coat_split(600), coat_of_arms(600, **COA_SIMKART)]):
+    prev.alpha_composite(c, (20 + k * 620, 15))
+prev.convert("RGB").save(os.path.join(HERE, "coat_of_arms_preview.png"))
 
 
 def save_dxt5(im, path):
