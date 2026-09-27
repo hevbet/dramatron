@@ -279,6 +279,11 @@ def livery_banner(text, h, maxw):
 
 
 place(livery_banner("МАСЛО НЕ ЖРЁТ (ПОКА)", 112, 760), 2048, 530, 180)
+# передний бампер: мелкие спонсоры на нижних «клыках» губы и на боковых гранях
+place(fit("BREMBO", 32, 240, fill=TXT_WHITE), 1760, 3950, -6)
+place(fit("MOTUL", 32, 240, fill=TXT_WHITE), N - 1760, 3950, 6)
+place(fit("SMP ESPORTS", 40, 360, "ExtraBold Italic", fill=BLACK), 1090, 3750)
+place(fit("APR", 48, 200, fill=BLACK), N - 1090, 3750)
 # задний бампер под полосами: спонсоры
 place(sponsor_row(["SMP ESPORTS", "CASTROL", "APR", "MOTUL"], 44, 1300), 2050, 95, 180)
 
