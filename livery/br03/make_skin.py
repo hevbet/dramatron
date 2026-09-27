@@ -144,11 +144,14 @@ out[dark_body & R] = np.array(S_RED, float) * 0.93
 
 # передний спойлер (координаты сняты по тестовому UV-скину): верх — клетки F14–H15 / I14–K15, кромка — ряд 16
 yy_, xx_ = np.mgrid[0:N, 0:N]
-spl_top = dark_body & (yy_ >= 3328) & (yy_ < 3840) & (xx_ >= 1280) & (xx_ < 2816)
+# без центральной части (носок болида — клетки H/I)
+spl_top = dark_body & (yy_ >= 3328) & (yy_ < 3840) & (((xx_ >= 1280) & (xx_ < 1790)) | ((xx_ >= 2306) & (xx_ < 2816)))
 spl_edge = dark_body & (yy_ >= 3840) & (xx_ >= 1280) & (xx_ < 2816)
-m = spl_top & L                                   # Арка: фирменная лента «арка»
-out[m] = pat[m]
 chk_e = (((yy_ // 28) + (xx_ // 28)) % 2 == 0)
+# верх спойлера: шахматка «растворяется» от кромки к носу, на цвете своей половины
+fade = np.clip((yy_ - 3380) / 460.0, 0, 1) ** 1.6
+k = (spl_top & ~chk_e) * fade * 0.85
+out = out * (1 - k[..., None]) + np.array(A_DARK, float) * k[..., None]
 m = spl_edge                                      # кромка: гоночная шахматка на обеих половинах
 out[m & chk_e] = np.array(WHITE, float) * 0.95
 out[m & ~chk_e] = np.array(A_DARK, float)
@@ -165,14 +168,13 @@ out[m] = (np.array(S_RED, float) * np.clip(fw, 0.6, 1.0))[m]
 # стык половин по оси машины: жёлтый кант | шахматка | красный кант
 shade = np.where(white[..., None], fw, np.where(red[..., None], fr, np.where(blue[..., None], fb, 0.8)))
 SW = [(-34, -24, A_YELLOW), (-24, -20, A_DARK), (20, 24, A_DARK), (24, 34, S_RED)]
-Y0, Y1 = 820, 1400   # шахматка только на крыше (на антикрыле и носу её нет)
+Y0, Y1 = 300, N      # шахматка по оси через всю машину до антикрыла (герб и номер лежат поверх)
 for x0, x1, col in SW:
     out[Y0:Y1, HALF + x0:HALF + x1] = (np.array(col, float) * np.clip(shade[Y0:Y1, HALF + x0:HALF + x1], 0.5, 1.05))
 cy_, cx_ = np.mgrid[Y0:Y1, HALF - 20:HALF + 20]
 chk = (((cy_ // 20) + ((cx_ - (HALF - 20)) // 20)) % 2 == 0)[..., None]
 cell = np.where(chk, np.array(WHITE, float), np.array(A_DARK, float))
 out[Y0:Y1, HALF - 20:HALF + 20] = cell * np.clip(shade[Y0:Y1, HALF - 20:HALF + 20], 0.5, 1.05)
-out[Y1:, HALF - 3:HALF + 3] = np.array(A_DARK, float)   # на носу — тонкая линия стыка
 
 img = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 white_mask = Image.fromarray((white * 255).astype(np.uint8), "L")
@@ -307,13 +309,14 @@ def place(layer, cx, cy, angle=0, clip=True):
     img.alpha_composite(full)
 
 
-def place_fit(make, seed, angle, size, margin=10):
+def place_fit(make, seed, angle, size, margin=10, shift=(0, 0)):
     """Ставит слой в центр детали развёртки, где лежит seed, и уменьшает, пока он целиком не влезет."""
     lab, _ = ndimage.label(white)
     isl = lab == lab[seed[1], seed[0]]
     inner = ndimage.binary_erosion(isl, iterations=margin)
     dist = ndimage.distance_transform_edt(inner)
     cy, cx = np.unravel_index(np.argmax(dist), dist.shape)
+    cx, cy = cx + shift[0], cy + shift[1]
     while size > 20:
         lay = make(size).rotate(angle, expand=True)
         al = np.asarray(lay.getchannel("A")) > 20
@@ -395,8 +398,8 @@ place(simkart_mark(115), N - 1170, 1070, 90)
 place(solid(load_mask("simkart_tagline.png", 22), S_RED), N - 1083, 1115, 90)
 
 # Номерные панели: слева — в стиле Арки, справа — SimKart
-place_fit(lambda sz: race_number(A_YELLOW, A_DARK, A_DARK, sz), (1185, 1825), -90, 125)
-place_fit(lambda sz: race_number(WHITE, S_RED, A_DARK, sz), (N - 1195, 1835), 90, 125)
+place_fit(lambda sz: race_number(A_YELLOW, A_DARK, A_DARK, sz), (1185, 1825), -90, 110, margin=35, shift=(-35, 0))
+place_fit(lambda sz: race_number(WHITE, S_RED, A_DARK, sz), (N - 1195, 1835), 90, 110, margin=35, shift=(35, 0))
 
 # Крыша: номер в круге, обод пополам — жёлтый / красный
 disc = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
@@ -410,16 +413,37 @@ place(disc, 2045, 1130)
 # Антикрыло: верх — «арка» слева, «Симкарт» справа; низ — ЭДМ и регион
 # верх — «Энгельсский дом молодёжи» на всю ширину, низ — регион
 place(race_label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 84, 1000), 2045, 106)
-place(label("САРАТОВСКАЯ ОБЛАСТЬ · 64", 36, 900, S_SILVER), 2045, 214)
+# задняя грань антикрыла — её видят пилоты сзади; на развёртке она вверх ногами → поворот 180
+place(race_label("ПЕПЕ ШНЕЙНЕ ВОТАФА", 44, 760), 2045, 214, 180)
+
+
+def frog(h):
+    """Мультяшная жабка (своя стилизация): зелёная голова, полуприкрытые глаза, широкие губы."""
+    S = 4
+    W_, H_ = int(h * 1.35) * S, h * S
+    t = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
+    d = ImageDraw.Draw(t)
+    G, GD, LIP = (92, 160, 60), (40, 80, 30), (150, 60, 50)
+    ow = int(H_ * 0.03)
+    d.ellipse([W_ * 0.02, H_ * 0.28, W_ * 0.98, H_ * 0.98], fill=G, outline=GD, width=ow)          # голова
+    for ex in (0.30, 0.68):                                                                     # глаза
+        cx, cy, r = W_ * ex, H_ * 0.32, H_ * 0.26
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=G, outline=GD, width=ow)
+        d.ellipse([cx - r * 0.78, cy - r * 0.62, cx + r * 0.78, cy + r * 0.72], fill=(250, 250, 250), outline=GD, width=ow)
+        d.ellipse([cx - r * 0.12, cy - r * 0.25, cx + r * 0.42, cy + r * 0.35], fill=(20, 20, 24))
+        d.chord([cx - r * 0.82, cy - r * 0.9, cx + r * 0.82, cy + r * 0.1], 180, 360, fill=G)    # веко
+        d.line([(cx - r * 0.8, cy - r * 0.38), (cx + r * 0.8, cy - r * 0.38)], fill=GD, width=ow)
+    d.chord([W_ * 0.16, H_ * 0.62, W_ * 0.84, H_ * 0.9], 0, 180, fill=LIP, outline=GD, width=ow)   # губы
+    d.line([(W_ * 0.16, H_ * 0.76), (W_ * 0.84, H_ * 0.76)], fill=GD, width=ow)
+    return t.resize((W_ // S, H_ // S), Image.LANCZOS)
+
+
+# жабки по краям задней грани антикрыла (для тех, кто едет сзади)
+place(frog(64), 1560, 214, 180)
+place(frog(64).transpose(Image.FLIP_LEFT_RIGHT), 2530, 214, 180)
 
 # Нос: герб Саратовской области вместо орла, под ним оба логотипа
 place(coat_split(160), 2045, 2925, 0, clip=False)
-spl_logo = simkart_mark(62)                                  # верх спойлера, половина SimKart — на тёмной плашке
-spl_plate = Image.new("RGBA", (spl_logo.width + 20, spl_logo.height + 4), (0, 0, 0, 0))
-ImageDraw.Draw(spl_plate).rounded_rectangle([0, 0, spl_plate.width - 1, spl_plate.height - 1], radius=18,
-                                            fill=(14, 14, 20, 255), outline=S_RED, width=4)
-spl_plate.alpha_composite(spl_logo, (10, 2))
-place(spl_plate, 2430, 3480, 0, clip=False)
 
 # ---------------------------------------------------------------- мелочи и приколы
 def plate(w, h, bg, border):
