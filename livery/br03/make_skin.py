@@ -42,11 +42,8 @@ HERALD_SILVER = (232, 236, 242)
 COA_ARKA = dict(field=(46, 46, 48), border=A_YELLOW, fish=A_YELLOW, crown=A_YELLOW, gem=A_RED, pearl=A_YELLOW_L)
 COA_SIMKART = dict(field=(20, 20, 30), border=S_RED, fish=S_SILVER, crown=S_SILVER, gem=S_RED, pearl=S_RED)
 
-FB = "/usr/share/fonts/truetype/liberation/LiberationSans-BoldItalic.ttf"
-FBN = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 FONTS = os.path.join(HERE, "brand", "fonts")
-F_ARKA = os.path.join(FONTS, "Unbounded[wght].ttf")       # округлый жирный — под стиль Арки
-F_SIMKART = os.path.join(FONTS, "RussoOne-Regular.ttf")   # гоночный — под стиль SimKart
+F_RACE = os.path.join(FONTS, "Exo2-Italic[wght].ttf")    # один гоночный шрифт на всю машину
 
 src = Image.open(SRC).convert("RGB")
 N = src.width
@@ -105,7 +102,7 @@ def arka_pattern():
     h = 90
     word = word.resize((int(word.width * h / word.height), h), Image.LANCZOS)
     tile = Image.new("RGB", word.size, A_YELLOW)
-    big = Image.new("RGB", (int(HALF * 1.8), int(N * 1.3)), (30, 30, 32))
+    big = Image.new("RGB", (int(N * 1.3), int(HALF * 1.8)), (30, 30, 32))
     y, row = 0, 0
     while y < big.height:
         x = -((row * 97) % word.width)
@@ -114,29 +111,19 @@ def arka_pattern():
             x += word.width + 8
         y += h + 14
         row += 1
-    big = big.rotate(-14, resample=Image.BICUBIC)
+    big = big.rotate(-8, resample=Image.BICUBIC)   # лёгкий наклон, как на афише
     cx, cy = big.width // 2, big.height // 2
-    return np.asarray(big.crop((cx - HALF // 2, cy - N // 2, cx + HALF - HALF // 2, cy + N // 2))).astype(float)
-
-
-def blobs(size, spots):
-    """Размытые цветные пятна — фон с афиш Арки."""
-    im = Image.new("RGB", size, (0, 0, 0))
-    d = ImageDraw.Draw(im)
-    for (x, y, rad, col) in spots:
-        d.ellipse([x - rad, y - rad, x + rad, y + rad], fill=col)
-    return np.asarray(im.filter(ImageFilter.GaussianBlur(220))).astype(float)
+    band = big.crop((cx - N // 2, cy - HALF // 2, cx + N // 2, cy + HALF - HALF // 2))
+    # на левых деталях развёртки «вверх» кузова = +x, текст читается сверху вниз (как было ENGINEERING)
+    return np.asarray(band.rotate(-90, expand=True)).astype(float)
 
 
 out = a.copy()
 # --- Арка: графит с размытыми пятнами, жёлтый вместо красного, лента «арка» вместо синего
 pat = np.zeros_like(a)
 pat[:, :HALF] = arka_pattern()
-bl = np.zeros_like(a)
-bl[:, :HALF] = blobs((HALF, N), [(300, 700, 380, A_RED), (900, 250, 300, A_TEAL), (400, 2000, 420, A_TEAL),
-                                 (1200, 1500, 300, A_RED), (1700, 900, 260, A_RED), (1800, 2400, 300, A_TEAL)])
 m = white & L
-out[m] = (A_BASE * fw + bl * 0.35)[m]
+out[m] = (A_BASE * fw)[m]
 m = red & L
 out[m] = (np.array(A_YELLOW, float) * fr)[m]
 m = blue & L
@@ -158,33 +145,66 @@ out[ring_out & L] = (np.array(A_YELLOW_L, float) * np.clip(fw, 0.6, 1.0))[ring_o
 m = (ring_in | ring_out) & R
 out[m] = (np.array(S_RED, float) * np.clip(fw, 0.6, 1.0))[m]
 
+# стык половин по оси машины: жёлтый кант | шахматка | красный кант
+shade = np.where(white[..., None], fw, np.where(red[..., None], fr, np.where(blue[..., None], fb, 0.8)))
+SW = [(-34, -24, A_YELLOW), (-24, -20, A_DARK), (20, 24, A_DARK), (24, 34, S_RED)]
+for x0, x1, col in SW:
+    out[:, HALF + x0:HALF + x1] = (np.array(col, float) * np.clip(shade[:, HALF + x0:HALF + x1], 0.5, 1.05))
+cy_, cx_ = np.mgrid[0:N, HALF - 20:HALF + 20]
+chk = (((cy_ // 20) + ((cx_ - (HALF - 20)) // 20)) % 2 == 0)[..., None]
+cell = np.where(chk, np.array(WHITE, float), np.array(A_DARK, float))
+out[:, HALF - 20:HALF + 20] = cell * np.clip(shade[:, HALF - 20:HALF + 20], 0.5, 1.05)
+
 img = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 white_mask = Image.fromarray((white * 255).astype(np.uint8), "L")
 
 
 # ---------------------------------------------------------------- 3. графика
-def font(path, size):
+def font(path, size, weight="Black Italic"):
     f = ImageFont.truetype(path, size)
-    if path == F_ARKA:
-        f.set_variation_by_name("Black")
+    if path == F_RACE:
+        f.set_variation_by_name(weight)
     return f
 
 
-def fit_font(path, s, size, maxw):
-    """Уменьшает кегль, пока строка не влезет в maxw."""
-    while size > 8 and font(path, size).getlength(s) > maxw:
+def spaced(s, f, fill, track=0.12, stroke=0, stroke_fill=None):
+    """Строка с разрядкой — классическая подпись на ливрее."""
+    gap = f.size * track
+    w = int(sum(f.getlength(ch) for ch in s) + gap * (len(s) - 1)) + 20 + 2 * stroke
+    asc, desc = f.getmetrics()
+    t = Image.new("RGBA", (w, asc + desc + 20 + 2 * stroke), (0, 0, 0, 0))
+    d = ImageDraw.Draw(t)
+    x = 10 + stroke
+    for ch in s:
+        d.text((x, 10 + stroke), ch, font=f, fill=fill, stroke_width=stroke, stroke_fill=stroke_fill)
+        x += f.getlength(ch) + gap
+    return t.crop(t.getbbox())
+
+
+def label(s, size, maxw, fill, weight="ExtraBold Italic"):
+    """Подпись Exo 2 с разрядкой; кегль уменьшается, пока строка не влезет в maxw."""
+    while size > 10:
+        t = spaced(s, font(F_RACE, size, weight), fill)
+        if t.width <= maxw:
+            return t
         size -= 1
-    return font(path, size)
+    return t
 
 
-def arka_label(s, size, maxw):
-    """Подпись в стиле Арки: Unbounded Black, жёлтый, тёмная обводка и тень."""
-    return arka_mark(text_layer(s, fit_font(F_ARKA, s, size, maxw), (255, 255, 255)).getchannel("A"))
-
-
-def simkart_label(s, size, maxw, fill=S_SILVER):
-    """Подпись в стиле SimKart: Russo One."""
-    return text_layer(s, fit_font(F_SIMKART, s, size, maxw), fill)
+def race_number(fill, outline, shadow, size=150):
+    """Гоночный номер: Exo 2 Black Italic, обводка и смещённая тень."""
+    f = font(F_RACE, size)
+    m = text_layer("64", f, (255, 255, 255)).getchannel("A")
+    pad = int(size * 0.2)
+    big = Image.new("L", (m.width + 2 * pad, m.height + 2 * pad), 0)
+    big.paste(m, (pad, pad))
+    ol = big.filter(ImageFilter.MaxFilter(max(3, int(size * 0.07)) | 1))
+    sh = ImageChops.offset(ol, -int(size * 0.04), int(size * 0.06))
+    t = Image.new("RGBA", big.size, (0, 0, 0, 0))
+    t.alpha_composite(solid(sh, shadow))
+    t.alpha_composite(solid(ol, outline))
+    t.alpha_composite(solid(big, fill))
+    return t
 
 
 def load_mask(name, h):
@@ -329,18 +349,18 @@ def coat_of_arms(W, field=AZURE, border=GOLD, fish=HERALD_SILVER, crown=GOLD, ge
 # ЛЕВАЯ боковина — Арка (буквы «вверх» = +x → поворот −90)
 place(arka_mark(load_mask("arka_word.png", 240)), 1115, 1000, -90)
 place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
-place(arka_label("МОСКОВСКАЯ 56 · САРАТОВ", 30, 760), 1283, 1000, -90)
+place(label("МОСКОВСКАЯ 56 · САРАТОВ", 30, 700, A_YELLOW_L), 1285, 1000, -90)
 
 # ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
 place(simkart_mark(150), N - 1165, 1010, 90)
-place(solid(load_mask("simkart_tagline.png", 30), S_RED), N - 950, 1000, 90)
-place(simkart_label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 36, 780), N - 1295, 1000, 90)
+place(solid(load_mask("simkart_tagline.png", 26), S_RED), N - 950, 1000, 90)
+place(label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 30, 700, S_SILVER), N - 1285, 1000, 90)
 place(coat_of_arms(120, **COA_ARKA), 1130, 500, -90)
 place(coat_of_arms(120, **COA_SIMKART), N - 1130, 500, 90)
 
 # Номерные панели: слева — в стиле Арки, справа — SimKart
-place(arka_mark(text_layer("64", font(F_ARKA, 120), (255, 255, 255)).getchannel("A")), 1185, 1825, -90)
-place(text_layer("64", font(F_SIMKART, 150), WHITE, 6, S_RED), N - 1195, 1835, 90)
+place(race_number(A_YELLOW, A_DARK, A_DARK, 125), 1185, 1825, -90)
+place(race_number(WHITE, S_RED, A_DARK, 125), N - 1195, 1835, 90)
 
 # Крыша: номер в круге, обод пополам — жёлтый / красный
 disc = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
@@ -348,14 +368,14 @@ dd = ImageDraw.Draw(disc)
 dd.pieslice([4, 4, 296, 296], 90, 270, fill=A_YELLOW)
 dd.pieslice([4, 4, 296, 296], -90, 90, fill=S_RED)
 dd.ellipse([24, 24, 276, 276], fill=WHITE)
-dd.text((150, 156), "64", font=font(FB, 175), fill=BLACK, anchor="mm")
+dd.text((146, 150), "64", font=font(F_RACE, 165), fill=BLACK, anchor="mm")
 place(disc, 2045, 1130)
 
 # Антикрыло: верх — «арка» слева, «Симкарт» справа; низ — ЭДМ и регион
 place(arka_mark(load_mask("arka_word.png", 78)), 1790, 106)
 place(simkart_mark(62), 2310, 106)
-place(arka_label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 28, 480), 1785, 214)
-place(simkart_label("САРАТОВСКАЯ ОБЛАСТЬ · 64", 34, 480), 2310, 214)
+place(label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 30, 440, A_YELLOW_L), 1780, 214)
+place(label("САРАТОВСКАЯ ОБЛАСТЬ · 64", 30, 440, S_SILVER), 2315, 214)
 
 # Нос: герб Саратовской области вместо орла, под ним оба логотипа
 place(coat_split(170), 2045, 2925, 0, clip=False)
@@ -391,7 +411,7 @@ di.rectangle([0, 0, 92, 185], fill=tuple(int(v) for v in A_BASE))
 di.rectangle([93, 0, 185, 185], fill=tuple(int(v) for v in S_BASE))
 di.polygon([(0, 150), (92, 120), (92, 140), (0, 170)], fill=A_YELLOW)
 di.polygon([(93, 120), (185, 90), (185, 110), (93, 140)], fill=S_RED)
-di.text((92, 80), "64", font=font(FB, 96), fill=WHITE, anchor="mm", stroke_width=4, stroke_fill=BLACK)
+di.text((92, 80), "64", font=font(F_RACE, 96), fill=WHITE, anchor="mm", stroke_width=4, stroke_fill=BLACK)
 ic.save(os.path.join(OUT, "livery.png"))
 
 with open(os.path.join(OUT, "ui_skin.json"), "w", encoding="utf-8") as fh:
