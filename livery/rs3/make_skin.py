@@ -98,34 +98,62 @@ def mirror_pts(pts):
     return [(N - x, y) for x, y in pts]
 
 
-# ---------------------------------------------------------------- 3. борта (рисуем правую колонку и зеркалим)
-SIDE_RED = [(3420, 2900), (3470, 2350), (3480, 1600), (3420, 1180), (3250, 900), (3090, 650), (3060, 390), (3170, 190)]
-SIDE_RED_W = [60, 150, 190, 190, 170, 140, 110, 60]
-SIDE_GREEN = [(x + 170, y - 110) for x, y in SIDE_RED]
-SIDE_GREEN_W = [30, 70, 90, 90, 80, 70, 50, 26]
-for side in (1, -1):
-    tr = (lambda p: p) if side == 1 else mirror_pts
-    band(art, tr(SIDE_GREEN), SIDE_GREEN_W, GREEN)
-    band(art, tr(SIDE_RED), SIDE_RED_W, RED)
-    cx = 3560 if side == 1 else N - 3560
-    a0, a1 = (100, 260) if side == 1 else (-80, 80)
-    arc_band(art, cx, 3265, 380, 70, a0, a1, GREEN)     # «скобка» над передним колесом
-    arc_band(art, cx, 3265, 470, 36, a0 + 10, a1 - 10, RED)
+def ribbon(layer, pts, widths, col, offset=0.0):
+    """Лента вдоль сплайна со смещением по нормали «вверх» кузова (offset в пикселях, может зависеть от
+    ширины: offset=callable(w) → смещение). Нормаль «вверх» = (dy, −dx) при движении спереди назад."""
+    d = ImageDraw.Draw(layer)
+    curve = catmull(pts, 60)
+    n = len(curve)
+    for i, (x, y) in enumerate(curve):
+        j0, j1 = max(0, i - 2), min(n - 1, i + 2)
+        dx, dy = curve[j1][0] - curve[j0][0], curve[j1][1] - curve[j0][1]
+        ln = math.hypot(dx, dy) or 1
+        nx, ny = dy / ln, -dx / ln
+        t = i / (n - 1) * (len(widths) - 1)
+        k = min(int(t), len(widths) - 2)
+        w = widths[k] + (widths[k + 1] - widths[k]) * (t - k)
+        off = offset(w) if callable(offset) else offset
+        cx_, cy_ = x + nx * off, y + ny * off
+        r = w / 2
+        d.ellipse([cx_ - r, cy_ - r, cx_ + r, cy_ + r], fill=col + (255,))
 
-# ---------------------------------------------------------------- 4. капот, крыша, багажник, бамперы
-HOOD = [(2050, 3660), (2350, 3600), (2580, 3380), (2610, 3080), (2540, 2830)]
-band(art, [(x + 60, y - 60) for x, y in HOOD], [40, 60, 70, 60, 30], GREEN)
-band(art, mirror_pts([(x + 60, y - 60) for x, y in HOOD]), [40, 60, 70, 60, 30], GREEN)
-band(art, HOOD, [80, 120, 130, 110, 60], RED)
-band(art, mirror_pts(HOOD), [80, 120, 130, 110, 60], RED)
-d = ImageDraw.Draw(art)
-for x0, x1, col in ((1590, 1670, GREEN), (1685, 1715, RED)):      # полосы по краям крыши
-    d.rectangle([x0, 1180, x1, 2400], fill=col + (255,))
-    d.rectangle([N - x1, 1180, N - x0, 2400], fill=col + (255,))
-d.rectangle([1150, 180, 2950, 240], fill=RED + (255,))             # задний бампер
-d.rectangle([1150, 255, 2950, 285], fill=GREEN + (255,))
-band(art, [(1450, 3860), (2050, 3960), (2650, 3860)], [50, 70, 50], RED)   # передний бампер
-band(art, [(1450, 3930), (2050, 4030), (2650, 3930)], [26, 36, 26], GREEN)
+
+def arc_pts(cx, cy, r, a0, a1, n=6):
+    return [(cx + r * math.cos(math.radians(a0 + (a1 - a0) * k / n)),
+             cy + r * math.sin(math.radians(a0 + (a1 - a0) * k / n))) for k in range(n + 1)]
+
+
+def swoosh(layer, pts, widths):
+    """Фирменная связка Castrol: широкая красная лента + зелёная кромка сверху через белый зазор."""
+    ribbon(layer, pts, [max(4, w * 0.42) for w in widths], GREEN, offset=lambda w: w / 2 + 14 + w * 0.21 + 6)
+    ribbon(layer, pts, widths, RED)
+
+
+# ---------------------------------------------------------------- 3. борта: одна непрерывная линия
+# правая колонка развёртки: «вниз» кузова = +x, «вперёд» = +y; арки: передняя (3560, 3270) R≈310, задняя (3710, 860) R≈290
+FRONT_ARCH, REAR_ARCH = (3560, 3270), (3710, 860)
+SIDE = ([(3470, 4060), (3420, 3860)]                                  # угол переднего бампера
+        + arc_pts(*FRONT_ARCH, 395, 115, 245, 6)                      # огибает переднюю арку
+        + [(3600, 2620), (3640, 2200), (3620, 1760), (3560, 1420)]    # вдоль низа дверей, плавно поднимаясь
+        + arc_pts(*REAR_ARCH, 385, 130, 235, 5)                       # огибает заднюю арку
+        + [(3770, 400), (3840, 250)])                                 # уходит в задний бампер
+SIDE_W = [20, 60, 90, 110, 120, 125, 120, 115, 120, 150, 175, 175, 160, 140, 130, 120, 110, 100, 90, 60, 20]
+for tr in ((lambda p: p), mirror_pts):
+    swoosh(art, tr(SIDE), SIDE_W)
+
+# ---------------------------------------------------------------- 4. сквозная линия капот → крыша → багажник, бамперы
+HOOD = [(2050, 3700), (2330, 3640), (2560, 3420), (2600, 3120), (2470, 2840)]
+ROOF = [(2445, 2400), (2445, 1800), (2445, 1180)]
+TRUNK = [(2445, 1170), (2420, 950), (2330, 760)]
+for tr in ((lambda p: p), mirror_pts):
+    swoosh(art, tr(HOOD), [30, 90, 110, 90, 60])
+    swoosh(art, tr(ROOF), [60, 60, 60])
+    swoosh(art, tr(TRUNK), [60, 40, 12])
+# бамперы: полосы сужаются к краям и продолжают бортовую линию
+ribbon(art, [(1120, 250), (1600, 225), (2050, 220), (2500, 225), (2980, 250)], [20, 60, 70, 60, 20], GREEN)
+ribbon(art, [(1120, 200), (1600, 170), (2050, 165), (2500, 170), (2980, 200)], [30, 80, 90, 80, 30], RED)
+ribbon(art, [(1400, 3900), (2050, 3990), (2700, 3900)], [20, 70, 20], RED)
+ribbon(art, [(1400, 3960), (2050, 4050), (2700, 3960)], [10, 34, 10], GREEN)
 
 # тени на графику + обрезка по кузову
 rgb = np.asarray(art.convert("RGB")).astype(float) * np.clip(shade, 0.35, 1.05)
@@ -180,13 +208,29 @@ def number_plate(h):
 
 
 def name_plate():
-    t = Image.new("RGBA", (420, 64), (0, 0, 0, 0))
+    """Табличка пилота: триколор + имя на белой плашке с чёрной рамкой."""
+    txt = fit("МАТВЕЙ КОНОПЛЕНКО", 40, 470, fill=BLACK)
+    w, h = txt.width + 90, 66
+    t = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d_ = ImageDraw.Draw(t)
+    d_.rounded_rectangle([1, 1, w - 2, h - 2], radius=10, fill=TXT_WHITE, outline=BLACK, width=3)
     for k, c in enumerate([(245, 245, 245), (0, 57, 166), (213, 43, 30)]):
-        d_.rectangle([6, 10 + k * 15, 50, 25 + k * 15], fill=c)
-    d_.rectangle([6, 10, 50, 55], outline=BLACK, width=2)
-    txt = fit("М. КОНОПЛЕНКО", 44, 350, fill=BLACK)
-    t.alpha_composite(txt, (62, (64 - txt.height) // 2))
+        d_.rectangle([12, 12 + k * 14, 58, 26 + k * 14], fill=c)
+    d_.rectangle([12, 12, 58, 54], outline=BLACK, width=2)
+    t.alpha_composite(txt, (70, (h - txt.height) // 2))
+    return t
+
+
+def sponsor_row(names, h, maxw, fill=BLACK, sep="  ·  "):
+    return fit(sep.join(names), h, maxw, "ExtraBold Italic", fill=fill)
+
+
+def meme(s, h, maxw):
+    """Мем-стикер: белая плашка, чёрный текст, красная рамка."""
+    txt = fit(s, h, maxw - 40, "ExtraBold Italic", fill=BLACK)
+    t = Image.new("RGBA", (txt.width + 40, txt.height + 18), (0, 0, 0, 0))
+    ImageDraw.Draw(t).rounded_rectangle([1, 1, t.width - 2, t.height - 2], radius=12, fill=TXT_WHITE, outline=RED, width=4)
+    t.alpha_composite(txt, (20, 9))
     return t
 
 
@@ -202,13 +246,20 @@ def place(layer, cx, cy, angle=0):
 # борта: правая колонка читается снизу вверх (+90), левая — сверху вниз (−90)
 for side, ang in ((1, 90), (-1, -90)):
     X = (lambda x: x) if side == 1 else (lambda x: N - x)
-    place(castrol(170, 640), X(3205), 1400, ang)
-    place(number_plate(300), X(3260), 2300, ang)
-    place(name_plate(), X(3090), 1885, ang)
+    place(castrol(170, 640), X(3215), 1420, ang)                                     # задняя дверь
+    place(meme("Работает на 2.0 TFSI и молитвах", 34, 620), X(3400), 1420, ang)    # под Castrol
+    place(number_plate(300), X(3230), 2230, ang)                                     # передняя дверь
+    place(name_plate(), X(3420), 2230, ang)                                          # под номером
+    place(sponsor_row(["BILSTEIN", "EIBACH", "RECARO", "SPARCO", "BREMBO", "MOTUL"], 50, 1560),
+          X(3920), 1980, ang)                                                        # порог
+    place(fit("APR", 110, 260, fill=BLACK, stroke=4, stroke_fill=TXT_WHITE), X(3330), 640, ang)  # заднее крыло
 
-place(castrol(190, 700), 2050, 3040)                 # капот
-place(number_plate(520), 2050, 1790)                 # крыша
-place(castrol(150, 620), 2050, 990, 180)             # багажник (читается сзади)
+place(castrol(190, 700), 2050, 3040)                                   # капот
+place(fit("APR", 90, 240, fill=BLACK), 2050, 2920)                     # капот у лобового
+place(number_plate(520), 2050, 1790)                                   # крыша
+place(castrol(150, 620), 2050, 990, 180)                               # багажник (читается сзади)
+place(meme("Масло не жрёт (пока)", 40, 620), 2500, 95, 180)            # задний бампер (читается сзади)
+place(meme("Quattro? Не, передний", 40, 620), 1600, 95, 180)
 
 img = img.convert("RGB")
 img.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "skin_preview.png"))
