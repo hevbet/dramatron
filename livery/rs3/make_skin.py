@@ -254,16 +254,33 @@ for side, ang in ((1, 90), (-1, -90)):
     place(meme("Работает на 2.0 TFSI\nи молитвах", 36, 400), X(3435), 1585, ang)     # под Castrol, до арки
     place(number_plate(290), X(3265), 2230, ang)                                     # передняя дверь, воздух сверху
     place(name_plate(), X(3445), 2230, ang)                                          # под номером
-    place(sponsor_row(["BILSTEIN", "EIBACH", "RECARO", "SPARCO", "BREMBO", "MOTUL", "APR"], 50, 1560),
+    place(sponsor_row(["SMP ESPORTS", "BILSTEIN", "EIBACH", "RECARO", "SPARCO", "BREMBO", "MOTUL", "APR"], 48, 1460),
           X(3920), 1980, ang)                                                        # порог
 
 place(castrol(190, 700), 2050, 3170)                                   # капот (ниже, подальше от лобового)
 place(number_plate(520), 2050, 1790)                                   # крыша
 place(castrol(140, 560), 2050, 900, 180)                               # багажник, ближе к кольцам
 # задняя стенка под кольцами (бывшая надпись SMP ESPORTS) — единственный мем сзади
-place(meme("Масло не жрёт (пока)", 64, 900), 2120, 525, 180)
+def livery_banner(text, h, maxw):
+    """Надпись в стиле ливреи: белый наклонный текст на красной ленте с заострёнными концами и зелёной кромкой."""
+    txt = fit(text, int(h * 0.62), maxw - int(h * 1.4), fill=TXT_WHITE, stroke=3, stroke_fill=(120, 16, 16))
+    w = txt.width + int(h * 1.4)
+    S = 3
+    t = Image.new("RGBA", (w * S, (h + h // 3) * S), (0, 0, 0, 0))
+    d_ = ImageDraw.Draw(t)
+    sk = h * 0.35 * S                                           # наклон как у шрифта
+    d_.polygon([(0, h * S), (sk, 0), (w * S, 0), (w * S - sk, h * S)], fill=RED)                  # красная лента
+    g0, g1 = (h + h // 12) * S, (h + h // 4) * S
+    d_.polygon([(sk * 0.3, g1), (sk * 0.3 + (g1 - g0) * 0.35, g0), (w * S - sk * 0.9, g0),
+                (w * S - sk * 0.9 - (g1 - g0) * 0.35, g1)], fill=GREEN)                           # зелёная кромка
+    t = t.resize((w, h + h // 3), Image.LANCZOS)
+    t.alpha_composite(txt, ((w - txt.width) // 2, (h - txt.height) // 2))
+    return t
+
+
+place(livery_banner("МАСЛО НЕ ЖРЁТ (ПОКА)", 112, 760), 2048, 530, 180)
 # задний бампер под полосами: спонсоры
-place(sponsor_row(["CASTROL", "APR", "MOTUL", "BREMBO"], 44, 1300), 2050, 95, 180)
+place(sponsor_row(["SMP ESPORTS", "CASTROL", "APR", "MOTUL"], 44, 1300), 2050, 95, 180)
 
 img = img.convert("RGB")
 img.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "skin_preview.png"))
