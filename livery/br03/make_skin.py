@@ -136,6 +136,12 @@ out[m] = (np.array(S_RED, float) * fr)[m]
 m = blue & R
 out[m] = (np.array(S_SILVER, float) * fb)[m]
 
+# бывшие чёрные панели SMP (нос, крылья, низ, корма) — в основной цвет половины;
+# тёмные тени у краёв светлых деталей не трогаем
+dark_body = (mx < 60) & ~ndimage.binary_dilation(white, iterations=6)
+out[dark_body & L] = np.array(A_YELLOW, float) * 0.93
+out[dark_body & R] = np.array(S_RED, float) * 0.93
+
 # окантовка на стыке цвета и базы: у Арки тёмная обводка + светло-жёлтая линия, у SimKart — красная
 neon = red | blue
 ring_in = ndimage.binary_dilation(neon, iterations=5) & ~neon & white
