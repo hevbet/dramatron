@@ -191,6 +191,26 @@ def label(s, size, maxw, fill, weight="ExtraBold Italic"):
     return t
 
 
+def race_label(s, size, maxw):
+    """Крупная надпись: белый Exo 2 Black Italic с тёмной обводкой и тенью."""
+    while size > 10:
+        f = font(F_RACE, size)
+        if spaced(s, f, WHITE, 0.04).width <= maxw:
+            break
+        size -= 1
+    m = spaced(s, f, (255, 255, 255), 0.04).getchannel("A")
+    pad = int(size * 0.2)
+    big = Image.new("L", (m.width + 2 * pad, m.height + 2 * pad), 0)
+    big.paste(m, (pad, pad))
+    ol = big.filter(ImageFilter.MaxFilter(max(3, int(size * 0.08)) | 1))
+    sh = ImageChops.offset(ol, -int(size * 0.03), int(size * 0.05))
+    t = Image.new("RGBA", big.size, (0, 0, 0, 0))
+    t.alpha_composite(solid(sh, BLACK))
+    t.alpha_composite(solid(ol, A_DARK))
+    t.alpha_composite(solid(big, WHITE))
+    return t
+
+
 def race_number(fill, outline, shadow, size=150):
     """Гоночный номер: Exo 2 Black Italic, обводка и смещённая тень."""
     f = font(F_RACE, size)
@@ -293,14 +313,14 @@ def coat_split(W):
 
 
 def coat_of_arms(W, field=AZURE, border=GOLD, fish=HERALD_SILVER, crown=GOLD, gem=(200, 40, 50), pearl=HERALD_SILVER):
-    """Герб Саратовской области (стилизация): лазоревый щит, три серебряные стерляди
-    в вилообразный крест головами к центру, золотая кайма и корона."""
+    """Герб Саратовской области (стилизация): щит, три стерляди
+    в вилообразный крест головами к центру, кайма."""
     S = 4                       # суперсэмплинг
     w = W * S
-    h = int(w * 1.45)
+    h = int(w * 1.2)            # щит немного вытянут по вертикали
     t = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(t)
-    top = int(h * 0.33)         # место под корону
+    top = int(h * 0.02)
 
     def shield(inset):
         x0, x1, y0 = inset, w - inset, top + inset
@@ -325,35 +345,18 @@ def coat_of_arms(W, field=AZURE, border=GOLD, fish=HERALD_SILVER, crown=GOLD, ge
         dx, dy = math.cos(math.radians(ang)), math.sin(math.radians(ang))
         c = fish_im.width / 2 + w * 0.02   # центр рыбы смещён наружу, рыло у центра
         t.alpha_composite(rot, (int(cx + dx * c - rot.width / 2), int(cy + dy * c - rot.height / 2)))
-    # корона (упрощённая императорская): обруч, две полусферы, центральная дуга, держава с крестом
-    ow = S * 2
-    cb = top - int(h * 0.012)                  # низ обруча
-    ch = h * 0.1                               # радиус полусфер по высоте
-    d.chord([w * 0.20, cb - ch * 2, w * 0.49, cb + ch * 0.1], 180, 360, fill=crown, outline=A_DARK, width=ow)
-    d.chord([w * 0.51, cb - ch * 2, w * 0.80, cb + ch * 0.1], 180, 360, fill=crown, outline=A_DARK, width=ow)
-    d.rounded_rectangle([w * 0.465, cb - ch * 1.08, w * 0.535, cb], radius=int(w * 0.02), fill=crown, outline=A_DARK, width=ow)
-    orb_r = w * 0.045
-    oy = cb - ch * 1.08 - orb_r * 0.8
-    d.ellipse([w / 2 - orb_r, oy - orb_r, w / 2 + orb_r, oy + orb_r], fill=crown, outline=A_DARK, width=ow)
-    cw = w * 0.022
-    d.rectangle([w / 2 - cw / 2, oy - orb_r * 3.0, w / 2 + cw / 2, oy - orb_r * 0.8], fill=crown, outline=A_DARK, width=ow)
-    d.rectangle([w / 2 - cw * 2, oy - orb_r * 2.4, w / 2 + cw * 2, oy - orb_r * 2.4 + cw], fill=crown, outline=A_DARK, width=ow)
-    d.rounded_rectangle([w * 0.18, cb - h * 0.05, w * 0.82, cb], radius=int(w * 0.02), fill=crown, outline=A_DARK, width=ow)
-    cr = w * 0.03
-    for fx in (0.27, 0.38, 0.5, 0.62, 0.73):   # камни на обруче
-        d.ellipse([w * fx - cr / 2, cb - h * 0.025 - cr / 2, w * fx + cr / 2, cb - h * 0.025 + cr / 2],
-                  fill=gem if fx == 0.5 else pearl)
     return t.resize((W, int(h / S)), Image.LANCZOS)
 
 
 # ЛЕВАЯ боковина — Арка (буквы «вверх» = +x → поворот −90)
 place(arka_mark(load_mask("arka_word.png", 240)), 1115, 1000, -90)
 place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
-place(label("МОСКОВСКАЯ 56 · САРАТОВ", 30, 700, A_YELLOW_L), 1285, 1000, -90)
+place(label("@ARCASARATOV", 30, 600, A_YELLOW_L), 1285, 1000, -90)
 
 # ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
-place(simkart_mark(150), N - 1165, 1010, 90)
-place(solid(load_mask("simkart_tagline.png", 26), S_RED), N - 950, 1000, 90)
+place(simkart_mark(135), N - 1160, 930, 90)
+# «— КАРТИНГ В БРАУЗЕРЕ» прямо под словом, выровнено по его началу (как на баннере)
+place(solid(load_mask("simkart_tagline.png", 24), S_RED), N - 1050, 985, 90)
 place(label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 30, 700, S_SILVER), N - 1285, 1000, 90)
 place(coat_of_arms(120, **COA_ARKA), 1130, 500, -90)
 place(coat_of_arms(120, **COA_SIMKART), N - 1130, 500, 90)
@@ -372,15 +375,63 @@ dd.text((146, 150), "64", font=font(F_RACE, 165), fill=BLACK, anchor="mm")
 place(disc, 2045, 1130)
 
 # Антикрыло: верх — «арка» слева, «Симкарт» справа; низ — ЭДМ и регион
-place(arka_mark(load_mask("arka_word.png", 78)), 1790, 106)
-place(simkart_mark(62), 2310, 106)
-place(label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 30, 440, A_YELLOW_L), 1780, 214)
-place(label("САРАТОВСКАЯ ОБЛАСТЬ · 64", 30, 440, S_SILVER), 2315, 214)
+# верх — «Энгельсский дом молодёжи» на всю ширину, низ — регион
+place(race_label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 84, 1000), 2045, 106)
+place(label("САРАТОВСКАЯ ОБЛАСТЬ · 64", 36, 900, S_SILVER), 2045, 214)
 
 # Нос: герб Саратовской области вместо орла, под ним оба логотипа
-place(coat_split(170), 2045, 2925, 0, clip=False)
-place(arka_mark(load_mask("arka_word.png", 56)), 1960, 3305, 0, clip=False)
-place(simkart_mark(40), 2145, 3305, 0, clip=False)
+place(coat_split(160), 2045, 2925, 0, clip=False)
+
+# ---------------------------------------------------------------- мелочи и приколы
+def plate(w, h, bg, border):
+    t = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(t).rounded_rectangle([1, 1, w - 2, h - 2], radius=h // 5, fill=bg, outline=border, width=max(2, h // 18))
+    return t
+
+
+def driver_plate(border):
+    """Табличка пилота: триколор + имя."""
+    t = plate(210, 58, A_DARK, border)
+    d = ImageDraw.Draw(t)
+    for k, c in enumerate([(245, 245, 245), (0, 57, 166), (213, 43, 30)]):
+        d.rectangle([12, 12 + k * 11, 52, 23 + k * 11], fill=c)
+    t.alpha_composite(label("СТАС", 34, 140, WHITE, "Black Italic"), (64, 10))
+    return t
+
+
+def coffee_sticker():
+    """Арка: «заправлено эспрессо» — у клуба рожковая кофемашина."""
+    t = plate(250, 92, A_DARK, A_YELLOW)
+    d = ImageDraw.Draw(t)
+    d.polygon([(16, 34), (60, 34), (55, 76), (21, 76)], fill=A_YELLOW)          # чашка
+    d.arc([50, 42, 72, 62], -90, 90, fill=A_YELLOW, width=5)                    # ручка
+    for sx in (27, 38, 49):                                                    # пар
+        d.arc([sx - 6, 10, sx + 6, 22], 90, 270, fill=A_YELLOW_L, width=3)
+        d.arc([sx - 6, 20, sx + 6, 32], -90, 90, fill=A_YELLOW_L, width=3)
+    t.alpha_composite(label("ЗАПРАВЛЕНО", 22, 160, A_YELLOW_L), (82, 18))
+    t.alpha_composite(label("ЭСПРЕССО", 32, 160, A_YELLOW, "Black Italic"), (82, 46))
+    return t
+
+
+def lap_sticker():
+    """SimKart: лучший круг — конечно же с 64 в конце."""
+    t = plate(250, 92, (14, 14, 20), S_RED)
+    d = ImageDraw.Draw(t)
+    for i in range(4):                                                         # клетчатый флажок
+        for j in range(4):
+            d.rectangle([14 + i * 10, 20 + j * 10, 23 + i * 10, 29 + j * 10], fill=WHITE if (i + j) % 2 == 0 else BLACK)
+    d.line([(14, 18), (14, 76)], fill=S_SILVER, width=3)
+    t.alpha_composite(label("ЛУЧШИЙ КРУГ", 20, 170, S_SILVER), (66, 16))
+    t.alpha_composite(label("1:04.064", 36, 170, WHITE, "Black Italic"), (64, 40))
+    return t
+
+
+# таблички пилота на «плавниках» за кокпитом
+place(driver_plate(A_YELLOW), 1215, 330, -90)
+place(driver_plate(S_RED), N - 1215, 330, 90)
+# стикеры в нижней части боковин
+place(coffee_sticker().resize((220, 81), Image.LANCZOS), 1228, 1395, -90)
+place(lap_sticker().resize((220, 81), Image.LANCZOS), N - 1228, 1400, 90)
 
 img = img.convert("RGB")
 img.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "body_paint_preview.png"))
