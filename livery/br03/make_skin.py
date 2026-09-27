@@ -1,40 +1,52 @@
-"""Скин «Арка × SimKart #64» для SMP Racing BR03 EVO (Assetto Corsa).
+"""Скин «Арка | SimKart #64» для SMP Racing BR03 EVO (Assetto Corsa).
 
-Берёт body_paint.dds из скина 00_SMPRacing_25_1, перекрашивает с сохранением
-запечённых теней и наносит надписи по развёртке 4096×4096.
+Левая половина развёртки (x < 2048) — в стиле тайм-кафе «Арка»,
+правая — в стиле SimKart. Берёт body_paint.dds из скина 00_SMPRacing_25_1,
+перекрашивает с сохранением запечённых теней и наносит логотипы
+(векторизованы из референсов скриптом brand/trace.py).
 
 Запуск: python3 make_skin.py <путь к body_paint.dds исходного скина>
 """
 import json
+import math
 import os
 import struct
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 from scipy import ndimage
 
 SRC = sys.argv[1]
 HERE = os.path.dirname(os.path.abspath(__file__))
+BRAND = os.path.join(HERE, "brand")
 OUT = os.path.join(HERE, "arka_simkart_64")
 os.makedirs(OUT, exist_ok=True)
 
-GRAPHITE = np.array([40, 43, 58], float)
-MAGENTA = np.array([255, 43, 214], float)
-CYAN = np.array([0, 229, 255], float)
-VIOLET = (124, 58, 255)
-WHITE = (242, 245, 255)
-SILVER = (190, 198, 214)
+# --- палитры (сняты с референсов)
+A_BASE = np.array([46, 46, 48], float)      # графит Арки
+A_YELLOW = (240, 209, 102)
+A_YELLOW_L = (247, 237, 178)
+A_DARK = (26, 26, 28)
+A_RED = (212, 88, 86)
+A_TEAL = (43, 90, 107)
+S_BASE = np.array([20, 20, 30], float)      # почти чёрный SimKart
+S_RED = (234, 50, 38)
+S_SILVER = (217, 216, 224)
+WHITE = (242, 244, 250)
 BLACK = (10, 10, 14)
+AZURE = (30, 110, 190)                      # геральдическая лазурь
+GOLD = (222, 178, 60)
+HERALD_SILVER = (232, 236, 242)
 
 FB = "/usr/share/fonts/truetype/liberation/LiberationSans-BoldItalic.ttf"
-FR = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+FBN = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 
 src = Image.open(SRC).convert("RGB")
 N = src.width
+HALF = N // 2
 
 # ---------------------------------------------------------------- 1. стираем старые логотипы
-# (цвет заливки = фон под логотипом, дальше он перекрасится вместе со всем)
 RED0, WHITE0, BLACK0 = (140, 5, 13), (214, 215, 214), (0, 0, 0)
 erase = [
     ((150, 60, 420, 380), BLACK0),        # Yokohama / «Авто» вверху слева
@@ -49,11 +61,7 @@ erase = [
     ((1195, 1772, 1288, 1858), WHITE0),   # BR на номерной панели слева
     ((1670, 60, 2430, 148), WHITE0),      # ENGINEERING на крыле
 ]
-mirror = []
-for (x0, y0, x1, y1), c in erase:
-    if x1 < 1900:
-        mirror.append(((N - x1, y0, N - x0, y1), c))
-# правая сторона не строго зеркальна — добавляем её логотипы явно
+mirror = [((N - x1, y0, N - x0, y1), c) for (x0, y0, x1, y1), c in erase if x1 < 1900]
 mirror += [((2800, 880, 2975, 1380), WHITE0),   # ENGINEERING + BR справа
            ((2752, 1782, 2842, 1878), WHITE0),  # BR на номерной панели справа
            ((2865, 1755, 2952, 1848), WHITE0),  # «E»
@@ -69,120 +77,267 @@ for (x0, y0, x1, y1), _ in erase + mirror:
 arr = np.asarray(src).copy()
 _, (iy, ix) = ndimage.distance_transform_edt(hole, return_indices=True)
 arr[hole] = arr[iy[hole], ix[hole]]
-src = Image.fromarray(arr, "RGB")
 
 # ---------------------------------------------------------------- 2. классы цветов и перекраска
-a = np.asarray(src).astype(float)
+a = arr.astype(float)
 r, g, b = a[..., 0], a[..., 1], a[..., 2]
 mx, mn = a.max(-1), a.min(-1)
 red = (r > 45) & (r > 2 * g + 25) & (r > b + 30)
 blue = (b > 45) & (b > r + 30)
 white = (mx > 60) & (mx - mn < 45) & ~red & ~blue
-
-out = a.copy()
 fr = np.clip(r / 145.0, 0, 1.15)[..., None]
 fb = np.clip(b / 150.0, 0, 1.15)[..., None]
 fw = np.clip(mx / 214.0, 0, 1.1)[..., None]
-out[red] = (MAGENTA * fr)[red]
-out[blue] = (CYAN * fb)[blue]
-out[white] = (GRAPHITE * fw)[white]
 
-# ретро-сетка по графиту
-yy, xx = np.mgrid[0:N, 0:N]
-grid = ((xx % 96) < 3) | ((yy % 96) < 3)
-gm = grid & white
-out[gm] = out[gm] * 0.6 + np.array(VIOLET, float) * 0.4 * fw[gm]
+L = (np.arange(N)[None, :] < HALF).repeat(N, 0)   # половина Арки
+R = ~L                                           # половина SimKart
 
-# белый пинстрайп на границе неона и графита
+
+def arka_pattern():
+    """Фирменная лента Арки: ряды «арка» жёлтым на тёмном, под наклоном."""
+    word = Image.open(os.path.join(BRAND, "arka_word.png"))
+    h = 90
+    word = word.resize((int(word.width * h / word.height), h), Image.LANCZOS)
+    tile = Image.new("RGB", word.size, A_YELLOW)
+    big = Image.new("RGB", (int(HALF * 1.8), int(N * 1.3)), (30, 30, 32))
+    y, row = 0, 0
+    while y < big.height:
+        x = -((row * 97) % word.width)
+        while x < big.width:
+            big.paste(tile, (x, y), word)
+            x += word.width + 8
+        y += h + 14
+        row += 1
+    big = big.rotate(-14, resample=Image.BICUBIC)
+    cx, cy = big.width // 2, big.height // 2
+    return np.asarray(big.crop((cx - HALF // 2, cy - N // 2, cx + HALF - HALF // 2, cy + N // 2))).astype(float)
+
+
+def blobs(size, spots):
+    """Размытые цветные пятна — фон с афиш Арки."""
+    im = Image.new("RGB", size, (0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for (x, y, rad, col) in spots:
+        d.ellipse([x - rad, y - rad, x + rad, y + rad], fill=col)
+    return np.asarray(im.filter(ImageFilter.GaussianBlur(220))).astype(float)
+
+
+out = a.copy()
+# --- Арка: графит с размытыми пятнами, жёлтый вместо красного, лента «арка» вместо синего
+pat = np.zeros_like(a)
+pat[:, :HALF] = arka_pattern()
+bl = np.zeros_like(a)
+bl[:, :HALF] = blobs((HALF, N), [(300, 700, 380, A_RED), (900, 250, 300, A_TEAL), (400, 2000, 420, A_TEAL),
+                                 (1200, 1500, 300, A_RED), (1700, 900, 260, A_RED), (1800, 2400, 300, A_TEAL)])
+m = white & L
+out[m] = (A_BASE * fw + bl * 0.35)[m]
+m = red & L
+out[m] = (np.array(A_YELLOW, float) * fr)[m]
+m = blue & L
+out[m] = (pat * np.clip(fb, 0.55, 1.1))[m]
+# --- SimKart: почти чёрный с красным оттенком, красный, серебро вместо синего
+m = white & R
+out[m] = (S_BASE * fw + np.array([24, 0, 0], float) * fw)[m]
+m = red & R
+out[m] = (np.array(S_RED, float) * fr)[m]
+m = blue & R
+out[m] = (np.array(S_SILVER, float) * fb)[m]
+
+# окантовка на стыке цвета и базы: у Арки тёмная обводка + светло-жёлтая линия, у SimKart — красная
 neon = red | blue
-ring = ndimage.binary_dilation(neon, iterations=9) & ~neon & white
-out[ring] = np.array(WHITE, float) * np.clip(fw[ring], 0.6, 1.0)
+ring_in = ndimage.binary_dilation(neon, iterations=5) & ~neon & white
+ring_out = ndimage.binary_dilation(neon, iterations=12) & ~neon & white & ~ring_in
+out[ring_in & L] = np.array(A_DARK, float)
+out[ring_out & L] = (np.array(A_YELLOW_L, float) * np.clip(fw, 0.6, 1.0))[ring_out & L]
+m = (ring_in | ring_out) & R
+out[m] = (np.array(S_RED, float) * np.clip(fw, 0.6, 1.0))[m]
 
 img = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 white_mask = Image.fromarray((white * 255).astype(np.uint8), "L")
 
 
-# ---------------------------------------------------------------- 3. надписи
+# ---------------------------------------------------------------- 3. графика
 def font(path, size):
     return ImageFont.truetype(path, size)
 
 
+def load_mask(name, h):
+    m = Image.open(os.path.join(BRAND, name)).convert("L")
+    return m.resize((max(1, int(m.width * h / m.height)), h), Image.LANCZOS)
+
+
+def solid(mask, col):
+    t = Image.new("RGBA", mask.size, col + (255,))
+    t.putalpha(mask)
+    return t
+
+
+def arka_mark(mask, fill=A_YELLOW):
+    """Стиль логотипа Арки: жёлтая заливка, тёмная обводка, тень вниз-влево."""
+    pad = int(mask.height * 0.16) + 4
+    big = Image.new("L", (mask.width + 2 * pad, mask.height + 2 * pad), 0)
+    big.paste(mask, (pad, pad))
+    ow = min(59, max(3, int(mask.height * 0.05)) | 1)
+    outline = big.filter(ImageFilter.MaxFilter(ow))
+    sh = ImageChops.offset(outline, -int(mask.height * 0.035), int(mask.height * 0.06))
+    t = Image.new("RGBA", big.size, (0, 0, 0, 0))
+    t.alpha_composite(solid(sh, A_DARK))
+    t.alpha_composite(solid(outline, A_DARK))
+    t.alpha_composite(solid(big, fill))
+    return t
+
+
+def simkart_mark(h):
+    """«Сим» серебром с градиентом, «карт» красным, красное свечение."""
+    w = load_mask("simkart_word_white.png", h)
+    rr = load_mask("simkart_word_red.png", h)
+    pad = int(h * 0.3)
+    size = (w.width + 2 * pad, w.height + 2 * pad)
+    t = Image.new("RGBA", size, (0, 0, 0, 0))
+    both = Image.new("L", size, 0)
+    both.paste(ImageChops.lighter(w, rr), (pad, pad))
+    t.alpha_composite(solid(both.filter(ImageFilter.GaussianBlur(h * 0.12)).point(lambda v: int(v * 0.7)), S_RED))
+    grad = Image.linear_gradient("L").resize(w.size)
+    sil = Image.merge("RGB", [grad.point(lambda v, c=c: int(255 - (255 - c) * v / 255)) for c in S_SILVER]).convert("RGBA")
+    sil.putalpha(w)
+    t.alpha_composite(sil, (pad, pad))
+    t.alpha_composite(solid(rr, S_RED), (pad, pad))
+    return t
+
+
 def text_layer(s, f, fill, stroke=0, stroke_fill=None):
     bbox = f.getbbox(s, stroke_width=stroke)
-    w, h = bbox[2] - bbox[0] + 20, bbox[3] - bbox[1] + 20
-    t = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(t).text((10 - bbox[0], 10 - bbox[1]), s, font=f, fill=fill,
-                           stroke_width=stroke, stroke_fill=stroke_fill)
+    t = Image.new("RGBA", (bbox[2] - bbox[0] + 20, bbox[3] - bbox[1] + 20), (0, 0, 0, 0))
+    ImageDraw.Draw(t).text((10 - bbox[0], 10 - bbox[1]), s, font=f, fill=fill, stroke_width=stroke, stroke_fill=stroke_fill)
     return t
 
 
 def place(layer, cx, cy, angle=0, clip=True):
     if angle:
         layer = layer.rotate(angle, expand=True, resample=Image.BICUBIC)
-    x, y = int(cx - layer.width / 2), int(cy - layer.height / 2)
     full = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    full.paste(layer, (x, y))
+    full.paste(layer, (int(cx - layer.width / 2), int(cy - layer.height / 2)))
     if clip:
-        al = Image.fromarray(np.minimum(np.asarray(full.getchannel("A")), np.asarray(white_mask)))
-        full.putalpha(al)
+        full.putalpha(Image.fromarray(np.minimum(np.asarray(full.getchannel("A")), np.asarray(white_mask))))
     img.alpha_composite(full)
 
 
-def sterlet_layer(L, color):
-    """Стилизованная стерлядь — отсылка к гербу Саратова."""
-    h = int(L * 0.32)
-    t = Image.new("RGBA", (L + 4, h), (0, 0, 0, 0))
+def sterlet(Lg, color):
+    """Стерлядь: рыло слева (x=0), хвост справа."""
+    h = int(Lg * 0.32)
+    t = Image.new("RGBA", (Lg + 4, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(t)
     cy = h / 2
     body = [(0, 0), (0.12, -0.07), (0.45, -0.10), (0.78, -0.05), (0.88, -0.02), (1.0, -0.14), (0.95, 0.0),
             (1.0, 0.12), (0.88, 0.02), (0.78, 0.05), (0.45, 0.10), (0.12, 0.06)]
-    d.polygon([(2 + bx * L, cy + by * L) for bx, by in body], fill=color)
+    d.polygon([(2 + bx * Lg, cy + by * Lg) for bx, by in body], fill=color)
     for k in range(5):
         bx = 0.2 + k * 0.13
-        d.polygon([(2 + (bx - 0.03) * L, cy - 0.08 * L), (2 + bx * L, cy - 0.13 * L),
-                   (2 + (bx + 0.03) * L, cy - 0.08 * L)], fill=color)
+        d.polygon([(2 + (bx - 0.03) * Lg, cy - 0.08 * Lg), (2 + bx * Lg, cy - 0.13 * Lg),
+                   (2 + (bx + 0.03) * Lg, cy - 0.08 * Lg)], fill=color)
     return t
 
 
-def number_disc(d, fg, bg, ring, fsize):
-    t = Image.new("RGBA", (d, d), (0, 0, 0, 0))
-    dr = ImageDraw.Draw(t)
-    dr.ellipse([4, 4, d - 4, d - 4], fill=bg, outline=ring, width=max(6, d // 25))
-    f = font(FB, fsize)
-    dr.text((d / 2, d / 2 + fsize * 0.04), "64", font=f, fill=fg, anchor="mm")
-    return t
+def coat_of_arms(W):
+    """Герб Саратовской области (стилизация): лазоревый щит, три серебряные стерляди
+    в вилообразный крест головами к центру, золотая кайма и корона."""
+    S = 4                       # суперсэмплинг
+    w = W * S
+    h = int(w * 1.45)
+    t = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(t)
+    top = int(h * 0.33)         # место под корону
+
+    def shield(inset):
+        x0, x1, y0 = inset, w - inset, top + inset
+        yb = h - inset
+        pts = [(x0, y0), (x1, y0), (x1, y0 + (yb - y0) * 0.62)]
+        cx = w / 2
+        for k in range(1, 21):  # скруглённый низ с остриём (французский щит)
+            tt = k / 20
+            pts.append((x1 - (x1 - cx) * tt, y0 + (yb - y0) * (0.62 + 0.38 * math.sin(tt * math.pi / 2))))
+        pts += [(cx - (p[0] - cx), p[1]) for p in reversed(pts[3:-1])]
+        pts.append((x0, y0 + (yb - y0) * 0.62))
+        return pts
+
+    d.polygon(shield(0), fill=A_DARK)
+    d.polygon(shield(int(w * 0.03)), fill=GOLD)
+    d.polygon(shield(int(w * 0.075)), fill=AZURE)
+    # три стерляди: вилообразный крест, головы к центру
+    cx, cy = w / 2, top + (h - top) * 0.44
+    fish = sterlet(int(w * 0.42), HERALD_SILVER + (255,))
+    for ang in (210, 330, 90):          # вверх-влево, вверх-вправо, вниз (y вниз)
+        rot = fish.rotate(-ang, expand=True, resample=Image.BICUBIC)
+        dx, dy = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+        c = fish.width / 2 + w * 0.02   # центр рыбы смещён наружу, рыло у центра
+        t.alpha_composite(rot, (int(cx + dx * c - rot.width / 2), int(cy + dy * c - rot.height / 2)))
+    # корона (упрощённая императорская): обруч, две полусферы, центральная дуга, держава с крестом
+    ow = S * 2
+    cb = top - int(h * 0.012)                  # низ обруча
+    ch = h * 0.1                               # радиус полусфер по высоте
+    d.chord([w * 0.20, cb - ch * 2, w * 0.49, cb + ch * 0.1], 180, 360, fill=GOLD, outline=A_DARK, width=ow)
+    d.chord([w * 0.51, cb - ch * 2, w * 0.80, cb + ch * 0.1], 180, 360, fill=GOLD, outline=A_DARK, width=ow)
+    d.rounded_rectangle([w * 0.465, cb - ch * 1.08, w * 0.535, cb], radius=int(w * 0.02), fill=GOLD, outline=A_DARK, width=ow)
+    orb_r = w * 0.045
+    oy = cb - ch * 1.08 - orb_r * 0.8
+    d.ellipse([w / 2 - orb_r, oy - orb_r, w / 2 + orb_r, oy + orb_r], fill=GOLD, outline=A_DARK, width=ow)
+    cw = w * 0.022
+    d.rectangle([w / 2 - cw / 2, oy - orb_r * 3.0, w / 2 + cw / 2, oy - orb_r * 0.8], fill=GOLD, outline=A_DARK, width=ow)
+    d.rectangle([w / 2 - cw * 2, oy - orb_r * 2.4, w / 2 + cw * 2, oy - orb_r * 2.4 + cw], fill=GOLD, outline=A_DARK, width=ow)
+    d.rounded_rectangle([w * 0.18, cb - h * 0.05, w * 0.82, cb], radius=int(w * 0.02), fill=GOLD, outline=A_DARK, width=ow)
+    cr = w * 0.03
+    for fx in (0.27, 0.38, 0.5, 0.62, 0.73):   # камни на обруче
+        d.ellipse([w * fx - cr / 2, cb - h * 0.025 - cr / 2, w * fx + cr / 2, cb - h * 0.025 + cr / 2],
+                  fill=(200, 40, 50) if fx == 0.5 else HERALD_SILVER)
+    return t.resize((W, int(h / S)), Image.LANCZOS)
 
 
-# Боковины кокпита: буквы «вверх» = +x слева (поворот −90) и −x справа (поворот +90)
-side = [
-    ("САРАТОВСКАЯ ОБЛАСТЬ", font(FB, 44), SILVER, 0, 1296, 1000),
-    ("SIMKART", font(FB, 200), WHITE, 5, 1200, 1000),
-    ("АРКА", font(FB, 170), WHITE, 5, 1022, 1040),
-    ("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", font(FB, 42), SILVER, 0, 930, 1030),
-]
-for s, f, col, st, cx, cy in side:
-    lay = text_layer(s, f, col, st, BLACK if st else None)
-    place(lay, cx, cy, -90)
-    place(lay, N - cx, cy, 90)
+# ЛЕВАЯ боковина — Арка (буквы «вверх» = +x → поворот −90)
+place(arka_mark(load_mask("arka_word.png", 290)), 1150, 1000, -90)
+place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
+place(text_layer("МОСКОВСКАЯ 56 · САРАТОВ", font(FBN, 34), A_YELLOW_L), 1300, 1000, -90)
 
-# «64» на номерных панелях у кокпита
-lay = text_layer("64", font(FB, 160), WHITE, 6, (int(MAGENTA[0]), int(MAGENTA[1]), int(MAGENTA[2])))
-place(lay, 1185, 1825, -90)
-place(lay, N - 1195, 1835, 90)
+# ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
+place(simkart_mark(170), N - 1170, 1000, 90)
+place(solid(load_mask("simkart_tagline.png", 30), S_RED), N - 950, 1000, 90)
+place(text_layer("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", font(FB, 30), S_SILVER), N - 1300, 1000, 90)
+tw = load_mask("simkart_track.png", 300)
+tr = load_mask("simkart_track_red.png", int(300 * 7142 / 7668))
+track = Image.new("RGBA", (tw.width + 80, tw.height + 80), (0, 0, 0, 0))
+gl = Image.new("L", track.size, 0)
+gl.paste(tw, (40, 40))
+track.alpha_composite(solid(gl.filter(ImageFilter.GaussianBlur(14)), S_RED))
+track.alpha_composite(solid(tw, WHITE), (40, 40))
+track.alpha_composite(solid(tr, S_RED), (40 + (tw.width - tr.width) // 2, 40 + (tw.height - tr.height) // 2))
+place(track, N - 1205, 380, 90)
 
-# Крыша: номер в белом круге
-place(number_disc(290, BLACK, WHITE + (255,), tuple(int(v) for v in MAGENTA), 190), 2045, 1130, 0)
+# Номерные панели: слева — в стиле Арки, справа — SimKart
+place(arka_mark(text_layer("64", font(FBN, 150), (255, 255, 255)).getchannel("A")), 1185, 1825, -90)
+place(text_layer("64", font(FB, 160), WHITE, 6, S_RED), N - 1195, 1835, 90)
 
-# Антикрыло: верхняя грань и нижняя
-place(text_layer("SIMKART  ×  АРКА", font(FB, 92), WHITE, 3, BLACK), 2045, 106, 0)
-place(text_layer("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ · САРАТОВСКАЯ ОБЛАСТЬ", font(FB, 32), SILVER), 2045, 214, 0)
+# Крыша: номер в круге, обод пополам — жёлтый / красный
+disc = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
+dd = ImageDraw.Draw(disc)
+dd.pieslice([4, 4, 296, 296], 90, 270, fill=A_YELLOW)
+dd.pieslice([4, 4, 296, 296], -90, 90, fill=S_RED)
+dd.ellipse([24, 24, 276, 276], fill=WHITE)
+dd.text((150, 156), "64", font=font(FB, 175), fill=BLACK, anchor="mm")
+place(disc, 2045, 1130)
 
-# Нос: стерлядь вместо орла, SIMKART вместо BR
-place(sterlet_layer(300, SILVER + (255,)), 2045, 2935, 0, clip=False)
-place(text_layer("SIMKART", font(FB, 58), WHITE), 2045, 3305, 0, clip=False)
+# Антикрыло: верх — «арка» слева, «Симкарт» справа; низ — ЭДМ и регион
+place(arka_mark(load_mask("arka_word.png", 78)), 1790, 106)
+place(simkart_mark(62), 2310, 106)
+place(text_layer("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", font(FB, 30), A_YELLOW_L), 1790, 214)
+place(text_layer("САРАТОВСКАЯ ОБЛАСТЬ · 64", font(FB, 30), S_SILVER), 2310, 214)
+
+# Нос: герб Саратовской области вместо орла, под ним оба логотипа
+place(coat_of_arms(170), 2045, 2925, 0, clip=False)
+place(arka_mark(load_mask("arka_word.png", 56)), 1960, 3305, 0, clip=False)
+place(simkart_mark(40), 2145, 3305, 0, clip=False)
 
 img = img.convert("RGB")
-img.save(os.path.join(HERE, "body_paint_preview.png"))
+img.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "body_paint_preview.png"))
+coat_of_arms(600).save(os.path.join(HERE, "coat_of_arms_preview.png"))
 
 
 def save_dxt5(im, path):
@@ -200,15 +355,17 @@ save_dxt5(img.convert("RGBA"), os.path.join(OUT, "body_paint.dds"))
 # ---------------------------------------------------------------- 4. диски, иконка, ui_skin.json
 save_dxt5(Image.new("RGBA", (4, 4), (22, 24, 32, 255)), os.path.join(OUT, "car_paint_rims.dds"))
 
-ic = Image.new("RGB", (185, 185), (20, 22, 30))
+ic = Image.new("RGB", (185, 185), A_DARK)
 di = ImageDraw.Draw(ic)
-di.polygon([(0, 120), (185, 40), (185, 85), (0, 165)], fill=tuple(int(v) for v in MAGENTA))
-di.polygon([(0, 165), (185, 85), (185, 110), (0, 185)], fill=tuple(int(v) for v in CYAN))
-di.text((92, 88), "64", font=font(FB, 96), fill=WHITE, anchor="mm", stroke_width=4, stroke_fill=BLACK)
+di.rectangle([0, 0, 92, 185], fill=tuple(int(v) for v in A_BASE))
+di.rectangle([93, 0, 185, 185], fill=tuple(int(v) for v in S_BASE))
+di.polygon([(0, 150), (92, 120), (92, 140), (0, 170)], fill=A_YELLOW)
+di.polygon([(93, 120), (185, 90), (185, 110), (93, 140)], fill=S_RED)
+di.text((92, 80), "64", font=font(FB, 96), fill=WHITE, anchor="mm", stroke_width=4, stroke_fill=BLACK)
 ic.save(os.path.join(OUT, "livery.png"))
 
 with open(os.path.join(OUT, "ui_skin.json"), "w", encoding="utf-8") as fh:
-    json.dump({"skinname": "Арка × SimKart #64", "country": "Russia", "drivername": "Стас",
-               "team": "SimKart × Арка · Саратовская область", "number": "64", "priority": 1},
+    json.dump({"skinname": "Арка | SimKart #64", "country": "Russia", "drivername": "Стас",
+               "team": "Арка × SimKart · Саратовская область", "number": "64", "priority": 1},
               fh, ensure_ascii=False, indent=2)
 print("готово:", OUT)
