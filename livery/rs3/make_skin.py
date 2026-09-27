@@ -209,7 +209,7 @@ def number_plate(h):
 
 def name_plate():
     """Табличка пилота: триколор + имя на белой плашке с чёрной рамкой."""
-    txt = fit("МАТВЕЙ КОНОПЛЕНКО", 40, 470, fill=BLACK)
+    txt = fit("МАТВЕЙ КОНОПЕЛЬКО", 40, 470, fill=BLACK)
     w, h = txt.width + 90, 66
     t = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d_ = ImageDraw.Draw(t)
@@ -361,6 +361,6 @@ di.text((92, 95), "86", font=font(90), fill=BLACK, anchor="mm")
 ic.save(os.path.join(OUT, "livery.png"))
 
 with open(os.path.join(OUT, "ui_skin.json"), "w", encoding="utf-8") as fh:
-    json.dump({"skinname": "Castrol GT500 tribute #86", "drivername": "Матвей Конопленко", "country": "Russia",
+    json.dump({"skinname": "Castrol GT500 tribute #86", "drivername": "Матвей Конопелько", "country": "Russia",
                "team": "Castrol GT500 tribute", "number": "86", "priority": 1}, fh, ensure_ascii=False, indent=2)
 print("готово:", OUT)
