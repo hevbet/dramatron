@@ -352,7 +352,6 @@ def coat_of_arms(W, field=AZURE, border=GOLD, fish=HERALD_SILVER, crown=GOLD, ge
 # ЛЕВАЯ боковина — Арка (буквы «вверх» = +x → поворот −90)
 place(arka_mark(load_mask("arka_word.png", 240)), 1115, 1000, -90)
 place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
-place(label("@ARCASARATOV", 30, 600, A_YELLOW_L), 1285, 1000, -90)
 
 # ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
 place(simkart_mark(130), N - 1160, 1030, 90)
@@ -392,10 +391,14 @@ def driver_plate(border):
     t = plate(300, 112, A_DARK, border)
     d = ImageDraw.Draw(t)
     for k, c in enumerate([(245, 245, 245), (0, 57, 166), (213, 43, 30)]):
-        d.rectangle([16, 18 + k * 12, 60, 30 + k * 12], fill=c)
-    name = label("ПОЗДНЯКОВ", 46, 214, WHITE, "Black Italic")
-    t.alpha_composite(name, (74, 14))
-    t.alpha_composite(label("СТАНИСЛАВ", 32, 214, S_SILVER), (76, 20 + name.height + 8))
+        d.rectangle([16, 38 + k * 12, 58, 50 + k * 12], fill=c)   # флаг по центру по высоте
+    name = label("ПОЗДНЯКОВ", 46, 206, WHITE, "Black Italic")
+    first = label("СТАНИСЛАВ", 32, 206, S_SILVER)
+    gap = 10
+    x0, x1 = 72, t.width - 10                     # область справа от флага
+    y = (t.height - (name.height + gap + first.height)) // 2
+    t.alpha_composite(name, (x0 + (x1 - x0 - name.width) // 2, y))
+    t.alpha_composite(first, (x0 + (x1 - x0 - first.width) // 2, y + name.height + gap))
     return t
 
 
