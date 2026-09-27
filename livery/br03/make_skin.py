@@ -148,12 +148,13 @@ out[m] = (np.array(S_RED, float) * np.clip(fw, 0.6, 1.0))[m]
 # стык половин по оси машины: жёлтый кант | шахматка | красный кант
 shade = np.where(white[..., None], fw, np.where(red[..., None], fr, np.where(blue[..., None], fb, 0.8)))
 SW = [(-34, -24, A_YELLOW), (-24, -20, A_DARK), (20, 24, A_DARK), (24, 34, S_RED)]
+Y0 = 300   # антикрыло (верх развёртки) без полосы — только крыша, нос и днище
 for x0, x1, col in SW:
-    out[:, HALF + x0:HALF + x1] = (np.array(col, float) * np.clip(shade[:, HALF + x0:HALF + x1], 0.5, 1.05))
-cy_, cx_ = np.mgrid[0:N, HALF - 20:HALF + 20]
+    out[Y0:, HALF + x0:HALF + x1] = (np.array(col, float) * np.clip(shade[Y0:, HALF + x0:HALF + x1], 0.5, 1.05))
+cy_, cx_ = np.mgrid[Y0:N, HALF - 20:HALF + 20]
 chk = (((cy_ // 20) + ((cx_ - (HALF - 20)) // 20)) % 2 == 0)[..., None]
 cell = np.where(chk, np.array(WHITE, float), np.array(A_DARK, float))
-out[:, HALF - 20:HALF + 20] = cell * np.clip(shade[:, HALF - 20:HALF + 20], 0.5, 1.05)
+out[Y0:, HALF - 20:HALF + 20] = cell * np.clip(shade[Y0:, HALF - 20:HALF + 20], 0.5, 1.05)
 
 img = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 white_mask = Image.fromarray((white * 255).astype(np.uint8), "L")
@@ -354,12 +355,11 @@ place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
 place(label("@ARCASARATOV", 30, 600, A_YELLOW_L), 1285, 1000, -90)
 
 # ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
-place(simkart_mark(135), N - 1160, 930, 90)
+place(simkart_mark(130), N - 1160, 950, 90)
 # «— КАРТИНГ В БРАУЗЕРЕ» прямо под словом, выровнено по его началу (как на баннере)
-place(solid(load_mask("simkart_tagline.png", 24), S_RED), N - 1050, 985, 90)
-place(label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 30, 700, S_SILVER), N - 1285, 1000, 90)
-place(coat_of_arms(120, **COA_ARKA), 1130, 500, -90)
-place(coat_of_arms(120, **COA_SIMKART), N - 1130, 500, 90)
+place(solid(load_mask("simkart_tagline.png", 24), S_RED), N - 1055, 1010, 90)
+place(coat_of_arms(110, **COA_ARKA), 1130, 540, -90)
+place(coat_of_arms(110, **COA_SIMKART), N - 1130, 548, 90)
 
 # Номерные панели: слева — в стиле Арки, справа — SimKart
 place(race_number(A_YELLOW, A_DARK, A_DARK, 125), 1185, 1825, -90)
@@ -390,12 +390,13 @@ def plate(w, h, bg, border):
 
 
 def driver_plate(border):
-    """Табличка пилота: триколор + имя."""
-    t = plate(210, 58, A_DARK, border)
+    """Табличка пилота: триколор, фамилия и имя."""
+    t = plate(236, 92, A_DARK, border)
     d = ImageDraw.Draw(t)
     for k, c in enumerate([(245, 245, 245), (0, 57, 166), (213, 43, 30)]):
-        d.rectangle([12, 12 + k * 11, 52, 23 + k * 11], fill=c)
-    t.alpha_composite(label("СТАС", 34, 140, WHITE, "Black Italic"), (64, 10))
+        d.rectangle([12, 14 + k * 9, 46, 23 + k * 9], fill=c)
+    t.alpha_composite(label("ПОЗДНЯКОВ", 32, 170, WHITE, "Black Italic"), (56, 12))
+    t.alpha_composite(label("СТАНИСЛАВ", 24, 170, S_SILVER), (58, 54))
     return t
 
 
@@ -413,25 +414,12 @@ def coffee_sticker():
     return t
 
 
-def lap_sticker():
-    """SimKart: лучший круг — конечно же с 64 в конце."""
-    t = plate(250, 92, (14, 14, 20), S_RED)
-    d = ImageDraw.Draw(t)
-    for i in range(4):                                                         # клетчатый флажок
-        for j in range(4):
-            d.rectangle([14 + i * 10, 20 + j * 10, 23 + i * 10, 29 + j * 10], fill=WHITE if (i + j) % 2 == 0 else BLACK)
-    d.line([(14, 18), (14, 76)], fill=S_SILVER, width=3)
-    t.alpha_composite(label("ЛУЧШИЙ КРУГ", 20, 170, S_SILVER), (66, 16))
-    t.alpha_composite(label("1:04.064", 36, 170, WHITE, "Black Italic"), (64, 40))
-    return t
-
-
 # таблички пилота на «плавниках» за кокпитом
-place(driver_plate(A_YELLOW), 1215, 330, -90)
-place(driver_plate(S_RED), N - 1215, 330, 90)
+place(driver_plate(A_YELLOW), 1212, 352, -90)
+place(driver_plate(S_RED), N - 1212, 372, 90)
 # стикеры в нижней части боковин
 place(coffee_sticker().resize((220, 81), Image.LANCZOS), 1228, 1395, -90)
-place(lap_sticker().resize((220, 81), Image.LANCZOS), N - 1228, 1400, 90)
+
 
 img = img.convert("RGB")
 img.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "body_paint_preview.png"))
@@ -466,7 +454,7 @@ di.text((92, 80), "64", font=font(F_RACE, 96), fill=WHITE, anchor="mm", stroke_w
 ic.save(os.path.join(OUT, "livery.png"))
 
 with open(os.path.join(OUT, "ui_skin.json"), "w", encoding="utf-8") as fh:
-    json.dump({"skinname": "Арка | SimKart #64", "country": "Russia", "drivername": "Стас",
+    json.dump({"skinname": "Арка | SimKart #64", "country": "Russia", "drivername": "Станислав Поздняков",
                "team": "Арка × SimKart · Саратовская область", "number": "64", "priority": 1},
               fh, ensure_ascii=False, indent=2)
 print("готово:", OUT)
