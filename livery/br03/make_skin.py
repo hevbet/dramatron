@@ -41,6 +41,9 @@ HERALD_SILVER = (232, 236, 242)
 
 FB = "/usr/share/fonts/truetype/liberation/LiberationSans-BoldItalic.ttf"
 FBN = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+FONTS = os.path.join(HERE, "brand", "fonts")
+F_ARKA = os.path.join(FONTS, "Unbounded[wght].ttf")       # округлый жирный — под стиль Арки
+F_SIMKART = os.path.join(FONTS, "RussoOne-Regular.ttf")   # гоночный — под стиль SimKart
 
 src = Image.open(SRC).convert("RGB")
 N = src.width
@@ -158,7 +161,27 @@ white_mask = Image.fromarray((white * 255).astype(np.uint8), "L")
 
 # ---------------------------------------------------------------- 3. графика
 def font(path, size):
-    return ImageFont.truetype(path, size)
+    f = ImageFont.truetype(path, size)
+    if path == F_ARKA:
+        f.set_variation_by_name("Black")
+    return f
+
+
+def fit_font(path, s, size, maxw):
+    """Уменьшает кегль, пока строка не влезет в maxw."""
+    while size > 8 and font(path, size).getlength(s) > maxw:
+        size -= 1
+    return font(path, size)
+
+
+def arka_label(s, size, maxw):
+    """Подпись в стиле Арки: Unbounded Black, жёлтый, тёмная обводка и тень."""
+    return arka_mark(text_layer(s, fit_font(F_ARKA, s, size, maxw), (255, 255, 255)).getchannel("A"))
+
+
+def simkart_label(s, size, maxw, fill=S_SILVER):
+    """Подпись в стиле SimKart: Russo One."""
+    return text_layer(s, fit_font(F_SIMKART, s, size, maxw), fill)
 
 
 def load_mask(name, h):
@@ -293,14 +316,14 @@ def coat_of_arms(W):
 
 
 # ЛЕВАЯ боковина — Арка (буквы «вверх» = +x → поворот −90)
-place(arka_mark(load_mask("arka_word.png", 290)), 1150, 1000, -90)
+place(arka_mark(load_mask("arka_word.png", 240)), 1115, 1000, -90)
 place(arka_mark(load_mask("arka_taimcafe.png", 64)), 945, 1000, -90)
-place(text_layer("МОСКОВСКАЯ 56 · САРАТОВ", font(FBN, 34), A_YELLOW_L), 1300, 1000, -90)
+place(arka_label("МОСКОВСКАЯ 56 · САРАТОВ", 30, 760), 1283, 1000, -90)
 
 # ПРАВАЯ боковина — SimKart (буквы «вверх» = −x → поворот +90)
 place(simkart_mark(170), N - 1170, 1000, 90)
 place(solid(load_mask("simkart_tagline.png", 30), S_RED), N - 950, 1000, 90)
-place(text_layer("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", font(FB, 30), S_SILVER), N - 1300, 1000, 90)
+place(simkart_label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 36, 780), N - 1295, 1000, 90)
 tw = load_mask("simkart_track.png", 300)
 tr = load_mask("simkart_track_red.png", int(300 * 7142 / 7668))
 track = Image.new("RGBA", (tw.width + 80, tw.height + 80), (0, 0, 0, 0))
@@ -312,8 +335,8 @@ track.alpha_composite(solid(tr, S_RED), (40 + (tw.width - tr.width) // 2, 40 + (
 place(track, N - 1205, 380, 90)
 
 # Номерные панели: слева — в стиле Арки, справа — SimKart
-place(arka_mark(text_layer("64", font(FBN, 150), (255, 255, 255)).getchannel("A")), 1185, 1825, -90)
-place(text_layer("64", font(FB, 160), WHITE, 6, S_RED), N - 1195, 1835, 90)
+place(arka_mark(text_layer("64", font(F_ARKA, 120), (255, 255, 255)).getchannel("A")), 1185, 1825, -90)
+place(text_layer("64", font(F_SIMKART, 150), WHITE, 6, S_RED), N - 1195, 1835, 90)
 
 # Крыша: номер в круге, обод пополам — жёлтый / красный
 disc = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
@@ -327,8 +350,8 @@ place(disc, 2045, 1130)
 # Антикрыло: верх — «арка» слева, «Симкарт» справа; низ — ЭДМ и регион
 place(arka_mark(load_mask("arka_word.png", 78)), 1790, 106)
 place(simkart_mark(62), 2310, 106)
-place(text_layer("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", font(FB, 30), A_YELLOW_L), 1790, 214)
-place(text_layer("САРАТОВСКАЯ ОБЛАСТЬ · 64", font(FB, 30), S_SILVER), 2310, 214)
+place(arka_label("ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ", 28, 480), 1785, 214)
+place(simkart_label("САРАТОВСКАЯ ОБЛАСТЬ · 64", 34, 480), 2310, 214)
 
 # Нос: герб Саратовской области вместо орла, под ним оба логотипа
 place(coat_of_arms(170), 2045, 2925, 0, clip=False)
