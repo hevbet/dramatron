@@ -142,6 +142,17 @@ dark_body = (mx < 60) & ~ndimage.binary_dilation(white, iterations=6)
 out[dark_body & L] = np.array(A_YELLOW, float) * 0.93
 out[dark_body & R] = np.array(S_RED, float) * 0.93
 
+# передний спойлер (координаты сняты по тестовому UV-скину): верх — клетки F14–H15 / I14–K15, кромка — ряд 16
+yy_, xx_ = np.mgrid[0:N, 0:N]
+spl_top = dark_body & (yy_ >= 3328) & (yy_ < 3840) & (xx_ >= 1280) & (xx_ < 2816)
+spl_edge = dark_body & (yy_ >= 3840) & (xx_ >= 1280) & (xx_ < 2816)
+m = spl_top & L                                   # Арка: фирменная лента «арка»
+out[m] = pat[m]
+chk_e = (((yy_ // 28) + (xx_ // 28)) % 2 == 0)
+m = spl_edge                                      # кромка: гоночная шахматка на обеих половинах
+out[m & chk_e] = np.array(WHITE, float) * 0.95
+out[m & ~chk_e] = np.array(A_DARK, float)
+
 # окантовка на стыке цвета и базы: у Арки тёмная обводка + светло-жёлтая линия, у SimKart — красная
 neon = red | blue
 ring_in = ndimage.binary_dilation(neon, iterations=5) & ~neon & white
@@ -403,6 +414,12 @@ place(label("САРАТОВСКАЯ ОБЛАСТЬ · 64", 36, 900, S_SILVER), 2
 
 # Нос: герб Саратовской области вместо орла, под ним оба логотипа
 place(coat_split(160), 2045, 2925, 0, clip=False)
+spl_logo = simkart_mark(62)                                  # верх спойлера, половина SimKart — на тёмной плашке
+spl_plate = Image.new("RGBA", (spl_logo.width + 20, spl_logo.height + 4), (0, 0, 0, 0))
+ImageDraw.Draw(spl_plate).rounded_rectangle([0, 0, spl_plate.width - 1, spl_plate.height - 1], radius=18,
+                                            fill=(14, 14, 20, 255), outline=S_RED, width=4)
+spl_plate.alpha_composite(spl_logo, (10, 2))
+place(spl_plate, 2430, 3480, 0, clip=False)
 
 # ---------------------------------------------------------------- мелочи и приколы
 def plate(w, h, bg, border):
