@@ -141,7 +141,7 @@ SQ = 41; X0 = 2048 - SQ / 2
 lip = (Z('splitter_front_edge_R') | Z('splitter_front_edge_L')).astype(np.float32)
 ck = ((np.floor((xx - X0) / SQ) + np.floor((yy - 3852) / SQ)) % 2 == 0) & (yy >= 3852) & (yy < 4020)
 ck = ck.astype(np.float32) * lip
-WIN = [(1528, 1888), (2208, 2568)]
+WIN = [(1360, 1690), (1878, 2218), (2406, 2736)]   # три окна под спонсоров на кромке сплиттера
 for (a, b) in WIN:
     wm = Image.new('L', (S, S), 0); ImageDraw.Draw(wm).rounded_rectangle([a, 3902, b - 1, 3993], radius=12, fill=255)
     ck *= (np.array(wm) == 0)
@@ -216,6 +216,8 @@ def hatch_block(side, xb, yr, xm, P=52, w_rear=6, w_front=26):
     out *= ((xx >= xb[0]) & (xx <= xb[1]))
     return A(out)
 HB = {
+    'haunch_R': ('R', (430, 700), (1150, 1370), 565, 'rear_haunch_R'),
+    'haunch_L': ('L', (3381, 3651), (1150, 1370), 3516, 'rear_haunch_L'),
 }
 for k_, (sd, xb, yr, xm, z) in HB.items():
     cv.paint_alpha(hatch_block(sd, xb, yr, xm, w_front=24 if 'lower' in k_ else 26), C['red'], 'hatch_' + k_, clip=Z(z).astype(np.float32))
@@ -290,6 +292,21 @@ def driver_plate(center, rot, name):
 cv.paint_alpha(disc(2045, 1130, 180), C['yellow'], 'roofdisc'); cv.paint_alpha(disc(2045, 1130, 168), C['ink']); cv.paint_alpha(disc(2045, 1130, 156), C['white'])
 cv.paint_alpha(place(fit(text_mask('64', 900, 300), h=150), (2045, 1130), 0), C['ink'], 'roof64')
 
+
+
+def zone_center(z):
+    dt = ndimage.distance_transform_edt(Z(z))
+    cy, cx = np.unravel_index(np.argmax(dt), dt.shape)
+    return int(cx), int(cy)
+
+
+def zone_center_white(z, side):
+    """Центр белой (верхней) части концевой пластины-флага."""
+    m = Z(z) & ((xx >= 148) if side == 'R' else (xx <= 3921))
+    dt = ndimage.distance_transform_edt(m)
+    cy, cx = np.unravel_index(np.argmax(dt), dt.shape)
+    return int(cx), int(cy)
+
 # ============ 8. TEXT & LOGOS ============
 def txt(s, wt, h, center, rot, color, name, tracking=0.0, outline=0, ocol='deep'):
     m = fit(text_mask(s, wt, 200, tracking), h=h)
@@ -331,26 +348,33 @@ print('arka haunch', arka((3590, 820), 90, 118, 'arka_haunch_L'))
 # --- МБУ
 logo_rgba('mbu', (1204, 1439), -90, h=124, name='mbu_R'); logo_rgba('mbu', (2877, 1500), 90, h=112, name='mbu_L')
 # --- DriveOil
-logo_rgba('driveoil', (379, 254), -90, w=270, name='driveoil_R'); logo_rgba('driveoil', (3654, 235), 90, w=280, name='driveoil_L')
+# задние крылья за колесом: DriveOil и KARTING64 — повёрнуты так, чтобы в игре шли параллельно земле
+logo_rgba('driveoil', (395, 250), -68, w=250, name='driveoil_R'); logo_rgba('driveoil', (3650, 235), 68, w=250, name='driveoil_L')
+logo_rgba('karting64', (250, 230), -68, w=230, name='karting64_R'); logo_rgba('karting64_flip', (3795, 215), 68, w=230, name='karting64_L')
 logo_rgba('driveoil', (234, 3667), -64, w=190, name='driveoil_lamp_R'); logo_rgba('driveoil', (3818, 3665), 62, w=190, name='driveoil_lamp_L')
 # --- BR ENGINEERING on бочка panels (centred low) + BR ENGINEERING lockup in lip window L
-for side, cs, ce, rot in (('R', (1128, 1815), (1058, 1815), -90), ('L', (4045 - 1128, 1833), (4045 - 1058, 1833), 90)):
-    logo_rgba('br_sym', cs, rot, h=96, name='br_hoop_' + side)
-    t = fit(text_mask('ENGINEERING', 700, 200, 0.08), h=13); mask_col(t, ce, rot, 'white', 'br_eng_hoop_' + side)
+# BR выше, под ним два спонсора: SMP Racing Esports и РАФ
+for side, sgn, rot in (('R', 1, -90), ('L', -1, 90)):
+    X = (lambda x: x) if side == 'R' else (lambda x: 4045 - x)
+    dy = 0 if side == 'R' else 18
+    logo_rgba('br_sym', (X(1268), 1815 + dy), rot, h=84, name='br_hoop_' + side)
+    t = fit(text_mask('ENGINEERING', 700, 200, 0.08), h=12); mask_col(t, (X(1206), 1815 + dy), rot, 'white', 'br_eng_hoop_' + side)
+    logo_rgba('smp_lockup', (X(1140), 1815 + dy), rot, h=40, name='smp_hoop_' + side)
+    logo_rgba('raf', (X(1066), 1815 + dy), rot, h=64, name='raf_hoop_' + side)
 # --- РАФ on rear lower side panels + nose top L
 logo_rgba('raf', (1329, 2938), -90, h=108, name='raf_R'); logo_rgba('raf', (2769, 2936), 90, h=108, name='raf_L')
 # крупная наклейка МБУ «Клуб Энгельсская молодёжь» на носу — рядом с «КОМАНДА ЭДМ»
-logo_rgba('mbu', (2336, 2420), 0, h=210, name='mbu_nose')
+logo_rgba('mbu', (2336, 2420), 90, h=210, name='mbu_nose')
 # KARTING64.RU на задних крыльях (вместо красной штриховки), читается вдоль борта
-logo_rgba('karting64', (604, 1210), -90, w=280, name='karting64_R')
-logo_rgba('karting64_flip', (3484, 1205), 90, w=280, name='karting64_L')
+
 # --- team lockups: sidepods (side rule) + nose top R (front view)
 # правый борт: задний край понтона в игре уходит за изгиб, поэтому надпись сдвинута вперёд
 for side, c1, c2, rot, hh in (('R', (545, 1770), (606, 1770), -90, 64), ('L', (3561, 1785), (3488, 1785), 90, 72)):
     txt('ЭДМ', 900, hh, c1, rot, 'white', 'team_EDM_' + side)
     txt('— КОМАНДА —', 700, 26, c2, rot, 'yellow', 'team_komanda_' + side, 0.08)
-print('nose komanda', txt('— КОМАНДА —', 700, 22, (1694, 2370), 0, 'yellow', 'nose_komanda', 0.08))
-print('nose EDM', txt('ЭДМ', 900, 76, (1694, 2446), 0, 'white', 'nose_EDM'))
+# боковина носа за передним колесом: текст вдоль борта, как на остальных боковых деталях
+print('nose komanda', txt('— КОМАНДА —', 700, 22, (1772, 2400), -90, 'yellow', 'nose_komanda', 0.08))
+print('nose EDM', txt('ЭДМ', 900, 76, (1712, 2400), -90, 'white', 'nose_EDM'))
 # --- sills
 txt('ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ', 800, 25, (1465, 1700), -90, 'white', 'midskirt_text_R', 0.05)
 txt('ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ', 800, 25, (2590, 1700), 90, 'white', 'midskirt_text_L', 0.05)
@@ -358,7 +382,7 @@ txt('САРАТОВСКАЯ ОБЛАСТЬ', 800, 26, (186, 3130), -94.5, 'white
 txt('САРАТОВСКАЯ ОБЛАСТЬ', 800, 26, (3891, 3104), 97, 'white', 'skirt_text_L', 0.06)
 # --- wing
 logo_rgba('smp_lockup', (2045, 110), 0, h=80, name='smp_wing')
-txt('ПЕПЕ ШНЕЙНЕ ВОТАФА', 900, 50, (2045, 214), 180, 'white', 'meme')
+txt('KARTING64.RU   ·   SIMKART.VERCEL.APP', 900, 34, (2045, 214), 180, 'white', 'wing_links', 0.03)
 def frog(h):
     S4 = 4; W_, H_ = int(h * 1.35) * S4, h * S4
     t = Image.new('RGBA', (W_, H_), (0, 0, 0, 0)); d = ImageDraw.Draw(t)
@@ -374,8 +398,7 @@ def frog(h):
     d.chord([W_ * 0.16, H_ * 0.62, W_ * 0.84, H_ * 0.9], 0, 180, fill=LIP, outline=GD, width=ow)
     d.line([(W_ * 0.16, H_ * 0.76), (W_ * 0.84, H_ * 0.76)], fill=GD, width=ow)
     return t.resize((W_ // S4, H_ // S4), Image.LANCZOS)
-cv.paint_rgba(place(frog(64), (1600, 214), 180, 'RGBA'), 'frog_lo')
-cv.paint_rgba(place(frog(64).transpose(Image.FLIP_LEFT_RIGHT), (2490, 214), 180, 'RGBA'), 'frog_hi')
+
 # --- nose front: arms, region text, front 64, checker (painted above)
 logo_rgba('coat', (2044, 2949), 0, h=268, name='coat_nose')
 txt('САРАТОВСКАЯ', 800, 17, (2044, 3125), 0, 'white', 'nose_text1', 0.04)
@@ -385,8 +408,17 @@ print('nose64', txt('64', 900, 88, (2045, 3282), 0, 'white', 'nose64', outline=5
 arka((1712, 3600), 0, 128, 'arka_splitter')
 print('simsplit', simkart((2394, 3612), 0, 330, 'simkart_splitter', glow=0.25))
 # --- lip windows: SMP (car-right) + BR ENGINEERING (car-left)
-logo_rgba('smp_lockup', (1708, 3948), 0, h=70, name='smp_lip_R')
-logo_rgba('br_eng', (2388, 3948), 0, w=330, name='breng_lip_L')
+logo_rgba('smp_lockup', (1525, 3948), 0, h=64, name='smp_lip_R')
+txt('KARTING64.RU', 900, 30, (2048, 3948), 0, 'white', 'k64_lip', 0.03)
+logo_rgba('br_eng', (2571, 3948), 0, w=290, name='breng_lip_L')
+# внешние стороны переднего сплиттера (красные пластины) — белая ссылка вдоль борта
+txt('KARTING64.RU', 900, 21, (1095, 3880), -90, 'white', 'k64_splitter_R', 0.03)
+txt('KARTING64.RU', 900, 21, (3003, 3880), 90, 'white', 'k64_splitter_L', 0.03)
+# концевые пластины антикрыла (флаг области): арка справа, Симкарт слева
+arka((218, 535), -90, 66, 'arka_endplate_R')
+ep = blib.simkart_logo(70, silver=C['ink'], glow=False)
+logo_img = ep.resize((170, int(ep.height * 300 / ep.width)), Image.LANCZOS)
+cv.paint_rgba(place(logo_img, (3838, 545), 90, 'RGBA'), 'simkart_endplate_L')
 
 # ============ 9. ДОПОЛНЕНИЯ: BR03, ссылка Симкарта ============
 # BR03 на нижней боковине перед задним колесом (как у ADR), читается вдоль борта
