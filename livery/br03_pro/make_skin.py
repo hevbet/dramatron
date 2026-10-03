@@ -54,6 +54,24 @@ def _coat():
 
 
 WHITE_ = hexc("#F4F5F7")
+
+
+def _karting64(flip=False):
+    """KARTING64: только картинг с пилотом и флагом (из логотипа), под ним ссылка шрифтом ливреи."""
+    k = _L("karting64_black.png")
+    cut = 1500                                   # ниже — надпись и слоган оригинала, их не берём
+    im = Image.new("RGBA", (k.width, cut), (0, 0, 0, 0))
+    for n, c in (("white", WHITE_), ("blue", (0, 57, 166)), ("red", (213, 43, 30)), ("black", WHITE_)):
+        im.alpha_composite(_mono(_L(f"karting64_{n}.png").crop((0, 0, k.width, cut)), c))
+    im = im.crop(im.getbbox())
+    if flip:                                     # на левом борту карт должен ехать вперёд, а не назад
+        im = im.transpose(Image.FLIP_LEFT_RIGHT)
+    t = blib.text("KARTING64.RU", 400, WHITE_, track=0.04)
+    t = t.resize((int(im.width * 0.86), int(t.height * im.width * 0.86 / t.width)), Image.LANCZOS)
+    out = Image.new("RGBA", (im.width, im.height + t.height + im.height // 10), (0, 0, 0, 0))
+    out.alpha_composite(im, (0, 0))
+    out.alpha_composite(t, ((im.width - t.width) // 2, im.height + im.height // 10))
+    return out
 draw.ASSETS.update({
     "smp_lockup": _two("smp_racing_esports", WHITE_, hexc("#00B5EF")),
     "br_eng": _mono(_L("br_engineering_black.png"), WHITE_),
@@ -63,6 +81,8 @@ draw.ASSETS.update({
     "coat": _coat(),
     "mbu": Image.open(os.path.join(BX, "edm_mbu_logo.png")).convert("RGBA"),
     "driveoil": blib.driveoil_logo(160, plate=False),
+    "karting64": _karting64(),
+    "karting64_flip": _karting64(flip=True),
 })
 
 cv = Canvas()
@@ -196,8 +216,6 @@ def hatch_block(side, xb, yr, xm, P=52, w_rear=6, w_front=26):
     out *= ((xx >= xb[0]) & (xx <= xb[1]))
     return A(out)
 HB = {
-    'haunch_R': ('R', (430, 700), (1150, 1370), 565, 'rear_haunch_R'),
-    'haunch_L': ('L', (3381, 3651), (1150, 1370), 3516, 'rear_haunch_L'),
 }
 for k_, (sd, xb, yr, xm, z) in HB.items():
     cv.paint_alpha(hatch_block(sd, xb, yr, xm, w_front=24 if 'lower' in k_ else 26), C['red'], 'hatch_' + k_, clip=Z(z).astype(np.float32))
@@ -321,7 +339,11 @@ for side, cs, ce, rot in (('R', (1128, 1815), (1058, 1815), -90), ('L', (4045 - 
     t = fit(text_mask('ENGINEERING', 700, 200, 0.08), h=13); mask_col(t, ce, rot, 'white', 'br_eng_hoop_' + side)
 # --- РАФ on rear lower side panels + nose top L
 logo_rgba('raf', (1329, 2938), -90, h=108, name='raf_R'); logo_rgba('raf', (2769, 2936), 90, h=108, name='raf_L')
-logo_rgba('raf', (2336, 2420), 0, h=136, name='raf_nose')
+# крупная наклейка МБУ «Клуб Энгельсская молодёжь» на носу — рядом с «КОМАНДА ЭДМ»
+logo_rgba('mbu', (2336, 2420), 0, h=210, name='mbu_nose')
+# KARTING64.RU на задних крыльях (вместо красной штриховки), читается вдоль борта
+logo_rgba('karting64', (604, 1210), -90, w=280, name='karting64_R')
+logo_rgba('karting64_flip', (3484, 1205), 90, w=280, name='karting64_L')
 # --- team lockups: sidepods (side rule) + nose top R (front view)
 # правый борт: задний край понтона в игре уходит за изгиб, поэтому надпись сдвинута вперёд
 for side, c1, c2, rot, hh in (('R', (545, 1770), (606, 1770), -90, 64), ('L', (3561, 1785), (3488, 1785), 90, 72)):
