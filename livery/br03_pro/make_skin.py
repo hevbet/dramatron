@@ -351,7 +351,7 @@ logo_rgba('mbu', (1204, 1439), -90, h=124, name='mbu_R'); logo_rgba('mbu', (2877
 # задние крылья за колесом: DriveOil и KARTING64 — повёрнуты так, чтобы в игре шли параллельно земле
 # сверху KARTING64, под ним DriveOil; угол ±118° (рассчитан по сетке UV-теста) подобран по скринам (на этой детали развёртка повёрнута)
 logo_rgba('karting64', (392, 250), -118, w=210, name='karting64_R'); logo_rgba('karting64_flip', (3652, 236), 118, w=210, name='karting64_L')
-logo_rgba('driveoil', (262, 232), -118, w=210, name='driveoil_R'); logo_rgba('driveoil', (3776, 222), 118, w=200, name='driveoil_L')
+logo_rgba('driveoil', (282, 196), -118, w=190, name='driveoil_R'); logo_rgba('driveoil', (3746, 168), 118, w=200, name='driveoil_L')
 logo_rgba('driveoil', (234, 3667), -64, w=190, name='driveoil_lamp_R'); logo_rgba('driveoil', (3818, 3665), 62, w=190, name='driveoil_lamp_L')
 # --- BR ENGINEERING on бочка panels (centred low) + BR ENGINEERING lockup in lip window L
 # BR выше, под ним два спонсора: SMP Racing Esports и РАФ
@@ -417,9 +417,8 @@ txt('KARTING64.RU', 900, 21, (1095, 3880), -90, 'white', 'k64_splitter_R', 0.03)
 txt('KARTING64.RU', 900, 21, (3003, 3880), 90, 'white', 'k64_splitter_L', 0.03)
 # концевые пластины антикрыла (флаг области): арка справа, Симкарт слева
 arka((218, 535), -90, 66, 'arka_endplate_R')
-ep = blib.simkart_logo(70, silver=C['ink'], glow=False)
-logo_img = ep.resize((150, int(ep.height * 150 / ep.width)), Image.LANCZOS)   # пропорции сохранены
-cv.paint_rgba(place(logo_img, (3840, 540), 90, 'RGBA'), 'simkart_endplate_L')
+# левая пластина: крупное «64» (простые формы не превращаются в кашу на сжатой развёртке)
+txt('64', 900, 70, (3846, 545), 90, 'ink', 'n64_endplate_L')
 
 # ============ 9. ДОПОЛНЕНИЯ: BR03, ссылка Симкарта ============
 # BR03 на нижней боковине перед задним колесом (как у ADR), читается вдоль борта
