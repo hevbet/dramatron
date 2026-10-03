@@ -323,8 +323,9 @@ for side, cs, ce, rot in (('R', (1128, 1815), (1058, 1815), -90), ('L', (4045 - 
 logo_rgba('raf', (1329, 2938), -90, h=108, name='raf_R'); logo_rgba('raf', (2769, 2936), 90, h=108, name='raf_L')
 logo_rgba('raf', (2336, 2420), 0, h=136, name='raf_nose')
 # --- team lockups: sidepods (side rule) + nose top R (front view)
-for side, c1, c2, rot in (('R', (472, 1785), (542, 1785), -90), ('L', (3561, 1785), (3488, 1785), 90)):
-    txt('ЭДМ', 900, 72, c1, rot, 'white', 'team_EDM_' + side)
+# правый борт: задний край понтона в игре уходит за изгиб, поэтому надпись сдвинута вперёд
+for side, c1, c2, rot, hh in (('R', (482, 1828), (546, 1828), -90, 64), ('L', (3561, 1785), (3488, 1785), 90, 72)):
+    txt('ЭДМ', 900, hh, c1, rot, 'white', 'team_EDM_' + side)
     txt('— КОМАНДА —', 700, 26, c2, rot, 'yellow', 'team_komanda_' + side, 0.08)
 print('nose komanda', txt('— КОМАНДА —', 700, 22, (1694, 2370), 0, 'yellow', 'nose_komanda', 0.08))
 print('nose EDM', txt('ЭДМ', 900, 76, (1694, 2446), 0, 'white', 'nose_EDM'))
