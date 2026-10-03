@@ -96,7 +96,7 @@ cv.paint_alpha(A(band * (yy >= 342)), C['red'], 'wingband_red')
 # wing lower element: yellow line
 cv.paint_alpha(vline([(1500, 560, 24), (2600, 560, 24)]), C['yellow'], 'wing_lower_line')
 for z in ['mirror_R', 'mirror_L', 'splitter_endplate_R', 'splitter_endplate_L']: zfill(z, 'red')
-for z in ['sidepod_vane_R', 'sidepod_vane_L']: zfill(z, 'yellow')
+# лопатки перед задним колесом оставляем графитовыми (жёлтая заливка читалась как «бутылка»)
 # headlight bezels: azure "eye" (distance-from-edge gradient + dark hairline), both identical
 for z in ['headlight_bezel_carLeftLamp', 'headlight_bezel_carRightLamp']:
     m = Z(z)
@@ -198,8 +198,6 @@ def hatch_block(side, xb, yr, xm, P=52, w_rear=6, w_front=26):
 HB = {
     'haunch_R': ('R', (430, 700), (1150, 1370), 565, 'rear_haunch_R'),
     'haunch_L': ('L', (3381, 3651), (1150, 1370), 3516, 'rear_haunch_L'),
-    'sidepod_R': ('R', (480, 620), (1930, 2180), 550, 'sidepod_side_R'),
-    'sidepod_L': ('L', (3455, 3595), (1930, 2180), 3525, 'sidepod_side_L'),
 }
 for k_, (sd, xb, yr, xm, z) in HB.items():
     cv.paint_alpha(hatch_block(sd, xb, yr, xm, w_front=24 if 'lower' in k_ else 26), C['red'], 'hatch_' + k_, clip=Z(z).astype(np.float32))
@@ -209,7 +207,7 @@ DT = ndimage.distance_transform_edt(M)
 def zone_feather(z, r=60): return np.clip(ndimage.distance_transform_edt(Z(z)) / r, 0, 1)
 def blob(cx, cy, rx, ry): return np.exp(-2.2 * (((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2))
 fR = zone_feather('engine_cover_side_R'); fL = zone_feather('engine_cover_side_L')
-screen(0.30 * blob(2905, 1160, 130, 460) * fL, C['red'])
+screen(0.30 * blob(2960, 1130, 110, 400) * fL, C['red'])
 
 # ============ 7. PLATES ============
 def number_plate(poly, redcond, name):
@@ -219,9 +217,29 @@ def number_plate(poly, redcond, name):
 PR = [(116, 2330), (396, 2390), (396, 2772), (116, 2712)]
 PL = [(4045 - x, y) for x, y in PR]
 number_plate(PR, (xx < 209), 'R'); number_plate(PL, (xx > 4045 - 209), 'L')
-n64 = fit(text_mask('64', 900, 300), h=144)
-cv.paint_alpha(place(n64, (303, 2561), -90), C['ink'], 'door64_R')
-cv.paint_alpha(place(n64, (4045 - 303, 2561), 90), C['ink'], 'door64_L')
+n64 = fit(text_mask('64', 900, 300), h=118)
+cv.paint_alpha(place(n64, (283, 2575), -90), C['ink'], 'door64_R')
+cv.paint_alpha(place(n64, (4045 - 283, 2575), 90), C['ink'], 'door64_L')
+
+
+def name_strip():
+    """Имя пилота с триколором — верхней строкой на номерной табличке (как на дверях GT/LMP)."""
+    t = fit(text_mask('ПОЗДНЯКОВ СТАНИСЛАВ', 800, 200, 0.03), h=19)
+    fw, fh, gap = 30, 20, 8
+    if t.width + fw + gap > 320:
+        t = fit(t, w=320 - fw - gap)
+    im = Image.new('RGBA', (fw + gap + t.width, max(fh, t.height) + 2), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    y0 = (im.height - fh) // 2
+    for i, c in enumerate([(255, 255, 255), (0, 57, 166), (213, 43, 30)]):
+        d.rectangle([0, y0 + i * fh // 3, fw - 1, y0 + (i + 1) * fh // 3 - 1], fill=c + (255,))
+    d.rectangle([0, y0, fw - 1, y0 + fh - 1], outline=C['ink'] + (255,), width=1)
+    im.paste(Image.new('RGBA', t.size, C['ink'] + (255,)), (fw + gap, (im.height - t.height) // 2), t)
+    return im
+
+
+cv.paint_rgba(place(name_strip(), (366, 2585), -90, 'RGBA'), 'name_plate_R')
+cv.paint_rgba(place(name_strip(), (4045 - 366, 2585), 90, 'RGBA'), 'name_plate_L')
 
 def logo_rgba(nm, center, rot, h=None, w=None, name=None, mono=None):
     a = asset(nm); a = a.resize((int(w), int(round(a.height * w / a.width))) if w else (int(round(a.width * h / a.height)), int(h)), Image.LANCZOS)
@@ -249,8 +267,7 @@ def driver_plate(center, rot, name):
     for t, yy0 in ((l1, y0), (l2, y0 + l1.height + gap)):
         im.paste(Image.new('RGBA', t.size, C['white'] + (255,)), (int(round(cx - t.width / 2)), yy0), t)
     cv.paint_rgba(place(im, center, rot, 'RGBA'), name)
-driver_plate((1177, 564), -90, 'driverplate_R')
-driver_plate((2905, 564), 90, 'driverplate_L')
+# имя пилота — на номерных табличках (см. name_strip)
 # roof disc
 cv.paint_alpha(disc(2045, 1130, 180), C['yellow'], 'roofdisc'); cv.paint_alpha(disc(2045, 1130, 168), C['ink']); cv.paint_alpha(disc(2045, 1130, 156), C['white'])
 cv.paint_alpha(place(fit(text_mask('64', 900, 300), h=150), (2045, 1130), 0), C['ink'], 'roof64')
@@ -286,15 +303,15 @@ def simkart(center, rot, w, name, glow=0.0):
     mask_col(Br, center, rot, 'red', name + '_kart'); return Aw.size
 
 # --- fin heroes
-print('arka hero', arka((1143, 1067), -90, 218, 'arka_fin_R'))
-mask_col(fit(brand('arka_taimcafe'), h=50), (984, 1068), -90, 'yellow', 'taimcafe_fin_R')
-print('simkart hero', simkart((2905, 1160), 90, 800, 'simkart_fin_L', glow=0.30))
-mask_col(fit(brand('simkart_tagline'), w=540), (3017, 1029), 90, 'red', 'tagline_fin_L')
+print('arka hero', arka((1105, 1130), -90, 138, 'arka_fin_R'))
+mask_col(fit(brand('arka_taimcafe'), h=34), (1100, 1385), -90, 'yellow', 'taimcafe_fin_R')
+print('simkart hero', simkart((2958, 1130), 90, 560, 'simkart_fin_L', glow=0.30))
+mask_col(fit(brand('simkart_tagline'), w=400), (3030, 1090), 90, 'red', 'tagline_fin_L')
 # --- haunch secondaries
 print('simkart haunch', simkart((498, 820), -90, 520, 'simkart_haunch_R'))
-print('arka haunch', arka((3551, 820), 90, 150, 'arka_haunch_L'))
+print('arka haunch', arka((3590, 820), 90, 118, 'arka_haunch_L'))
 # --- МБУ
-logo_rgba('mbu', (1204, 1439), -90, h=124, name='mbu_R'); logo_rgba('mbu', (3132, 1262), 90, h=112, name='mbu_L')
+logo_rgba('mbu', (1204, 1439), -90, h=124, name='mbu_R'); logo_rgba('mbu', (2877, 1500), 90, h=112, name='mbu_L')
 # --- DriveOil
 logo_rgba('driveoil', (379, 254), -90, w=270, name='driveoil_R'); logo_rgba('driveoil', (3654, 235), 90, w=280, name='driveoil_L')
 logo_rgba('driveoil', (234, 3667), -64, w=190, name='driveoil_lamp_R'); logo_rgba('driveoil', (3818, 3665), 62, w=190, name='driveoil_lamp_L')
@@ -306,14 +323,14 @@ for side, cs, ce, rot in (('R', (1128, 1815), (1058, 1815), -90), ('L', (4045 - 
 logo_rgba('raf', (1329, 2938), -90, h=108, name='raf_R'); logo_rgba('raf', (2769, 2936), 90, h=108, name='raf_L')
 logo_rgba('raf', (2336, 2420), 0, h=136, name='raf_nose')
 # --- team lockups: sidepods (side rule) + nose top R (front view)
-for side, c1, c2, rot in (('R', (467, 1761), (545, 1761), -90), ('L', (3561, 1756), (3485, 1756), 90)):
-    txt('ЭДМ', 900, 84, c1, rot, 'white', 'team_EDM_' + side)
+for side, c1, c2, rot in (('R', (472, 1785), (542, 1785), -90), ('L', (3561, 1785), (3488, 1785), 90)):
+    txt('ЭДМ', 900, 72, c1, rot, 'white', 'team_EDM_' + side)
     txt('— КОМАНДА —', 700, 26, c2, rot, 'yellow', 'team_komanda_' + side, 0.08)
 print('nose komanda', txt('— КОМАНДА —', 700, 22, (1694, 2370), 0, 'yellow', 'nose_komanda', 0.08))
 print('nose EDM', txt('ЭДМ', 900, 76, (1694, 2446), 0, 'white', 'nose_EDM'))
 # --- sills
-txt('ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ', 800, 28, (1465, 1800), -90, 'white', 'midskirt_text_R', 0.05)
-txt('ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ', 800, 28, (2590, 1800), 90, 'white', 'midskirt_text_L', 0.05)
+txt('ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ', 800, 25, (1465, 1700), -90, 'white', 'midskirt_text_R', 0.05)
+txt('ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ', 800, 25, (2590, 1700), 90, 'white', 'midskirt_text_L', 0.05)
 txt('САРАТОВСКАЯ ОБЛАСТЬ', 800, 26, (186, 3130), -94.5, 'white', 'skirt_text_R', 0.06)
 txt('САРАТОВСКАЯ ОБЛАСТЬ', 800, 26, (3891, 3104), 97, 'white', 'skirt_text_L', 0.06)
 # --- wing
@@ -338,8 +355,8 @@ cv.paint_rgba(place(frog(64), (1600, 214), 180, 'RGBA'), 'frog_lo')
 cv.paint_rgba(place(frog(64).transpose(Image.FLIP_LEFT_RIGHT), (2490, 214), 180, 'RGBA'), 'frog_hi')
 # --- nose front: arms, region text, front 64, checker (painted above)
 logo_rgba('coat', (2044, 2949), 0, h=268, name='coat_nose')
-txt('САРАТОВСКАЯ', 800, 32, (2044, 3127), 0, 'white', 'nose_text1', 0.06)
-txt('ОБЛАСТЬ', 800, 32, (2044, 3175), 0, 'white', 'nose_text2', 0.06)
+txt('САРАТОВСКАЯ', 800, 17, (2044, 3125), 0, 'white', 'nose_text1', 0.04)
+txt('ОБЛАСТЬ', 800, 17, (2044, 3153), 0, 'white', 'nose_text2', 0.04)
 print('nose64', txt('64', 900, 88, (2045, 3282), 0, 'white', 'nose64', outline=5, ocol='yellow'))
 # --- splitter top sponsors (front view) — above the dissolving checker
 arka((1712, 3600), 0, 128, 'arka_splitter')
@@ -353,7 +370,7 @@ logo_rgba('br_eng', (2388, 3948), 0, w=330, name='breng_lip_L')
 logo_rgba('br03', (1180, 3170), -90, h=62, name='br03_R')
 logo_rgba('br03', (2950, 3170), 90, h=62, name='br03_L')
 # simkart.vercel.app — под тэглайном на крыле L и под «Симкарт» на заднем крыле R
-txt('SIMKART.VERCEL.APP', 700, 22, (3060, 1000), 90, 'white', 'link_fin_L', 0.08)
+txt('SIMKART.VERCEL.APP', 700, 18, (3056, 1090), 90, 'white', 'link_fin_L', 0.06)
 txt('SIMKART.VERCEL.APP', 700, 22, (436, 820), -90, 'white', 'link_haunch_R', 0.08)
 
 
