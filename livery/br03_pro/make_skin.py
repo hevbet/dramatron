@@ -96,7 +96,7 @@ cv.paint_alpha(A(band * (yy >= 342)), C['red'], 'wingband_red')
 # wing lower element: yellow line
 cv.paint_alpha(vline([(1500, 560, 24), (2600, 560, 24)]), C['yellow'], 'wing_lower_line')
 for z in ['mirror_R', 'mirror_L', 'splitter_endplate_R', 'splitter_endplate_L']: zfill(z, 'red')
-# лопатки перед задним колесом оставляем графитовыми (жёлтая заливка читалась как «бутылка»)
+for z in ['sidepod_vane_R', 'sidepod_vane_L']: zfill(z, 'yellow')   # воздухозаборники перед задним колесом
 # headlight bezels: azure "eye" (distance-from-edge gradient + dark hairline), both identical
 for z in ['headlight_bezel_carLeftLamp', 'headlight_bezel_carRightLamp']:
     m = Z(z)
@@ -324,7 +324,7 @@ logo_rgba('raf', (1329, 2938), -90, h=108, name='raf_R'); logo_rgba('raf', (2769
 logo_rgba('raf', (2336, 2420), 0, h=136, name='raf_nose')
 # --- team lockups: sidepods (side rule) + nose top R (front view)
 # правый борт: задний край понтона в игре уходит за изгиб, поэтому надпись сдвинута вперёд
-for side, c1, c2, rot, hh in (('R', (482, 1828), (546, 1828), -90, 64), ('L', (3561, 1785), (3488, 1785), 90, 72)):
+for side, c1, c2, rot, hh in (('R', (545, 1770), (606, 1770), -90, 64), ('L', (3561, 1785), (3488, 1785), 90, 72)):
     txt('ЭДМ', 900, hh, c1, rot, 'white', 'team_EDM_' + side)
     txt('— КОМАНДА —', 700, 26, c2, rot, 'yellow', 'team_komanda_' + side, 0.08)
 print('nose komanda', txt('— КОМАНДА —', 700, 22, (1694, 2370), 0, 'yellow', 'nose_komanda', 0.08))
