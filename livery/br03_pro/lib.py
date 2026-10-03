@@ -280,3 +280,61 @@ def save_dxt5(im, path):
         fh.write(struct.pack("<I", max(1, im.width // 4) * max(1, im.height // 4) * 16))
         fh.seek(88)
         fh.write(struct.pack("<I", 0))
+
+
+# ---------------------------------------------------------------- DriveOil (воссоздан по фото вывески)
+DRIVEOIL_ORANGE = (238, 106, 38)
+
+
+def _drop(d, cx, cy, r, tip_h, fill):
+    """Капля: круг радиуса r с центром (cx, cy) и острие на высоте tip_h над центром."""
+    tip = (cx + r * 0.25, cy - tip_h)                       # острие с лёгким наклоном, как курсив
+    phi = math.acos(min(0.99, r / math.hypot(tip[0] - cx, tip[1] - cy)))   # угол точек касания
+    base = math.atan2(tip[1] - cy, tip[0] - cx)
+    pts = [tip]
+    for k in range(0, 61):                                  # дуга снизу: от одной точки касания к другой
+        a = base + phi + (2 * math.pi - 2 * phi) * k / 60
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    d.polygon(pts, fill=fill)
+
+
+def driveoil_logo(h, fg=(255, 255, 255), bg=DRIVEOIL_ORANGE, plate=True, inner=None):
+    """Надпись DRIVEOIL: крупная D, капители RIVE / IL, «O» — капля с каплей-прорезью внутри.
+    plate=True — белое на оранжевой плашке; plate=False — только знак (inner — цвет внутренней капли,
+    по умолчанию оранжевый, как на вывеске на тёмном фасаде). h — высота знака."""
+    S = 3
+    H = h * S
+    cap, small = font(int(H * 1.0)), font(int(H * 0.72))
+    parts = [("D", cap), ("RIVE", small)]
+    w_txt = sum(f.getlength(s) for s, f in parts)
+    drop_w = H * 0.7
+    w_il = small.getlength("IL")
+    W = int(w_txt + drop_w + w_il + H * 0.5)
+    m = Image.new("L", (W, int(H * 1.25)), 0)
+    ins = Image.new("L", m.size, 0)
+    d, di = ImageDraw.Draw(m), ImageDraw.Draw(ins)
+    base_y = int(H * 1.02)
+    x = H * 0.1
+    for s_, f in parts:
+        d.text((x, base_y), s_, font=f, fill=255, anchor="ls")
+        x += f.getlength(s_) + H * 0.02
+    r_out = H * 0.3                                         # капля ≈ высоте заглавной D, широкая как «O»
+    cx, cy = x + drop_w * 0.5, base_y - r_out
+    _drop(d, cx, cy, r_out, H * 0.46, 255)
+    _drop(d, cx + r_out * 0.04, cy + r_out * 0.1, r_out * 0.56, H * 0.24, 0)
+    _drop(di, cx + r_out * 0.04, cy + r_out * 0.1, r_out * 0.56, H * 0.24, 255)
+    x += drop_w + H * 0.02
+    d.text((x, base_y), "IL", font=small, fill=255, anchor="ls")
+    bb = m.getbbox()
+    m, ins = m.crop(bb), ins.crop(bb)
+    sz = (max(1, m.width // S), max(1, m.height // S))
+    m, ins = m.resize(sz, Image.LANCZOS), ins.resize(sz, Image.LANCZOS)
+    mark = solid(m, fg)
+    if not plate:
+        mark.alpha_composite(solid(ins, inner or DRIVEOIL_ORANGE))
+        return mark
+    pad_x, pad_y = int(h * 0.35), int(h * 0.22)
+    t = Image.new("RGBA", (m.width + 2 * pad_x, m.height + 2 * pad_y), (0, 0, 0, 0))
+    ImageDraw.Draw(t).rounded_rectangle([0, 0, t.width - 1, t.height - 1], radius=int(h * 0.12), fill=bg + (255,))
+    t.alpha_composite(mark, (pad_x, pad_y))
+    return t
