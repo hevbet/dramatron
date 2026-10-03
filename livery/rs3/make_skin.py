@@ -21,7 +21,7 @@ from scipy import ndimage
 
 SRC = sys.argv[1]
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "castrol_gt500_86")
+OUT = os.path.join(HERE, "Konopelko_86")   # правило: фамилия латиницей_номер
 os.makedirs(OUT, exist_ok=True)
 F_RACE = os.path.join(HERE, "..", "br03", "brand", "fonts", "Exo2-Italic[wght].ttf")
 
@@ -361,6 +361,6 @@ di.text((92, 95), "86", font=font(90), fill=BLACK, anchor="mm")
 ic.save(os.path.join(OUT, "livery.png"))
 
 with open(os.path.join(OUT, "ui_skin.json"), "w", encoding="utf-8") as fh:
-    json.dump({"skinname": "Castrol GT500 tribute #86", "drivername": "Матвей Конопелько", "country": "Russia",
+    json.dump({"skinname": "Konopelko_86", "drivername": "Матвей Конопелько", "country": "Russia",
                "team": "Castrol GT500 tribute", "number": "86", "priority": 1}, fh, ensure_ascii=False, indent=2)
 print("готово:", OUT)
