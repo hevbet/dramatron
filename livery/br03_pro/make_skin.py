@@ -349,8 +349,8 @@ print('arka haunch', arka((3590, 820), 90, 118, 'arka_haunch_L'))
 logo_rgba('mbu', (1204, 1439), -90, h=124, name='mbu_R'); logo_rgba('mbu', (2877, 1500), 90, h=112, name='mbu_L')
 # --- DriveOil
 # задние крылья за колесом: DriveOil и KARTING64 — повёрнуты так, чтобы в игре шли параллельно земле
-logo_rgba('driveoil', (395, 250), -68, w=250, name='driveoil_R'); logo_rgba('driveoil', (3650, 235), 68, w=250, name='driveoil_L')
-logo_rgba('karting64', (250, 230), -68, w=230, name='karting64_R'); logo_rgba('karting64_flip', (3795, 215), 68, w=230, name='karting64_L')
+logo_rgba('driveoil', (390, 252), -83, w=250, name='driveoil_R'); logo_rgba('driveoil', (3654, 236), 83, w=250, name='driveoil_L')
+logo_rgba('karting64', (255, 232), -83, w=230, name='karting64_R'); logo_rgba('karting64_flip', (3778, 222), 83, w=210, name='karting64_L')
 logo_rgba('driveoil', (234, 3667), -64, w=190, name='driveoil_lamp_R'); logo_rgba('driveoil', (3818, 3665), 62, w=190, name='driveoil_lamp_L')
 # --- BR ENGINEERING on бочка panels (centred low) + BR ENGINEERING lockup in lip window L
 # BR выше, под ним два спонсора: SMP Racing Esports и РАФ
@@ -359,7 +359,7 @@ for side, sgn, rot in (('R', 1, -90), ('L', -1, 90)):
     dy = 0 if side == 'R' else 18
     logo_rgba('br_sym', (X(1268), 1815 + dy), rot, h=84, name='br_hoop_' + side)
     t = fit(text_mask('ENGINEERING', 700, 200, 0.08), h=12); mask_col(t, (X(1206), 1815 + dy), rot, 'white', 'br_eng_hoop_' + side)
-    logo_rgba('smp_lockup', (X(1140), 1815 + dy), rot, h=40, name='smp_hoop_' + side)
+    logo_rgba('smp_lockup', (X(1140), 1815 + dy - (22 if side == 'L' else 0)), rot, h=36, name='smp_hoop_' + side)
     logo_rgba('raf', (X(1066), 1815 + dy), rot, h=64, name='raf_hoop_' + side)
 # --- РАФ on rear lower side panels + nose top L
 logo_rgba('raf', (1329, 2938), -90, h=108, name='raf_R'); logo_rgba('raf', (2769, 2936), 90, h=108, name='raf_L')
@@ -417,8 +417,8 @@ txt('KARTING64.RU', 900, 21, (3003, 3880), 90, 'white', 'k64_splitter_L', 0.03)
 # концевые пластины антикрыла (флаг области): арка справа, Симкарт слева
 arka((218, 535), -90, 66, 'arka_endplate_R')
 ep = blib.simkart_logo(70, silver=C['ink'], glow=False)
-logo_img = ep.resize((170, int(ep.height * 300 / ep.width)), Image.LANCZOS)
-cv.paint_rgba(place(logo_img, (3838, 545), 90, 'RGBA'), 'simkart_endplate_L')
+logo_img = ep.resize((120, int(ep.height * 300 / ep.width)), Image.LANCZOS)
+cv.paint_rgba(place(logo_img, (3840, 540), 90, 'RGBA'), 'simkart_endplate_L')
 
 # ============ 9. ДОПОЛНЕНИЯ: BR03, ссылка Симкарта ============
 # BR03 на нижней боковине перед задним колесом (как у ADR), читается вдоль борта
