@@ -227,7 +227,7 @@ DT = ndimage.distance_transform_edt(M)
 def zone_feather(z, r=60): return np.clip(ndimage.distance_transform_edt(Z(z)) / r, 0, 1)
 def blob(cx, cy, rx, ry): return np.exp(-2.2 * (((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2))
 fR = zone_feather('engine_cover_side_R'); fL = zone_feather('engine_cover_side_L')
-screen(0.30 * blob(2960, 1130, 110, 400) * fL, C['red'])
+screen(0.30 * blob(2960, 1195, 100, 340) * fL, C['red'])
 
 # ============ 7. PLATES ============
 def number_plate(poly, redcond, name):
@@ -340,8 +340,8 @@ def simkart(center, rot, w, name, glow=0.0):
 # --- fin heroes
 print('arka hero', arka((1105, 1130), -90, 138, 'arka_fin_R'))
 mask_col(fit(brand('arka_taimcafe'), h=34), (1100, 1385), -90, 'yellow', 'taimcafe_fin_R')
-print('simkart hero', simkart((2958, 1130), 90, 560, 'simkart_fin_L', glow=0.30))
-mask_col(fit(brand('simkart_tagline'), w=400), (3030, 1090), 90, 'red', 'tagline_fin_L')
+print('simkart hero', simkart((2958, 1195), 90, 480, 'simkart_fin_L', glow=0.30))
+mask_col(fit(brand('simkart_tagline'), w=300), (3028, 1165), 90, 'red', 'tagline_fin_L')
 # --- haunch secondaries
 print('simkart haunch', simkart((498, 820), -90, 520, 'simkart_haunch_R'))
 print('arka haunch', arka((3590, 820), 90, 118, 'arka_haunch_L'))
@@ -349,8 +349,9 @@ print('arka haunch', arka((3590, 820), 90, 118, 'arka_haunch_L'))
 logo_rgba('mbu', (1204, 1439), -90, h=124, name='mbu_R'); logo_rgba('mbu', (2877, 1500), 90, h=112, name='mbu_L')
 # --- DriveOil
 # задние крылья за колесом: DriveOil и KARTING64 — повёрнуты так, чтобы в игре шли параллельно земле
-logo_rgba('driveoil', (390, 252), -83, w=250, name='driveoil_R'); logo_rgba('driveoil', (3654, 236), 83, w=250, name='driveoil_L')
-logo_rgba('karting64', (255, 232), -83, w=230, name='karting64_R'); logo_rgba('karting64_flip', (3778, 222), 83, w=210, name='karting64_L')
+# сверху KARTING64, под ним DriveOil; угол ±118° (рассчитан по сетке UV-теста) подобран по скринам (на этой детали развёртка повёрнута)
+logo_rgba('karting64', (392, 250), -118, w=210, name='karting64_R'); logo_rgba('karting64_flip', (3652, 236), 118, w=210, name='karting64_L')
+logo_rgba('driveoil', (262, 232), -118, w=210, name='driveoil_R'); logo_rgba('driveoil', (3776, 222), 118, w=200, name='driveoil_L')
 logo_rgba('driveoil', (234, 3667), -64, w=190, name='driveoil_lamp_R'); logo_rgba('driveoil', (3818, 3665), 62, w=190, name='driveoil_lamp_L')
 # --- BR ENGINEERING on бочка panels (centred low) + BR ENGINEERING lockup in lip window L
 # BR выше, под ним два спонсора: SMP Racing Esports и РАФ
@@ -359,7 +360,7 @@ for side, sgn, rot in (('R', 1, -90), ('L', -1, 90)):
     dy = 0 if side == 'R' else 18
     logo_rgba('br_sym', (X(1268), 1815 + dy), rot, h=84, name='br_hoop_' + side)
     t = fit(text_mask('ENGINEERING', 700, 200, 0.08), h=12); mask_col(t, (X(1206), 1815 + dy), rot, 'white', 'br_eng_hoop_' + side)
-    logo_rgba('smp_lockup', (X(1140), 1815 + dy - (22 if side == 'L' else 0)), rot, h=36, name='smp_hoop_' + side)
+    logo_rgba('smp_lockup', (X(1140), 1815 + dy - (8 if side == 'L' else 0)), rot, h=30, name='smp_hoop_' + side)
     logo_rgba('raf', (X(1066), 1815 + dy), rot, h=64, name='raf_hoop_' + side)
 # --- РАФ on rear lower side panels + nose top L
 logo_rgba('raf', (1329, 2938), -90, h=108, name='raf_R'); logo_rgba('raf', (2769, 2936), 90, h=108, name='raf_L')
@@ -417,7 +418,7 @@ txt('KARTING64.RU', 900, 21, (3003, 3880), 90, 'white', 'k64_splitter_L', 0.03)
 # концевые пластины антикрыла (флаг области): арка справа, Симкарт слева
 arka((218, 535), -90, 66, 'arka_endplate_R')
 ep = blib.simkart_logo(70, silver=C['ink'], glow=False)
-logo_img = ep.resize((120, int(ep.height * 300 / ep.width)), Image.LANCZOS)
+logo_img = ep.resize((150, int(ep.height * 150 / ep.width)), Image.LANCZOS)   # пропорции сохранены
 cv.paint_rgba(place(logo_img, (3840, 540), 90, 'RGBA'), 'simkart_endplate_L')
 
 # ============ 9. ДОПОЛНЕНИЯ: BR03, ссылка Симкарта ============
@@ -425,7 +426,7 @@ cv.paint_rgba(place(logo_img, (3840, 540), 90, 'RGBA'), 'simkart_endplate_L')
 logo_rgba('br03', (1180, 3170), -90, h=62, name='br03_R')
 logo_rgba('br03', (2950, 3170), 90, h=62, name='br03_L')
 # simkart.vercel.app — под тэглайном на крыле L и под «Симкарт» на заднем крыле R
-txt('SIMKART.VERCEL.APP', 700, 18, (3056, 1090), 90, 'white', 'link_fin_L', 0.06)
+txt('SIMKART.VERCEL.APP', 700, 16, (3054, 1165), 90, 'white', 'link_fin_L', 0.06)
 txt('SIMKART.VERCEL.APP', 700, 22, (436, 820), -90, 'white', 'link_haunch_R', 0.08)
 
 
