@@ -7,7 +7,9 @@ labels (Yeseva One), plus a Y2K layer: holographic lower band, chrome keylines, 
 Everything that crosses panels is painted in WORLD SPACE (texel -> 3D position map at 4096), so lines are
 continuous across door gaps and UV seams and logos/text are projected level to the ground with correct
 aspect. Every logo/text decal is checked automatically (inside its zone mask, clearance to panel edge,
-clearance to the cut lines, surface tilt) — see check_report.txt.
+clearance to the cut lines, surface tilt) — see check_report.txt. Dashed lines are drawn in whole dashes only: a
+dash that would be cut by an arch lip / trim notch or half-hidden behind a part mounted on the body (tow strap) is
+left out whole and listed in the report; lines that meet another line end on the middle of one of its dashes.
 
 Run:  python3 make_skin.py            (writes Pozdnyakov_00/, Konopelko_00/, texture_preview.png, zips)
 """
@@ -533,30 +535,82 @@ def paint_belly():
     # at the nose the dashed line does not run on across the bumper into the air intakes: it ends where the front
     # connector leaves it and turns up behind the headlight (closed corner of the chart, see front_connector)
     keep &= P[:, 1] >= FRONT_TURN_Y
-    # around the tail the line passes behind the black lower trim fins and the tow-strap tab (separate meshes in
-    # front of the bumper skin). A dash that is partly behind one of them in any standard view would show as a
-    # stub, so every such dash is left out whole: the line dips behind the trim and comes out of it in clear paint.
+    # Whole dashes only. Around the tail the line crosses the notches of the black plastic lower-trim fins (no
+    # bumper skin there: the separate ext_plastic part fills them) and passes behind the tow-strap tab; at the
+    # wheel arches it runs off the lip. A dash that loses part of its length to any of these would show as a stub,
+    # so every such dash is left out whole and the line goes behind the part / across the opening in clear paint.
     d_c = np.abs(dist - 0.022)
     loc = np.mod(s, DPER)
     near = np.floor(s / DPER).astype(int) + ((loc >= DASH[0]) & (loc - DASH[0] > DPER - loc))
-    key = near * 2 + (P[:, 0] > 0)
-    probe = keep & (P[:, 1] > 1.5) & (d_c < 0.0115) & (loc < DASH[0])
-    pi = np.flatnonzero(probe)[::2]
-    tris, rr = occluders_raw()
-    eyes = []
-    for v in ("rear", "rear34_left", "rear34_right", "side_left", "side_right"):
-        e = rr.view_camera(v)[0]
-        eyes.append(np.array([e[0], -e[2], e[1] + RAW_OFF]))
-    occ = occluded(P[pi], NRMF[idx[pi]], tris, eyes)
-    bad = np.unique(key[pi][occ])
-    drop = np.isin(key, bad)
-    BELLY_DROPPED.extend(sorted(int(k) for k in bad))
-    print(f"   rear dash centred on the car (lateral stretch {REAR_K:.4f}); dashes behind trim left out: {len(bad)}")
-    keep &= ~drop
+    key = near * 2 + (P[:, 0] > -0.05)        # (the centre dash of the tail, |x| < 4 cm, is one group)
+    covf = COV.reshape(-1)[idx] & OUTER[idx]          # only the outer skin the renderer shows
+    kmin = int(key.min())
+    kspan = int(key.max()) - kmin + 1
+    # (1) truncated: the dash body is checked in three strips across its width (lower / centre / upper 6 mm);
+    #     each strip must run the full 7.5 cm with no hole > 1.2 cm (door shut lines are < 0.6 cm). A strip that
+    #     is missing (the trim notch takes the lower half of a dash) or broken counts as a cut dash. Dashes at the
+    #     hand-over to the rear-door connector are cut there on purpose (the connector carries them on): exempt.
+    off = dist - 0.022
+    body = keep & covf & (d_c < 0.009) & (loc < DASH[0])
+    bi = np.flatnonzero(body)
+    order = np.lexsort((loc[bi], key[bi]))
+    bi = bi[order]
+    kb, lb, ob = key[bi], loc[bi], np.digitize(off[bi], [-0.003, 0.003])
+    cuts = np.flatnonzero(np.diff(kb)) + 1
+    trunc = []
+    for g in np.split(np.arange(len(bi)), cuts):
+        if not len(g):
+            continue
+        ys = P[bi[g], 1]
+        if (ys.max() > BELLY_SPLIT - 0.10) and (ys.min() < BELLY_SPLIT + 0.10):
+            continue
+        if ys.min() > 2.0 and np.abs(P[bi[g], 0]).min() < 0.005:
+            continue                   # the tail centre dash: its two mirrored halves each run 0 .. on/2
+        worst = 0.0
+        for band in range(3):
+            lg = lb[g][ob[g] == band]
+            worst = max(worst, float(np.diff(np.concatenate([[0.0], lg, [DASH[0]]])).max()))
+        if worst > 0.012:
+            trunc.append(int(kb[g[0]]))
+    # (2) partly hidden: in some standard view part of the dash faces the camera but a separate part (tow-strap
+    #     tab, trim) is drawn in front of it while the rest of the same dash is visible -> it would read as a stub
+    hid = set()
+    base = np.flatnonzero(keep & OUTER[idx] & (d_c < 0.008) & (loc < DASH[0]))
+    for v in VIEWS9:
+        e = VISD["cam"][v][0]
+        dv = e[None, :] - P[base]
+        dv /= np.linalg.norm(dv, axis=1, keepdims=True)
+        fc = np.einsum("ij,ij->i", dv, NRMF[idx[base]])
+        ci = base[fc > 0.3]
+        hb = hidden_by_part(P[ci], v)
+        kh = key[ci]
+        nh = np.bincount(kh[hb] - kmin, minlength=kspan)
+        ns = np.bincount(kh[~hb] - kmin, minlength=kspan)
+        for k in np.flatnonzero((nh > 3) & (ns > 25)):
+            hid.add(int(k + kmin))
+            HIDDEN_IN.setdefault(int(k + kmin), set()).add(v)
+    hid = sorted(hid)
+    bad = sorted(set(trunc) | set(hid))
+    for k in bad:
+        m = key == k
+        m &= OUTER[idx] & (d_c < 0.008)
+        BELLY_DROPPED.append(dict(dash=k // 2, side="L" if k % 2 else "R",
+                                  why=("hidden in " + ",".join(sorted(HIDDEN_IN[k]))) if k in hid else "truncated",
+                                  y=round(float(np.median(P[m, 1])), 3), x=round(float(np.median(P[m, 0])), 3)))
+    LINE_NOTES.append(f"tail centre: one {DASH[0] * 100:.1f} cm dash centred on x=0 (lateral stretch {REAR_K:.4f})")
+    print(f"   rear dash centred on the car (lateral stretch {REAR_K:.4f}); whole dashes left out: "
+          f"{len(trunc)} truncated (arch lip / trim notch), {len(hid)} partly hidden (tow strap / trim)")
+    for r in BELLY_DROPPED:
+        print(f"      dropped dash {r['dash']}{r['side']} ({r['why']}) at x={r['x']:+.3f} y={r['y']:+.3f}")
+    keep &= ~np.isin(key, bad)
     dash_line(idx[keep], s[keep], d_c[keep], 0.011, 0.075, 0.045, INK)
 
 
 BELLY_DROPPED = []
+LINE_NOTES = []
+HIDDEN_IN = {}
+VISD = {}           # renderer visibility of the 9 standard views (filled in paint_body)
+OUTER = None        # texels visible in at least one standard view
 
 
 BELLY_SPLIT = 0.86
@@ -588,58 +642,86 @@ def rear_k_centred(P, dist):
     return (lat + delta) / lat
 
 
-def occluders_raw():
-    """Non-skin, non-glass exterior meshes of the car (black lower trim, diffuser, tow strap ...) in the posmap
-    frame, as triangles (n,3,3). Render frame (AC: x left, y up, z front) -> raw: (x, -z, y + 0.0724)."""
+VIEWS9 = ["front34_left", "front34_right", "side_left", "side_right", "rear34_left", "rear34_right", "front", "rear",
+          "top"]
+VIS_CACHE = os.path.join(SCRATCH, "bc", "visibility_9views_v2.npz")
+
+
+def view_visibility():
+    """What the renderer shows in each of the 9 standard views (its own cameras and rasteriser, opaque pass, ss=2):
+    'vis'  {view: bool (N*N)}  Skin.dds texels that appear in the view,
+    'zns'  {view: (Hs,Ws) float32}  depth of the front-most NON-skin surface per pixel (trim, tow strap ...), inf
+           where the pixel shows the body or nothing,
+    'cam'  {view: (eye, f, rgt, up, mx, my, fpx, Ws, Hs)} in the posmap frame, to project texels into the view.
+    Geometry only, so cached in the scratchpad."""
+    if os.path.exists(VIS_CACHE):
+        d = np.load(VIS_CACHE, allow_pickle=True)
+        return dict(vis={v: np.unpackbits(d["vis_" + v])[:N * N].astype(bool) for v in VIEWS9},
+                    zns={v: d["zns_" + v] for v in VIEWS9}, cam={v: tuple(d["cam_" + v]) for v in VIEWS9})
     sys.path.insert(0, os.path.join(LIV, "tools"))
-    import render_rs3
-    _, _, meshes = render_rs3.load_scene(render_rs3.DEFAULT_KN5, False)
-    tris = []
-    for m in meshes:
-        if m["mat"] in ("skin", "glass", "lights_glass", "glass_sticker", "ext_sticker") or m["interior"]:
-            continue
-        if m["mat"] in render_rs3.SKIP_MATS or not render_rs3.in_car_bounds(m["pos"]):
-            continue
-        p = m["pos"]
-        q = np.stack([p[:, 0], -p[:, 2], p[:, 1] + RAW_OFF], 1)
-        tris.append(q[m["idx"]])
-    return np.concatenate(tris), render_rs3
+    import render_rs3 as R
+    sc = R.Scene(R.DEFAULT_KN5, SRC, interior=False)
+    skin_mid = sc.mat_names.index("skin")
+    W, H, ss, margin = 1600, 900, 2, 0.07
+    vis, zns, cam = {}, {}, {}
+    to_pm = lambda v: np.array([v[0], -v[2], v[1]])            # render (x left, y up, z front) -> posmap axes
+    for name in VIEWS9:
+        eye, f, rgt, up = R.view_camera(name)
+        rel = sc.P - eye
+        Dv = rel @ f
+        cx_, cy_ = rel @ rgt / Dv, rel @ up / Dv
+        used = np.unique(sc.T.ravel())
+        ux, uy = cx_[used], cy_[used]
+        Ws, Hs = W * ss, H * ss
+        fpx = min(Ws * (1 - 2 * margin) / (ux.max() - ux.min()), Hs * (1 - 2 * margin) / (uy.max() - uy.min()))
+        mx, my = (ux.min() + ux.max()) / 2, (uy.min() + uy.max()) / 2
+        X = (cx_ - mx) * fpx + Ws / 2
+        Y = -(cy_ - my) * fpx + Hs / 2
+        opaque = ~sc.is_glass[sc.TM] & sc.tri_ok
+        gid = np.nonzero(opaque)[0]
+        zb, tid, B1, B2 = R.rasterize(X, Y, Dv, sc.T[opaque], sc.bias[sc.TM][opaque], Ws, Hs, None)
+        tid = np.where(tid >= 0, gid[np.maximum(tid, 0)], -1)
+        hit = tid >= 0
+        isskin = np.zeros_like(hit)
+        isskin[hit] = sc.TM[tid[hit]] == skin_mid
+        z = np.where(hit & ~isskin, zb, np.inf).astype(np.float32).reshape(Hs, Ws)
+        tt, b1, b2 = tid[isskin], B1[isskin], B2[isskin]
+        tri = sc.T[tt]
+        uv = (sc.UV[tri[:, 0]] * (1 - b1 - b2)[:, None] + sc.UV[tri[:, 1]] * b1[:, None]
+              + sc.UV[tri[:, 2]] * b2[:, None])
+        tx = np.clip(((uv[:, 0] % 1) * N).astype(int), 0, N - 1)
+        ty = np.clip((((1 + uv[:, 1]) % 1) * N).astype(int), 0, N - 1)
+        m = np.zeros((N, N), bool)
+        m[ty, tx] = True
+        # a 1.7 mm pixel lands on every 2nd-3rd texel of a foreshortened panel: close the sampling holes
+        vis[name] = ndimage.binary_dilation(m, iterations=3).reshape(-1)
+        zns[name] = z
+        e = to_pm(eye) + np.array([0, 0, 0.07237756])          # the kn5 node transform puts the posmap 7.24 cm higher
+        cam[name] = (e, to_pm(f), to_pm(rgt), to_pm(up), mx, my, fpx, Ws, Hs)
+    os.makedirs(os.path.dirname(VIS_CACHE), exist_ok=True)
+    blob = {}
+    for v in VIEWS9:
+        blob["vis_" + v] = np.packbits(vis[v])
+        blob["zns_" + v] = zns[v]
+        blob["cam_" + v] = np.array(cam[v], dtype=object)
+    np.savez_compressed(VIS_CACHE, **blob)
+    return dict(vis=vis, zns=zns, cam=cam)
 
 
-RAW_OFF = 0.07237756
-
-
-def occluded(pts, nrm, tris, eyes, tmax=0.35):
-    """True where the ray from a surface point toward any camera eye hits an occluder triangle within tmax
-    (only for points whose normal faces that camera). Moller-Trumbore, vectorised."""
-    hit = np.zeros(len(pts), bool)
-    lo, hi = pts.min(0) - tmax, pts.max(0) + tmax
-    tmin_, tmax_ = tris.min(1), tris.max(1)
-    tr = tris[np.all((tmax_ >= lo) & (tmin_ <= hi), axis=1)]
-    if not len(tr):
-        return hit
-    v0, e1, e2 = tr[:, 0], tr[:, 1] - tr[:, 0], tr[:, 2] - tr[:, 0]
-    ch = max(1, int(1.5e6 // len(tr)))
-    for eye in eyes:
-        d = eye[None, :] - pts
-        d /= np.linalg.norm(d, axis=1, keepdims=True)
-        face = np.einsum("ij,ij->i", d, nrm) > 0.05
-        for a in range(0, len(pts), ch):
-            sl = slice(a, a + ch)
-            o = pts[sl] + nrm[sl] * 0.001
-            D = d[sl]
-            pv = np.cross(D[:, None, :], e2[None])
-            det = np.einsum("ntk,tk->nt", pv, e1)
-            ok = np.abs(det) > 1e-12
-            inv = np.where(ok, 1.0 / np.where(ok, det, 1), 0)
-            tv = o[:, None, :] - v0[None]
-            u = np.einsum("ntk,ntk->nt", tv, pv) * inv
-            qv = np.cross(tv, e1[None])
-            v = np.einsum("nk,ntk->nt", D, qv) * inv
-            t = np.einsum("tk,ntk->nt", e2, qv) * inv
-            h = ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t > 1e-4) & (t < tmax)
-            hit[sl] |= h.any(1) & face[sl]
-    return hit
+def hidden_by_part(pts, view):
+    """True where a world point lies 0.5-10 cm behind a non-skin part in `view`: a part mounted right on the body
+    (tow-strap tab, trim fin). Things further in front (a wheel seen across the car) are ordinary perspective."""
+    e, f, rgt, up, mx, my, fpx, Ws, Hs = VISD["cam"][view]
+    rel = pts - e
+    dv = rel @ f
+    X = ((rel @ rgt) / dv - mx) * fpx + Ws / 2
+    Y = -((rel @ up) / dv - my) * fpx + Hs / 2
+    xi, yi = np.floor(X).astype(int), np.floor(Y).astype(int)
+    ok = (xi >= 0) & (xi < Ws) & (yi >= 0) & (yi < Hs)
+    out = np.zeros(len(pts), bool)
+    zp = VISD["zns"][view][yi[ok], xi[ok]]
+    out[ok] = (zp < dv[ok] - 0.005) & (zp > dv[ok] - 0.10)
+    return out
 
 
 DASH = (0.075, 0.045)
@@ -748,49 +830,47 @@ _tree_cache = {}
 def snap(points, mode, parts, side=None, exact=False):
     """points: list of 2D coords; mode 'side' -> (y,z) finds outermost x on `side`;
     'top' -> (x,y) finds highest z. Returns (n,3) world points on the surface.
-    exact=True (used for painted lines): the depth is solved on a plane fitted through the outermost sheet
-    instead of averaged over it. On a sloped sheet (the up-facing front-fender top, nz ~0.95) the plain mean sat
-    ~4 mm off the surface, so the band painted around the curve slid down the slope and the shoulder line read
-    lower on the fender than on the door."""
+    exact=True (used for painted lines): the depth is then solved on the tangent plane of the mesh triangle
+    nearest to that first estimate (posmap normals are the flat triangle normals, so this lands on the mesh).
+    On a sloped sheet (the up-facing front-fender top, nz ~0.95) the plain mean sat ~4 mm off the surface, so
+    the band painted around the curve slid down the slope and the shoulder line read lower on the fender than
+    on the door."""
     idx = cand(parts, side)
     P = POSF[idx]
     key = (mode, tuple(parts), side)
     if key not in _tree_cache:
         sel = np.arange(0, len(P), 2)
         q = P[sel][:, [1, 2]] if mode == "side" else P[sel][:, [0, 1]]
-        _tree_cache[key] = (cKDTree(q), P[sel])
-    tree, PS = _tree_cache[key]
+        _tree_cache[key] = (cKDTree(q), P[sel], NRMF[idx[sel]])
+    tree, PS, NS = _tree_cache[key]
+    ax = 0 if mode == "side" else 2                     # the depth axis that is solved for
     out = []
     for p in points:
         nb = tree.query_ball_point(p, 0.006)
         if not nb:
             _, nb = tree.query(p, k=8)
             nb = list(np.atleast_1d(nb))
+        nb = np.asarray(nb)
         c = PS[nb]
         # keep the requested 2D coordinates exactly; take the depth from the outermost surface sheet
         if mode == "side":
             sx = c[:, 0] if side == "L" else -c[:, 0]
             sheet = sx > sx.max() - 0.008
-            d = _plane_depth(c[sheet][:, [1, 2]], c[sheet, 0], p) if exact else None
-            out.append((np.mean(c[sheet, 0]) if d is None else d, p[0], p[1]))
+            pt = np.array([np.mean(c[sheet, 0]), p[0], p[1]])
         else:
             sheet = c[:, 2] > c[:, 2].max() - 0.008
-            d = _plane_depth(c[sheet][:, [0, 1]], c[sheet, 2], p) if exact else None
-            out.append((p[0], p[1], np.mean(c[sheet, 2]) if d is None else d))
+            pt = np.array([p[0], p[1], np.mean(c[sheet, 2])])
+        if exact:
+            cs, ns = c[sheet], NS[nb[sheet]]
+            for _ in range(2):
+                j = int(np.argmin(np.linalg.norm(cs - pt, axis=1)))
+                q, n = cs[j], ns[j]
+                if abs(n[ax]) < 0.2:
+                    break
+                other = [k for k in range(3) if k != ax]
+                pt[ax] = q[ax] - sum((pt[k] - q[k]) * n[k] for k in other) / n[ax]
+        out.append(tuple(pt))
     return np.array(out)
-
-
-def _plane_depth(uv, dep, p):
-    """depth at 2D point p from a least-squares plane dep = a + b*u + c*v; None if the fit is ill-posed."""
-    if len(dep) < 6:
-        return None
-    A = np.column_stack([np.ones(len(dep)), uv[:, 0] - p[0], uv[:, 1] - p[1]])
-    if np.linalg.matrix_rank(A, tol=1e-4) < 3:
-        return None
-    coef, *_ = np.linalg.lstsq(A, dep, rcond=None)
-    if abs(coef[0] - np.mean(dep)) > 0.02:        # extrapolating wildly: keep the plain mean
-        return None
-    return float(coef[0])
 
 
 def catmull3(pts, n=40):
@@ -853,10 +933,15 @@ def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mo
         dash_line(idx, S[j] * scale, d, half_w, dash[0], dash[1], col, phase)
     else:
         hw = half_w
+        fade = 1.0
         if taper is not None:             # (start, end) taper lengths: the line narrows to a point instead of stopping
             sj = S[j]
-            hw = half_w * np.clip(np.minimum(sj / max(taper[0], 1e-6), (S[-1] - sj) / max(taper[1], 1e-6)), 0, 1)
-        blend(idx, col, smoothstep_aa(d, hw), obstacle=True)
+            tf = np.clip(np.minimum(sj / max(taper[0], 1e-6), (S[-1] - sj) / max(taper[1], 1e-6)), 0, 1)
+            # below ~2 texels a narrowing line stair-steps across the texel grid (a ragged white sliver on the
+            # fender top): the last part keeps a 2.5 mm half width and fades out in opacity instead
+            hw = np.maximum(half_w * tf, min(half_w, 0.0025))
+            fade = np.clip(half_w * tf / min(half_w, 0.0025), 0, 1)
+        blend(idx, col, smoothstep_aa(d, hw) * fade, obstacle=True)
     return C
 
 
@@ -1141,7 +1226,9 @@ def paint_pearl():
 def paint_body():
     print("base: pearl pink, holo belly band, keylines, butcher lines ...")
     paint_pearl()
-    global FRONT_TURN_Y
+    global FRONT_TURN_Y, OUTER
+    VISD.update(view_visibility())
+    OUTER = np.logical_or.reduce([VISD["vis"][v] for v in VIEWS9])
     FRONT_TURN_Y = front_turn_y()
     print(f"   front turn of the belly cut line at y = {FRONT_TURN_Y:.3f}")
     paint_belly()
@@ -1149,7 +1236,11 @@ def paint_body():
     # --- shoulder cut line along the Audi tornado crease (headlight -> tail light), both sides
     # (rear fender, y >= 1.06: the line rides on the side-facing band 0.855-0.880 just under the tornado crease;
     #  probed normals: below 0.855 the wide-body flare top faces UP (nz ~0.95) and made the line look thin)
-    A_PTS = [A_FRONT, (-1.30, 0.842), (-1.05, 0.848), (-0.90, 0.855), (-0.60, 0.862),
+    # (front fender: the line runs on the up-facing flare top, nz ~0.95, where the side view sees it thin, and meets
+    #  the 50-deg door crease at the fender / door gap y ~-0.86, where it is seen full height. The rise toward the
+    #  rear is done ahead of y -1.05 so the line is almost level across the gap: the thin fender part runs straight
+    #  into the middle of the door part instead of climbing 2-3 px right at the gap, which read as a step.)
+    A_PTS = [A_FRONT, (-1.30, 0.845), (-1.05, 0.853), (-0.90, 0.857), (-0.60, 0.862),
              (0.00, 0.866), (0.60, 0.867), (0.92, 0.867), (1.06, 0.867), (1.30, 0.868), (1.60, 0.868), (1.86, 0.867)]
     shoulder = {}
     for s in ("L", "R"):
@@ -1189,6 +1280,8 @@ def paint_body():
     Lh = float(arclen(Ch)[-1])
     nper = round((Lh - DASH[0]) / DPER)
     curve_line(hood, TOP, None, 0.011, INK, dash=DASH, resnap_mode="top", scale=(nper * DPER + DASH[0]) / Lh)
+    LINE_NOTES.append(f"hood cut line meets the shoulder line at x=+-{xj:.3f} y={yj:.3f} on the middle of a shoulder "
+                      f"dash; {nper + 1} whole dashes, stretch {(nper * DPER + DASH[0]) / Lh:.4f}")
     print(f"   hood cut line meets the shoulder line at x=+-{xj:.3f} y={yj:.3f} (z {Ch[-1, 2]:.3f} vs shoulder "
           f"{float(np.interp(s_j, SL, CL[:, 2])):.3f}); {nper + 1} dashes, stretch {(nper * DPER + DASH[0]) / Lh:.4f}; "
           f"R shoulder there x={float(np.interp(s_j, arclen(shoulder['R']), shoulder['R'][:, 0])):.3f}")
@@ -1624,11 +1717,16 @@ def main():
                    f"mask_clear={r.get('mask_clear_cm')}cm lines={r.get('line_clear_cm')}cm")
     for r in GCHECKS:  # glass checks of the first car (second car differs only in the name text)
         rep.append(f"{r['status']:<6} glass:{r['name']:<20} box={r['box']} art={r['art_bbox']} clear={r['clear_px']}px")
+    for r in BELLY_DROPPED:      # belly cut-line dashes left out whole instead of showing as stubs
+        rep.append(f"INFO   line:belly dash {r['dash']}{r['side']:<3} left out whole ({r['why']}) at x={r['x']:+.3f} "
+                   f"y={r['y']:+.3f}")
+    for r in LINE_NOTES:
+        rep.append("INFO   line:" + r)
     txt = "\n".join(rep)
     print(txt)
     with open(os.path.join(HERE, "check_report.txt"), "w") as fh:
         fh.write(txt + "\n")
-    json.dump(dict(skin=CHECKS, glass=GCHECKS), open(os.path.join(HERE, "check_report.json"), "w"),
+    json.dump(dict(skin=CHECKS, glass=GCHECKS, belly_dropped=BELLY_DROPPED, line_notes=LINE_NOTES), open(os.path.join(HERE, "check_report.json"), "w"),
               ensure_ascii=False, indent=1, default=str)
 
     print("done")

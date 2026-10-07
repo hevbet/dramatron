@@ -76,7 +76,7 @@
    "max_tilt_deg": 5.3,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.3,
-   "line_clear_cm": 5.2,
+   "line_clear_cm": 5.1,
    "decal_clear_cm": 2.7,
    "status": "OK"
   },
@@ -296,7 +296,7 @@
    "max_tilt_deg": 5.4,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
-   "line_clear_cm": 5.2,
+   "line_clear_cm": 5.3,
    "decal_clear_cm": 3.6,
    "status": "OK"
   },
@@ -456,7 +456,7 @@
    "max_tilt_deg": 3.3,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.9,
-   "line_clear_cm": 2.3,
+   "line_clear_cm": 2.4,
    "decal_clear_cm": 85.0,
    "status": "OK"
   },
@@ -468,16 +468,16 @@
    ],
    "side": null,
    "size_cm": [
-    32.0,
-    10.5
+    34.1,
+    11.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.4,
+   "edge_clear_cm": 2.0,
    "max_tilt_deg": 1.8,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.5,
-   "line_clear_cm": 2.4,
-   "decal_clear_cm": 7.0,
+   "mask_clear_cm": 2.0,
+   "line_clear_cm": 1.1,
+   "decal_clear_cm": 5.5,
    "status": "OK"
   },
   {
@@ -496,7 +496,7 @@
    "max_tilt_deg": 0.0,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.5,
-   "line_clear_cm": 9.4,
+   "line_clear_cm": 10.5,
    "decal_clear_cm": 18.8,
    "status": "OK"
   },
@@ -516,7 +516,7 @@
    "max_tilt_deg": 0.0,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.5,
-   "line_clear_cm": 9.4,
+   "line_clear_cm": 10.4,
    "decal_clear_cm": 18.7,
    "status": "OK"
   },
@@ -617,7 +617,7 @@
    "max_tilt_deg": 5.7,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 4.4,
-   "line_clear_cm": 24.8,
+   "line_clear_cm": 24.9,
    "decal_clear_cm": 19.0,
    "status": "OK"
   },
