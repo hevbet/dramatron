@@ -22,23 +22,22 @@ OK     sill_karting64_R           [22.8, 7.0]    cov=1.000 edge=  1.8cm tilt=  5
 OK     url_karting64_R            [32.0, 5.2]    cov=1.000 edge=  1.8cm tilt=  7.2° in_mask=1.0 mask_clear=2.8cm lines=15.4cm
 OK     simkart_hood               [61.3, 26.5]   cov=1.000 edge= 11.0cm tilt=  3.3° in_mask=1.0 mask_clear=2.9cm lines=2.3cm
 OK     label_sheika_hood          [32.0, 10.5]   cov=1.000 edge=  1.4cm tilt=  1.8° in_mask=1.0 mask_clear=1.5cm lines=2.4cm
-OK     label_lopatka_L            [25.5, 3.2]    cov=1.000 edge=  0.8cm tilt=  9.5° in_mask=1.0 mask_clear=1.3cm lines=1.5cm
-OK     label_lopatka_R            [25.5, 3.2]    cov=1.000 edge=  0.8cm tilt=  9.5° in_mask=1.0 mask_clear=1.3cm lines=1.3cm
+OK     label_lopatka_L            [22.6, 4.3]    cov=1.000 edge=  1.3cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=9.4cm
+OK     label_lopatka_R            [22.6, 4.3]    cov=1.000 edge=  1.2cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=9.4cm
 OK     number_roof                [74.0, 51.8]   cov=1.000 edge= 12.5cm tilt=  5.7° in_mask=1.0 mask_clear=17.0cm lines=35.6cm
 OK     stamp_vyrezka_roof         [32.0, 19.2]   cov=1.000 edge= 14.1cm tilt= 11.9° in_mask=1.0 mask_clear=16.6cm lines=4.7cm
 OK     saratov_roof               [68.1, 20.0]   cov=1.000 edge=  9.9cm tilt=  9.5° in_mask=1.0 mask_clear=19.8cm lines=6.3cm
-OK     arka_trunk                 [33.6, 18.5]   cov=1.000 edge=  3.2cm tilt=  3.7° in_mask=1.0 mask_clear=5.6cm lines=59.1cm
-OK     label_krestets_trunk       [26.8, 4.5]    cov=1.000 edge=  3.2cm tilt=  3.0° in_mask=1.0 mask_clear=8.5cm lines=56.0cm
+OK     arka_trunk                 [17.0, 9.4]    cov=1.000 edge=  4.4cm tilt=  3.3° in_mask=1.0 mask_clear=9.9cm lines=56.4cm
 OK     team_edm_rear              [39.7, 14.0]   cov=1.000 edge=  4.2cm tilt=  5.7° in_mask=1.0 mask_clear=4.4cm lines=24.8cm
 OK     url_simkart_rear           [56.8, 6.0]    cov=1.000 edge=  3.9cm tilt= 11.8° in_mask=1.0 mask_clear=3.8cm lines=3.8cm
-OK     label_pyatachok            [25.0, 3.2]    cov=1.000 edge=  1.0cm tilt=  2.7° in_mask=1.0 mask_clear=1.2cm lines=52.3cm
+OK     label_pyatachok            [25.0, 3.2]    cov=1.000 edge=  1.0cm tilt=  2.7° in_mask=1.0 mask_clear=1.2cm lines=54.0cm
 OK     glass:ws_smp               box=[600, 88, 1504, 512] art=[624, 198, 1480, 403] clear=24px
 OK     glass:ws_arka              box=[1568, 56, 2560, 528] art=[1710, 113, 2406, 491] clear=37px
 OK     glass:ws_br_raf            box=[2624, 88, 3504, 512] art=[2756, 172, 3372, 428] clear=84px
-OK     glass:ws_number            box=[2360, 1232, 3380, 2128] art=[2548, 1425, 3192, 1935] clear=188px
+OK     glass:ws_number            box=[2360, 1232, 3380, 2128] art=[2547, 1422, 3193, 1938] clear=187px
 OK     glass:rw_simkart           box=[560, 688, 3456, 1012] art=[1118, 742, 1922, 958] clear=54px
 OK     glass:rw_url               box=[560, 688, 3456, 1012] art=[2290, 800, 3305, 901] clear=111px
-OK     glass:rw_number            box=[2344, 2188, 3512, 3272] art=[2596, 2365, 3260, 2915] clear=177px
+OK     glass:rw_number            box=[2344, 2188, 3512, 3272] art=[2399, 2271, 2977, 2753] clear=55px
 OK     glass:name_L               box=[460, 1088, 2052, 1984] art=[480, 1576, 2032, 1912] clear=20px
 OK     glass:name_R               box=[456, 2072, 2048, 2964] art=[476, 2556, 2028, 2892] clear=20px
 OK     glass:wing_arka            box=[1200, 3572, 2980, 3912] art=[1813, 3582, 2376, 3886] clear=10px
