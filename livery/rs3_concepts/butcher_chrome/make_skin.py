@@ -524,6 +524,8 @@ def paint_belly():
     # arc-length parameter: along the side it is the arc of B(y); around the nose / tail corners the lateral
     # term continues it (sign follows the direction of travel, so dashes keep their length when the
     # line wraps forward around the front bumper corner instead of stretching into one long bar)
+    global REAR_K
+    REAR_K = rear_k_centred(P, dist)
     s = belly_s(P)
     # over the rear door the dashed line leaves B and sweeps up into the shoulder line (connector below),
     # so it never ends in mid-panel
@@ -531,15 +533,113 @@ def paint_belly():
     # at the nose the dashed line does not run on across the bumper into the air intakes: it ends where the front
     # connector leaves it and turns up behind the headlight (closed corner of the chart, see front_connector)
     keep &= P[:, 1] >= FRONT_TURN_Y
-    dash_line(idx[keep], s[keep], np.abs(dist - 0.022)[keep], 0.011, 0.075, 0.045, INK)
+    # around the tail the line passes behind the black lower trim fins and the tow-strap tab (separate meshes in
+    # front of the bumper skin). A dash that is partly behind one of them in any standard view would show as a
+    # stub, so every such dash is left out whole: the line dips behind the trim and comes out of it in clear paint.
+    d_c = np.abs(dist - 0.022)
+    loc = np.mod(s, DPER)
+    near = np.floor(s / DPER).astype(int) + ((loc >= DASH[0]) & (loc - DASH[0] > DPER - loc))
+    key = near * 2 + (P[:, 0] > 0)
+    probe = keep & (P[:, 1] > 1.5) & (d_c < 0.0115) & (loc < DASH[0])
+    pi = np.flatnonzero(probe)[::2]
+    tris, rr = occluders_raw()
+    eyes = []
+    for v in ("rear", "rear34_left", "rear34_right", "side_left", "side_right"):
+        e = rr.view_camera(v)[0]
+        eyes.append(np.array([e[0], -e[2], e[1] + RAW_OFF]))
+    occ = occluded(P[pi], NRMF[idx[pi]], tris, eyes)
+    bad = np.unique(key[pi][occ])
+    drop = np.isin(key, bad)
+    BELLY_DROPPED.extend(sorted(int(k) for k in bad))
+    print(f"   rear dash centred on the car (lateral stretch {REAR_K:.4f}); dashes behind trim left out: {len(bad)}")
+    keep &= ~drop
+    dash_line(idx[keep], s[keep], d_c[keep], 0.011, 0.075, 0.045, INK)
+
+
+BELLY_DROPPED = []
 
 
 BELLY_SPLIT = 0.86
 FRONT_TURN_Y = -1.86           # set from the front connector geometry (front_turn_y) before the belly is painted
 
 
+REAR_K = 1.0                   # lateral stretch of the dash coordinate around the tail (set in paint_belly)
+
+
 def belly_s(P):
-    return np.interp(P[:, 1], _AY, _AS) + np.tanh(P[:, 1] / 0.5) * (0.96 - np.minimum(np.abs(P[:, 0]), 0.96))
+    lat = np.tanh(P[:, 1] / 0.5) * (0.96 - np.minimum(np.abs(P[:, 0]), 0.96))
+    return np.interp(P[:, 1], _AY, _AS) + np.where(P[:, 1] > 0, REAR_K, 1.0) * lat
+
+
+def rear_k_centred(P, dist):
+    """Around the tail the dash coordinate is mirror-symmetric in x, so the two halves of the bumper meet on the
+    centreline with whatever phase they have there; when that is not a dash middle, the two half-dashes merge into
+    one double-length dash (or a dash is cut into two stubs). Stretch the lateral term by a few percent so the
+    centreline falls exactly on the middle of a dash: one normal 7.5 cm dash, centred on the car."""
+    c = (P[:, 1] > 1.5) & (np.abs(P[:, 0]) < 0.006) & (np.abs(dist - 0.022) < 0.002)
+    if not c.any():
+        return 1.0
+    yc = float(np.median(P[c, 1]))
+    arc = float(np.interp(yc, _AY, _AS))
+    lat = math.tanh(yc / 0.5) * 0.96
+    s0 = arc + lat
+    want = DASH[0] / 2
+    delta = _wrap(want - (s0 % DPER))
+    return (lat + delta) / lat
+
+
+def occluders_raw():
+    """Non-skin, non-glass exterior meshes of the car (black lower trim, diffuser, tow strap ...) in the posmap
+    frame, as triangles (n,3,3). Render frame (AC: x left, y up, z front) -> raw: (x, -z, y + 0.0724)."""
+    sys.path.insert(0, os.path.join(LIV, "tools"))
+    import render_rs3
+    _, _, meshes = render_rs3.load_scene(render_rs3.DEFAULT_KN5, False)
+    tris = []
+    for m in meshes:
+        if m["mat"] in ("skin", "glass", "lights_glass", "glass_sticker", "ext_sticker") or m["interior"]:
+            continue
+        if m["mat"] in render_rs3.SKIP_MATS or not render_rs3.in_car_bounds(m["pos"]):
+            continue
+        p = m["pos"]
+        q = np.stack([p[:, 0], -p[:, 2], p[:, 1] + RAW_OFF], 1)
+        tris.append(q[m["idx"]])
+    return np.concatenate(tris), render_rs3
+
+
+RAW_OFF = 0.07237756
+
+
+def occluded(pts, nrm, tris, eyes, tmax=0.35):
+    """True where the ray from a surface point toward any camera eye hits an occluder triangle within tmax
+    (only for points whose normal faces that camera). Moller-Trumbore, vectorised."""
+    hit = np.zeros(len(pts), bool)
+    lo, hi = pts.min(0) - tmax, pts.max(0) + tmax
+    tmin_, tmax_ = tris.min(1), tris.max(1)
+    tr = tris[np.all((tmax_ >= lo) & (tmin_ <= hi), axis=1)]
+    if not len(tr):
+        return hit
+    v0, e1, e2 = tr[:, 0], tr[:, 1] - tr[:, 0], tr[:, 2] - tr[:, 0]
+    ch = max(1, int(1.5e6 // len(tr)))
+    for eye in eyes:
+        d = eye[None, :] - pts
+        d /= np.linalg.norm(d, axis=1, keepdims=True)
+        face = np.einsum("ij,ij->i", d, nrm) > 0.05
+        for a in range(0, len(pts), ch):
+            sl = slice(a, a + ch)
+            o = pts[sl] + nrm[sl] * 0.001
+            D = d[sl]
+            pv = np.cross(D[:, None, :], e2[None])
+            det = np.einsum("ntk,tk->nt", pv, e1)
+            ok = np.abs(det) > 1e-12
+            inv = np.where(ok, 1.0 / np.where(ok, det, 1), 0)
+            tv = o[:, None, :] - v0[None]
+            u = np.einsum("ntk,ntk->nt", tv, pv) * inv
+            qv = np.cross(tv, e1[None])
+            v = np.einsum("nk,ntk->nt", D, qv) * inv
+            t = np.einsum("tk,ntk->nt", e2, qv) * inv
+            h = ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t > 1e-4) & (t < tmax)
+            hit[sl] |= h.any(1) & face[sl]
+    return hit
 
 
 DASH = (0.075, 0.045)
@@ -568,7 +668,7 @@ def sweep(side, P0, t0, s_start, P3, t3, s_end, h0=0.10, h3=0.09, clip=None, ext
         pts2 = ((1 - tt) ** 3) * q0 + 3 * ((1 - tt) ** 2) * tt * q1 + 3 * (1 - tt) * tt ** 2 * q2 + tt ** 3 * q3
     c3 = snap([tuple(q) for q in pts2], "side", SIDE_PARTS, side)
     C = catmull3(c3, 60)
-    C = snap([(p[1], p[2]) for p in C], "side", SIDE_PARTS, side)
+    C = snap([(p[1], p[2]) for p in C], "side", SIDE_PARTS, side, exact=True)
     C[:, 0] = ndimage.uniform_filter1d(C[:, 0], 9, mode="nearest")
     L = float(np.sum(np.linalg.norm(np.diff(C, axis=0), axis=1)))
     delta = L + _wrap(s_end - s_start - L)
@@ -645,9 +745,13 @@ def dash_line(idx, s, d, half_w, on, off, col, phase=0.0):
 _tree_cache = {}
 
 
-def snap(points, mode, parts, side=None):
+def snap(points, mode, parts, side=None, exact=False):
     """points: list of 2D coords; mode 'side' -> (y,z) finds outermost x on `side`;
-    'top' -> (x,y) finds highest z. Returns (n,3) world points on the surface."""
+    'top' -> (x,y) finds highest z. Returns (n,3) world points on the surface.
+    exact=True (used for painted lines): the depth is solved on a plane fitted through the outermost sheet
+    instead of averaged over it. On a sloped sheet (the up-facing front-fender top, nz ~0.95) the plain mean sat
+    ~4 mm off the surface, so the band painted around the curve slid down the slope and the shoulder line read
+    lower on the fender than on the door."""
     idx = cand(parts, side)
     P = POSF[idx]
     key = (mode, tuple(parts), side)
@@ -667,11 +771,26 @@ def snap(points, mode, parts, side=None):
         if mode == "side":
             sx = c[:, 0] if side == "L" else -c[:, 0]
             sheet = sx > sx.max() - 0.008
-            out.append((np.mean(c[sheet, 0]), p[0], p[1]))
+            d = _plane_depth(c[sheet][:, [1, 2]], c[sheet, 0], p) if exact else None
+            out.append((np.mean(c[sheet, 0]) if d is None else d, p[0], p[1]))
         else:
             sheet = c[:, 2] > c[:, 2].max() - 0.008
-            out.append((p[0], p[1], np.mean(c[sheet, 2])))
+            d = _plane_depth(c[sheet][:, [0, 1]], c[sheet, 2], p) if exact else None
+            out.append((p[0], p[1], np.mean(c[sheet, 2]) if d is None else d))
     return np.array(out)
+
+
+def _plane_depth(uv, dep, p):
+    """depth at 2D point p from a least-squares plane dep = a + b*u + c*v; None if the fit is ill-posed."""
+    if len(dep) < 6:
+        return None
+    A = np.column_stack([np.ones(len(dep)), uv[:, 0] - p[0], uv[:, 1] - p[1]])
+    if np.linalg.matrix_rank(A, tol=1e-4) < 3:
+        return None
+    coef, *_ = np.linalg.lstsq(A, dep, rcond=None)
+    if abs(coef[0] - np.mean(dep)) > 0.02:        # extrapolating wildly: keep the plain mean
+        return None
+    return float(coef[0])
 
 
 def catmull3(pts, n=40):
@@ -693,9 +812,9 @@ def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mo
     C = catmull3(ctrl3d, 60)
     if resnap_mode is not None:          # keep the dense curve glued to the surface
         if resnap_mode == "side":
-            C = snap([(p[1], p[2]) for p in C], "side", parts, side)
+            C = snap([(p[1], p[2]) for p in C], "side", parts, side, exact=True)
         else:
-            C = snap([(p[0], p[1]) for p in C], "top", parts, side)
+            C = snap([(p[0], p[1]) for p in C], "top", parts, side, exact=True)
         C[:, 0] = ndimage.uniform_filter1d(C[:, 0], 9, mode="nearest")
         C[:, 2] = ndimage.uniform_filter1d(C[:, 2], 9, mode="nearest")
     seg = np.linalg.norm(np.diff(C, axis=0), axis=1)
