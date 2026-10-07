@@ -1,0 +1,86 @@
+== Pozdnyakov_00 ==
+OK  номер 00 дверь L                           покрытие 100.00%  запас   5.8 см  (мин 1.5)  left      front_door
+OK  Арка задняя дверь L                        покрытие 100.00%  запас   2.0 см  (мин 1.5)  left      rear_door
+OK  пузырь ГРУДИНКА L                          покрытие 100.00%  запас   4.4 см  (мин 1.5)  left      front_door
+OK  DriveOil полоса под дверью L               покрытие 100.00%  запас   2.2 см  (мин 1.5)  left      front_door_low
+OK  KARTING64.RU полоса под дверью L           покрытие 100.00%  запас   2.4 см  (мин 1.5)  left      front_door_low
+OK  РАФ полоса под дверью L                    покрытие 100.00%  запас   2.5 см  (мин 1.5)  left      front_door_low
+OK  simkart.vercel.app порог L                 покрытие 100.00%  запас   2.5 см  (мин 1.5)  left      sill
+OK  SMP RACING ESPORTS бампер L                покрытие 100.00%  запас   1.7 см  (мин 1.5)  left      front_bumper_corner
+OK  пузырь ОКОРОК L                            покрытие 100.00%  запас   2.7 см  (мин 1.5)  left      rear_fender
+OK  герб Саратовской обл. L                    покрытие 100.00%  запас   6.0 см  (мин 1.5)  left      rear_fender
+OK  номер 00 дверь R                           покрытие 100.00%  запас   5.8 см  (мин 1.5)  right     front_door
+OK  Арка задняя дверь R                        покрытие 100.00%  запас   1.8 см  (мин 1.5)  right     rear_door
+OK  пузырь ГРУДИНКА R                          покрытие 100.00%  запас   4.3 см  (мин 1.5)  right     front_door
+OK  DriveOil полоса под дверью R               покрытие 100.00%  запас   1.8 см  (мин 1.5)  right     front_door_low
+OK  KARTING64.RU полоса под дверью R           покрытие 100.00%  запас   2.4 см  (мин 1.5)  right     front_door_low
+OK  РАФ полоса под дверью R                    покрытие 100.00%  запас   2.4 см  (мин 1.5)  right     front_door_low
+OK  simkart.vercel.app порог R                 покрытие 100.00%  запас   2.6 см  (мин 1.5)  right     sill
+OK  SMP RACING ESPORTS бампер R                покрытие 100.00%  запас   1.8 см  (мин 1.5)  right     front_bumper_corner
+OK  пузырь ОКОРОК R                            покрытие 100.00%  запас   2.2 см  (мин 1.5)  right     rear_fender
+OK  герб Саратовской обл. R                    покрытие 100.00%  запас   6.0 см  (мин 1.5)  right     rear_fender
+OK  Симкарт капот                              покрытие 100.00%  запас   5.8 см  (мин 1.5)  top       hood
+OK  пузырь ЛОПАТКА капот                       покрытие 100.00%  запас   2.2 см  (мин 1.5)  top       hood
+OK  номер 00 крыша                             покрытие 100.00%  запас   5.8 см  (мин 1.5)  top_left  roof
+OK  маскот крыша                               покрытие 100.00%  запас   5.8 см  (мин 1.5)  top_rear  roof
+OK  пузырь КОРЕЙКА крыша                       покрытие 100.00%  запас   5.8 см  (мин 1.5)  top       roof
+OK  Саратовская обл. крышка багажника          покрытие 100.00%  запас   4.4 см  (мин 1.5)  top_rear  trunk_lid
+OK  Команда ЭДМ задняя панель                  покрытие 100.00%  запас   5.1 см  (мин 1.5)  rear      rear_panel
+OK  Симкарт + ссылка задний бампер             покрытие 100.00%  запас   1.8 см  (мин 1.5)  rear      rear_bumper
+OK  номер 00 перед                             покрытие 100.00%  запас   1.9 см  (мин 1.5)  front     front_bumper/front_bumper_corner
+OK  BR ENGINEERING перед                       покрытие 100.00%  запас   2.1 см  (мин 1.5)  front     front_bumper
+OK  SMP RACING ESPORTS лобовое                 покрытие 100.00%  запас   9.0 px  (мин 6)  glass     glass_sticker
+OK  искра лобовое 250                          покрытие 100.00%  запас  35.0 px  (мин 6)  glass     glass_sticker
+OK  искра лобовое 766                          покрытие 100.00%  запас  35.0 px  (мин 6)  glass     glass_sticker
+OK  номер 00 заднее стекло                     покрытие 100.00%  запас   9.0 px  (мин 4)  glass     glass_sticker
+OK  POP PIG заднее стекло                      покрытие 100.00%  запас  22.0 px  (мин 4)  glass     glass_sticker
+OK  РЕГИОН 64 заднее стекло                    покрытие 100.00%  запас  13.0 px  (мин 4)  glass     glass_sticker
+OK  имя пилота окно L                          покрытие 100.00%  запас  14.6 px  (мин 8)  glass     glass_sticker
+OK  имя пилота окно R                          покрытие 100.00%  запас  14.3 px  (мин 8)  glass     glass_sticker
+OK  Арка · Симкарт антикрыло                   покрытие 100.00%  запас  22.0 px  (мин 6)  glass     glass_sticker
+OK  маскот + ХРЮ! пластина L                   покрытие 100.00%  запас   7.6 px  (мин 5)  glass     glass_sticker
+OK  маскот + ХРЮ! пластина R                   покрытие 100.00%  запас  10.3 px  (мин 5)  glass     glass_sticker
+итого: 41 элементов, ошибок: 0
+== Konopelko_00 ==
+OK  номер 00 дверь L                           покрытие 100.00%  запас   5.8 см  (мин 1.5)  left      front_door
+OK  Арка задняя дверь L                        покрытие 100.00%  запас   2.0 см  (мин 1.5)  left      rear_door
+OK  пузырь ГРУДИНКА L                          покрытие 100.00%  запас   4.4 см  (мин 1.5)  left      front_door
+OK  DriveOil полоса под дверью L               покрытие 100.00%  запас   2.2 см  (мин 1.5)  left      front_door_low
+OK  KARTING64.RU полоса под дверью L           покрытие 100.00%  запас   2.4 см  (мин 1.5)  left      front_door_low
+OK  РАФ полоса под дверью L                    покрытие 100.00%  запас   2.5 см  (мин 1.5)  left      front_door_low
+OK  simkart.vercel.app порог L                 покрытие 100.00%  запас   2.5 см  (мин 1.5)  left      sill
+OK  SMP RACING ESPORTS бампер L                покрытие 100.00%  запас   1.7 см  (мин 1.5)  left      front_bumper_corner
+OK  пузырь ОКОРОК L                            покрытие 100.00%  запас   2.7 см  (мин 1.5)  left      rear_fender
+OK  герб Саратовской обл. L                    покрытие 100.00%  запас   6.0 см  (мин 1.5)  left      rear_fender
+OK  номер 00 дверь R                           покрытие 100.00%  запас   5.8 см  (мин 1.5)  right     front_door
+OK  Арка задняя дверь R                        покрытие 100.00%  запас   1.8 см  (мин 1.5)  right     rear_door
+OK  пузырь ГРУДИНКА R                          покрытие 100.00%  запас   4.3 см  (мин 1.5)  right     front_door
+OK  DriveOil полоса под дверью R               покрытие 100.00%  запас   1.8 см  (мин 1.5)  right     front_door_low
+OK  KARTING64.RU полоса под дверью R           покрытие 100.00%  запас   2.4 см  (мин 1.5)  right     front_door_low
+OK  РАФ полоса под дверью R                    покрытие 100.00%  запас   2.4 см  (мин 1.5)  right     front_door_low
+OK  simkart.vercel.app порог R                 покрытие 100.00%  запас   2.6 см  (мин 1.5)  right     sill
+OK  SMP RACING ESPORTS бампер R                покрытие 100.00%  запас   1.8 см  (мин 1.5)  right     front_bumper_corner
+OK  пузырь ОКОРОК R                            покрытие 100.00%  запас   2.2 см  (мин 1.5)  right     rear_fender
+OK  герб Саратовской обл. R                    покрытие 100.00%  запас   6.0 см  (мин 1.5)  right     rear_fender
+OK  Симкарт капот                              покрытие 100.00%  запас   5.8 см  (мин 1.5)  top       hood
+OK  пузырь ЛОПАТКА капот                       покрытие 100.00%  запас   2.2 см  (мин 1.5)  top       hood
+OK  номер 00 крыша                             покрытие 100.00%  запас   5.8 см  (мин 1.5)  top_left  roof
+OK  маскот крыша                               покрытие 100.00%  запас   5.8 см  (мин 1.5)  top_rear  roof
+OK  пузырь КОРЕЙКА крыша                       покрытие 100.00%  запас   5.8 см  (мин 1.5)  top       roof
+OK  Саратовская обл. крышка багажника          покрытие 100.00%  запас   4.4 см  (мин 1.5)  top_rear  trunk_lid
+OK  Команда ЭДМ задняя панель                  покрытие 100.00%  запас   5.1 см  (мин 1.5)  rear      rear_panel
+OK  Симкарт + ссылка задний бампер             покрытие 100.00%  запас   1.8 см  (мин 1.5)  rear      rear_bumper
+OK  номер 00 перед                             покрытие 100.00%  запас   1.9 см  (мин 1.5)  front     front_bumper/front_bumper_corner
+OK  BR ENGINEERING перед                       покрытие 100.00%  запас   2.1 см  (мин 1.5)  front     front_bumper
+OK  SMP RACING ESPORTS лобовое                 покрытие 100.00%  запас   9.0 px  (мин 6)  glass     glass_sticker
+OK  искра лобовое 250                          покрытие 100.00%  запас  35.0 px  (мин 6)  glass     glass_sticker
+OK  искра лобовое 766                          покрытие 100.00%  запас  35.0 px  (мин 6)  glass     glass_sticker
+OK  номер 00 заднее стекло                     покрытие 100.00%  запас   9.0 px  (мин 4)  glass     glass_sticker
+OK  POP PIG заднее стекло                      покрытие 100.00%  запас  22.0 px  (мин 4)  glass     glass_sticker
+OK  РЕГИОН 64 заднее стекло                    покрытие 100.00%  запас  13.0 px  (мин 4)  glass     glass_sticker
+OK  имя пилота окно L                          покрытие 100.00%  запас  20.0 px  (мин 8)  glass     glass_sticker
+OK  имя пилота окно R                          покрытие 100.00%  запас  19.9 px  (мин 8)  glass     glass_sticker
+OK  Арка · Симкарт антикрыло                   покрытие 100.00%  запас  22.0 px  (мин 6)  glass     glass_sticker
+OK  маскот + ХРЮ! пластина L                   покрытие 100.00%  запас   7.6 px  (мин 5)  glass     glass_sticker
+OK  маскот + ХРЮ! пластина R                   покрытие 100.00%  запас  10.3 px  (мин 5)  glass     glass_sticker
+итого: 41 элементов, ошибок: 0
