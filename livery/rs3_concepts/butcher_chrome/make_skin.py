@@ -259,13 +259,19 @@ def asset_arka(h, taimcafe=True):
     return blib.arka_logo(int(h), fill=(242, 206, 92), dark=INK_D, taimcafe=taimcafe)
 
 
+SIMKART_URL = "simkarting.ru"     # Симкарт web address
+K64_URL = "karting64.ru"          # KARTING64 web address
+
+
 def asset_simkart_tag(w, url=True, pin=False):
     """Simkart wordmark on its own night plate (as on the brand site), chrome frame; url under the logo."""
     logo = blib.simkart_logo(int(w * 0.16), silver=(222, 220, 232), red=(236, 52, 40), glow=True)
     logo = fit_w(logo, int(w * 0.80))
     items = [logo]
     if url:
-        u = ink_text("simkart.vercel.app", F_SPON(int(w * 0.07)), (236, 236, 244))
+        # «simkarting.ru» (13 characters) is set at 0.085 w, 21 % larger than the old 18-character address (0.07 w):
+        # it spans ~0.56 w (old 0.64 w) under the 0.80 w wordmark; font size only (uniform glyph scale, no stretching)
+        u = ink_text(SIMKART_URL, F_SPON(int(w * 0.085)), (236, 236, 244))
         items.append(u)
     inner = stack(items, int(w * 0.012))
     bw = max(4, int(w * 0.018))
@@ -387,6 +393,80 @@ def vet_stamp(w, lines, col=STAMP, seed=7):
     return solid(m.point(lambda v: int(v * 0.9)), col)
 
 
+def url_pair(h, col=INK, two_lines=False):
+    """«simkarting.ru ◆ karting64.ru»: both web addresses in the partner face (Exo 2 ExtraBold Italic), same size, one
+    baseline, a small ink diamond between them (Exo 2 has no ◆ glyph, so it is drawn: 0.64 x-height, centred on the
+    x-height). two_lines=True: the two addresses stacked, same size."""
+    f = F_SPON(h)
+    if two_lines:
+        return stack([ink_text(SIMKART_URL, f, col), ink_text(K64_URL, f, col)], int(h * 0.18))
+    xh = -f.getbbox("x", anchor="ls")[1]
+    gap = 1.7 * xh
+    la, lb = f.getlength(SIMKART_URL), f.getlength(K64_URL)
+    asc, desc = f.getmetrics()
+    p = 8
+    m = Image.new("L", (int(la + gap + lb) + 2 * p, asc + desc + 2 * p), 0)
+    d = ImageDraw.Draw(m)
+    d.text((p, p + asc), SIMKART_URL, font=f, fill=255, anchor="ls")
+    d.text((p + la + gap, p + asc), K64_URL, font=f, fill=255, anchor="ls")
+    cx, cy, r = p + la + gap / 2, p + asc - xh / 2, 0.32 * xh
+    d.polygon([(cx - r, cy), (cx, cy - r), (cx + r, cy), (cx, cy + r)], fill=255)
+    m = m.crop(m.getbbox())
+    return solid(pad(m, 4), col)
+
+
+def pig_tail(h, turns=1.4):
+    """Curly pig tail as a smooth vector stroke: a short root rising from the left that runs tangentially into an
+    inward (Archimedean) spiral of `turns` turns; the stroke tapers from the root to a rounded tip in the middle of
+    the curl. Chrome with a holo tint, holo hairline and deep-ink outline + soft shadow (the chrome lettering
+    treatment). h = art height (px)."""
+    S = 4
+    R0, R1 = 1.0, 0.36
+    th = np.linspace(0.0, 2 * math.pi * turns, 1800)        # from the bottom of the curl, counter-clockwise
+    r = R0 - (R0 - R1) * th / th[-1]
+    sx, sy = r * np.sin(th), -r * np.cos(th)                 # (y up): starts at (0, -R0) heading +x
+    tq = np.linspace(0, 1, 500)[:-1, None]
+    q0, q1, q2 = np.array([-1.55, -0.62]), np.array([-0.75, -1.0]), np.array([0.0, -1.0])
+    stem = (1 - tq) ** 2 * q0 + 2 * (1 - tq) * tq * q1 + tq ** 2 * q2
+    x = np.concatenate([stem[:, 0], sx])
+    y = np.concatenate([stem[:, 1], sy])
+    u = np.linspace(0, 1, len(x))
+    sw = 0.30 * (1.0 - 0.58 * u ** 1.15)                     # stroke width, root -> tip
+    span_y = (y + sw / 2).max() - (y - sw / 2).min()
+    sc = (h * S) / span_y
+    ow = max(2, int(h * 0.05))
+    m_pad = int(h * 0.12) * S
+    X = (x - (x - sw / 2).min()) * sc + m_pad
+    Y = ((y + sw / 2).max() - y) * sc + m_pad                # image y down
+    W, Hh = int(X.max() + sw.max() * sc + 2 * m_pad), int(Y.max() + sw.max() * sc + 2 * m_pad)
+    m = Image.new("L", (W, Hh), 0)
+    d = ImageDraw.Draw(m)
+    for xi, yi, wi in zip(X, Y, sw * sc / 2):
+        d.ellipse([xi - wi, yi - wi, xi + wi, yi + wi], fill=255)
+    m = m.resize((max(1, W // S), max(1, Hh // S)), Image.LANCZOS)
+    m = m.crop(m.getbbox())
+    m = pad(m, ow * 2 + 8)
+    ol = grow(m, ow)
+    out = Image.new("RGBA", m.size, (0, 0, 0, 0))
+    sh = ImageChops.offset(ol, max(2, ow // 2), max(3, ow // 2 + 1)).filter(ImageFilter.GaussianBlur(ow * 0.4))
+    out.alpha_composite(solid(sh.point(lambda v: int(v * 0.45)), INK_D))
+    out.alpha_composite(solid(ol, INK_D))
+    out.alpha_composite(fill_mask(m, holo_rgb(m.width, m.height, 1.4)))
+    inner = Image.fromarray(((ndimage.distance_transform_edt(np.asarray(m) > 127) > max(2, ow * 0.35)) * 255)
+                            .astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.7))
+    tint = Image.blend(chrome_rgb(m.width, m.height), holo_rgb(m.width, m.height, 0.9, 0.3), 0.28)
+    out.alpha_composite(fill_mask(inner, tint))
+    return out.crop(out.getbbox())
+
+
+def tail_with_label(h):
+    """Trunk art: curly chrome tail + «ХВОСТИК» cut label (cut_label: Podkova ExtraBold, ink, ——◆—— underline, as
+    ШЕЙКА / ЛОПАТКА / КОРЕЙКА); h = label cap height (m). The tail is as tall as the label block, centred on it."""
+    lab = cut_label("ХВОСТИК", px(h))
+    tail = pig_tail(lab.height * 1.1)
+    return row([tail, lab], px(h * 0.45))
+
+
 def cut_label(s, h_px, col=INK, underline=True):
     """Butcher cut label (Podkova ExtraBold, shop-sign slab), h_px = cap height; optional ——◆—— underline."""
     t = ink_text(s, F_LABEL(int(h_px * 1.45)), col, track=0.05)
@@ -410,11 +490,23 @@ A0 = np.asarray(src).astype(np.float32)
 mx = A0.max(-1)
 logo = ndimage.binary_dilation(mx > 110, iterations=6)
 rings = np.zeros_like(logo)
-rings[720:790, 1950:2140] = True
+rings[720:790, 1950:2140] = True           # baked Audi rings on the rear panel (under the 3D chrome badge)
 logo &= ~rings
 _, (iy, ix) = ndimage.distance_transform_edt(logo, return_indices=True)
 A = A0.copy()
 A[logo] = A[iy[logo], ix[logo]]
+# Audi rings box: the box is painted like its surroundings (it used to be left out of PAINT, so the source navy showed
+# as a dark rectangle). The ring strokes are thin lines clearly darker than the local navy: a grey closing (11 px,
+# > 3-4 px stroke) gives the ring-free navy for the shading, and (closing - source) gives the strokes as a soft alpha
+# that is drawn back on top in deep ink (paint_audi_rings).
+_rp = 12
+_rs = A0[720 - _rp:790 + _rp, 1950 - _rp:2140 + _rp]
+_rc = np.stack([ndimage.grey_closing(_rs[..., c], size=(11, 11)) for c in range(3)], -1)
+_rl = _rs.mean(-1)
+RING_A = np.zeros(A0.shape[:2], np.float32)
+RING_A[720:790, 1950:2140] = np.clip((ndimage.grey_closing(_rl, size=(11, 11)) - _rl - 5.0) / 12.0, 0, 1)[_rp:-_rp, _rp:-_rp]
+A[720:790, 1950:2140] = _rc[_rp:-_rp, _rp:-_rp]
+del _rs, _rc, _rl
 mx = A.max(-1)
 BODY_COL = (A[..., 2] > A[..., 0] + 12) & (mx > 18)
 SHADE = np.clip(0.55 + 0.45 * np.clip(mx / 76.0, 0, 1.12), 0.42, 1.06)
@@ -422,8 +514,9 @@ SHADE = np.clip(0.55 + 0.45 * np.clip(mx / 76.0, 0, 1.12), 0.42, 1.06)
 POS, NRM, PART, COV = posmap4k.load()
 PART_NAMES = json.load(open(os.path.join(ZONES, "zones.json")))["part_names"]
 PID = {n: i for i, n in enumerate(PART_NAMES)}
-# paint where the source has body colour, plus the seam padding of skin islands (mip-map bleed)
-PAINT = (BODY_COL | (~COV & (PART >= 0))) & ~rings
+# paint where the source has body colour, plus the seam padding of skin islands (mip-map bleed); the Audi rings box
+# is painted too (its strokes come back as ink in paint_audi_rings)
+PAINT = BODY_COL | (~COV & (PART >= 0))
 _, (sy, sx) = ndimage.distance_transform_edt(~(COV & BODY_COL), return_indices=True)
 SHADE = np.where(COV & BODY_COL, SHADE, SHADE[sy, sx])
 del sy, sx, iy, ix
@@ -608,6 +701,7 @@ def paint_belly():
 
 BELLY_DROPPED = []
 LINE_NOTES = []
+URL_NOTES = []
 HIDDEN_IN = {}
 VISD = {}           # renderer visibility of the 9 standard views (filled in paint_body)
 OUTER = None        # texels visible in at least one standard view
@@ -960,7 +1054,7 @@ def frame(normal, up):
 
 
 def decal(name, art, center, normal, up, ppm, parts, side=None, depth_tol=0.09, paint_angle=82, check_angle=48,
-          min_clear_cm=1.0, check=True, obstacle_check=True, kind="logo", dry=False, keepout=None):
+          min_clear_cm=1.0, check=True, obstacle_check=True, kind="logo", dry=False, keepout=None, occl_views=None):
     """Project RGBA `art` (ppm pixels per metre) onto the body along `normal`, art 'up' = `up` (world).
     Returns painted texel indices. Records a check: footprint coverage, edge clearance, tilt, line clearance."""
     n, u, r = frame(normal, up)
@@ -990,18 +1084,37 @@ def decal(name, art, center, normal, up, ppm, parts, side=None, depth_tol=0.09, 
     painted = sel[al > 0.05]
     if dry:
         return _check(name, art, a[..., 3], c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_tol, check_angle, painted,
-                      parts, side, min_clear_cm, obstacle_check, kind, keepout)
+                      parts, side, min_clear_cm, obstacle_check, kind, keepout, occl_views)
     if check:      # (checked before this decal joins INK_LAYER, so its air to the other decals is measured)
         CHECKS.append(_check(name, art, a[..., 3], c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_tol,
-                             check_angle, painted, parts, side, min_clear_cm, obstacle_check, kind, keepout))
+                             check_angle, painted, parts, side, min_clear_cm, obstacle_check, kind, keepout,
+                             occl_views))
     blend(sel[keep], rgb[keep], al[keep])
     if kind in ("logo", "text", "number"):
         INK_LAYER[painted] = 1.0
     return painted
 
 
+def view_occlusion(painted, views):
+    """{view: fraction of the decal texels that face the camera (cos > 0.3) but are NOT drawn by the renderer in that
+    view}, i.e. hidden behind another part of the model (wheel, wing, stay, trim) or the body itself. 0 = fully seen."""
+    out = {}
+    P = POSF[painted]
+    Nn = NRMF[painted]
+    for v in views:
+        e = VISD["cam"][v][0]
+        dv = e[None, :] - P
+        dv /= np.linalg.norm(dv, axis=1, keepdims=True)
+        f = np.einsum("ij,ij->i", dv, Nn) > 0.3
+        if f.sum() < 0.5 * len(painted):
+            out[v] = None                   # (seen edge-on / from behind in this view: not a view of this decal)
+            continue
+        out[v] = float((~VISD["vis"][v][painted[f]]).mean())
+    return out
+
+
 def _check(name, art, alpha, c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_tol, check_angle, painted, parts,
-           side, min_clear_cm, obstacle_check, kind, keepout=None):
+           side, min_clear_cm, obstacle_check, kind, keepout=None, occl_views=None):
     g = 500.0                                       # check grid: 2 mm cells
     margin = 0.06
     Wg, Hg = int((wm + 2 * margin) * g), int((hm + 2 * margin) * g)
@@ -1051,6 +1164,13 @@ def _check(name, art, alpha, c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_t
         res["keepout_ok"] = bool(ko)
         if not ko:
             fails.append("inside a keep-out (hidden by the wing in a standard view)")
+    if occl_views and len(painted) and VISD:    # 3D occlusion in the renderer's own standard views
+        occ = view_occlusion(painted, occl_views)
+        res["hidden_frac"] = {v: (None if f is None else round(f, 3)) for v, f in occ.items()}
+        bad = [v for v, f in occ.items() if f is None or f > 0.01]
+        res["occl_ok"] = not bad
+        if bad:
+            fails.append("not fully visible in " + ",".join(bad))
     tmax = TILT_MAX.get(kind)
     if tmax is not None and tilt > tmax:
         fails.append(f"distortion risk (tilt {tilt:.1f} > {tmax})")
@@ -1108,7 +1228,7 @@ def _gates(r, kw, tilt_gate, line_min, air):
     tg = tilt_gate if tilt_gate is not None else TILT_MAX.get(kind, 90)
     ok = (r["coverage"] >= 0.999 and r["max_tilt_deg"] <= tg and r.get("mask_clear_cm", 99) >= max(1.0, air)
           and r["edge_clear_cm"] >= max(kw.get("min_clear_cm", 1.0), air) + 0.1 and r.get("line_clear_cm", 99) >= line_min
-          and r.get("keepout_ok", True))
+          and r.get("keepout_ok", True) and r.get("occl_ok", True))
     sc = min(r["edge_clear_cm"], r.get("line_clear_cm", 99), r.get("mask_clear_cm", 99)) - 0.05 * r["max_tilt_deg"]
     return ok, sc
 
@@ -1167,6 +1287,31 @@ def decal_fit(name, make_art, sizes, make_cands, **kw):
     return sizes[pick], best
 
 
+def fit_search(name, make_art, sizes, make_cands, **kw):
+    """decal_fit without painting: (size, passed, (center, normal, up), art, report) for the largest passing size
+    (or the smallest size's best candidate when none passes)."""
+    res = {}
+
+    def trial(i):
+        if i not in res:
+            art = make_art(sizes[i])
+            res[i] = (art,) + decal_best(name, art, make_cands(sizes[i]), want=True, **kw)
+        return res[i][1]
+    lo, hi = 0, len(sizes) - 1
+    if not trial(hi):
+        pick = hi
+    else:
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if trial(mid):
+                hi = mid
+            else:
+                lo = mid + 1
+        pick = lo
+    art, ok, best, rep = res[pick]
+    return sizes[pick], ok, best, art, rep
+
+
 def mean_normal(center, parts, side=None, radius=0.08):
     idx = cand(parts, side)
     P = POSF[idx]
@@ -1221,6 +1366,15 @@ def paint_pearl():
         h = holo_lookup(Q[:, 1] * 6.0 + Q[:, 2] * 4.0 + np.abs(Q[:, 0]) * 3.0)
         g = np.clip(0.55 + 0.45 * np.cos((Q[:, 2] - 1.07) * 60.0), 0, 1)[:, None]      # chrome bands
         CAN[mi] = h * 0.55 + np.array((250, 248, 255), np.float32) * 0.45 * g + h * 0.45 * (1 - g)
+
+
+def paint_audi_rings():
+    """The baked Audi rings under the 3D chrome badge, back on the pink rear panel: only the ring strokes (soft alpha
+    RING_A from the source), in deep ink, no box around them."""
+    ra = RING_A.reshape(-1)
+    idx = np.flatnonzero((ra > 0.004) & PAINTF)
+    blend(idx, INK_D, ra[idx])
+    print(f"   Audi rings: {len(idx)} texels of ring stroke in deep ink (box painted pink)")
 
 
 def paint_body():
@@ -1320,6 +1474,156 @@ def side_cands(ys, zs, parts, s, w):
     return out
 
 
+def asset_raf(h):
+    """РАФ emblem (raf_black.png: the full mono emblem - laurel wings around the «раф» monogram), deep ink."""
+    return asset_mono("raf_black.png", int(h), INK_D)
+
+
+PEARL_PAD = (250, 244, 250)
+
+
+def sill_art(kind, H):
+    """Sill-row logo on its backer, scaled uniformly to the common outer height H (m)."""
+    if kind == "raf":                # pearl pad + ink hairline (the KARTING64 pad treatment)
+        a = pill(asset_raf(px(H - 0.012)), px(0.010), px(0.006), PEARL_PAD, line=INK_D)
+    elif kind == "breng":            # white on a deep-ink pill (unchanged treatment)
+        a = pill(asset_mono("br_engineering_black.png", px(H - 0.010), WHITE), px(0.012), px(0.005), INK_D)
+    elif kind == "driveoil":         # the brand's own orange plate (as behind the rear wheel)
+        a = asset_driveoil(px(H))
+    elif kind == "karting64":        # kart artwork only, pearl pad (unchanged treatment)
+        a = pill(asset_karting64(px(H - 0.012)), px(0.010), px(0.006), PEARL_PAD, line=INK_D)
+    else:
+        raise ValueError(kind)
+    return fit_h(a, px(H))
+
+
+SILL_ORDER = ["raf", "breng", "karting64"]            # client order, front -> rear
+SILL_EXTRA = "driveoil"                               # 4th logo when the gaps would be too wide
+SILL_EXTRA_AT = 2                                     # ... inserted between BR ENGINEERING and KARTING64
+SILL_GAP_MAX = 2.5                                    # gap / median logo width above which the 4th logo is added
+SILL_ARCH_AIR = 0.02                                  # extra air (m) to the first / last passing point at the arches
+SILL_LOG = []
+
+
+SILL_H = (0.048, 0.046, 0.044, 0.042, 0.040)          # common outer height candidates (m), largest first
+SILL_ZC = (0.230, 0.228, 0.226, 0.224, 0.222)         # common centre-line candidates (world z)
+_SILL_PLAN = {}
+
+
+def sill_plan():
+    """One sill row layout for BOTH sides (mirror-identical), front -> rear РАФ · BR ENGINEERING · (DriveOil) ·
+    KARTING64. All logos have the same outer (backer) height and one common centre line z_c (= one baseline).
+    The row spans the whole flat sill: the usable ends are found first with the smallest height - the first / last
+    placements, scanned 1 cm at a time from the arches, that pass every gate on both sides (flat within 12 deg, >= 1 cm
+    to the sill edges, fully visible in the side and both 3/4 views: the front tyre hides the sill ahead of y ~-0.75 in
+    the front 3/4 view), plus SILL_ARCH_AIR - and the first logo starts there, the last one ends there, with equal gaps
+    between them. Then the largest common height that passes at those ends wins; among the centre lines the one that
+    keeps the most air for the tightest logo (the sill face is lower at the front: top edge z ~0.255 vs ~0.275 at the
+    rear). When the gaps exceed SILL_GAP_MAX x the median logo width, the 4th logo is added."""
+    if _SILL_PLAN:
+        return _SILL_PLAN
+    sl = ["sill"]
+    ctx = {}
+    for s in ("L", "R"):
+        sd = "left" if s == "L" else "right"
+        ctx[s] = dict(sg=1 if s == "L" else -1, Ps=POSF[cand(sl, s)], Ns=NRMF[cand(sl, s)],
+                      kwc=dict(ppm=PPM, side=s, parts=sl, min_clear_cm=1.0,
+                               occl_views=[f"side_{sd}", f"front34_{sd}", f"rear34_{sd}"]))
+
+    def flattest_normal(s, y, zc, w, h):
+        """projection normal with the smallest worst-case angle to the sill normals under the footprint (the face
+        leans ~15-25 deg at the front and turns square at the rear). Any normal keeps the baseline level: the art's
+        horizontal axis is up x normal with up = world z, i.e. always horizontal."""
+        c_ = ctx[s]
+        m = (np.abs(c_["Ps"][:, 1] - y) < w / 2) & (np.abs(c_["Ps"][:, 2] - zc) < h / 2)
+        nn = c_["Ns"][m][:: max(1, int(m.sum()) // 4000)]
+        ty, tz = np.meshgrid(np.arange(-0.30, 0.305, 0.02), np.arange(-0.10, 0.605, 0.02))
+        cn = np.stack([np.full(ty.size, float(c_["sg"])), ty.ravel(), tz.ravel()], 1)
+        cn /= np.linalg.norm(cn, axis=1, keepdims=True)
+        worst = np.arccos(np.clip(nn @ cn.T, -1, 1)).max(0)
+        return tuple(cn[int(np.argmin(worst))])
+
+    def trial(s, name, art, y, zc):
+        w, h = art.width / PPM, art.height / PPM
+        p = surf_point("side", y, zc, sl, s)
+        c = (p[0], y, zc)
+        cands_ = [(c, nv, (0, 0, 1)) for nv in (flattest_normal(s, y, zc, w, h), (ctx[s]["sg"], 0.0, 0.0))]
+        return decal_best(name, art, cands_, want=True, tilt_gate=12.0, line_min=1.0, air=1.0, deco_min=2.0,
+                          **ctx[s]["kwc"])
+
+    def both(name, art, y, zc):
+        return {s: trial(s, f"{name}_{s}", art, y, zc) for s in ("L", "R")}
+
+    first, last = SILL_ORDER[0], SILL_ORDER[-1]
+    ends = {}
+    for zc in SILL_ZC:              # usable ends: smallest height, both sides
+        a0, a1 = sill_art(first, SILL_H[-1]), sill_art(last, SILL_H[-1])
+        w0, w1 = a0.width / PPM, a1.width / PPM
+        yf = next((y for y in np.arange(-0.86, -0.50, 0.01)
+                   if all(r[0] for r in both("sill_probe", a0, y + w0 / 2, zc).values())), None)
+        yr = next((y for y in np.arange(1.02, 0.70, -0.01)
+                   if all(r[0] for r in both("sill_probe", a1, y - w1 / 2, zc).values())), None)
+        if yf is not None and yr is not None:
+            ends[zc] = (float(yf) + SILL_ARCH_AIR, float(yr) - SILL_ARCH_AIR)
+    print("   sill usable ends (front edge of the first logo / rear edge of the last) per centre line: "
+          + ", ".join(f"z {zc:.3f}: {a:+.3f} .. {b:+.3f}" for zc, (a, b) in ends.items()), flush=True)
+    for H in SILL_H:
+        best = None
+        for zc, (yf, yr) in ends.items():
+            kinds = list(SILL_ORDER)
+            arts = [sill_art(k, H) for k in kinds]
+            W = np.array([a.width / PPM for a in arts])
+            gap = (yr - yf - W.sum()) / (len(arts) - 1)
+            gap3, med3 = gap, float(np.median(W))
+            if gap > SILL_GAP_MAX * med3:
+                kinds.insert(SILL_EXTRA_AT, SILL_EXTRA)
+                arts = [sill_art(k, H) for k in kinds]
+                W = np.array([a.width / PPM for a in arts])
+                gap = (yr - yf - W.sum()) / (len(arts) - 1)
+            ys = yf + np.concatenate([[0], np.cumsum(W[:-1] + gap)]) + W / 2
+            res = []
+            for k, a, y in zip(kinds, arts, ys):
+                r = both(f"sill_{k}", a, y, zc)
+                res.append(r)
+                if not all(v[0] for v in r.values()):
+                    break
+            if len(res) < len(kinds) or not all(v[0] for r in res for v in r.values()):
+                continue
+            score = min(min(v[2]["edge_clear_cm"], v[2]["mask_clear_cm"]) for r in res for v in r.values())
+            if best is None or score > best["score"] + 0.05:
+                best = dict(score=score, H=H, zc=zc, kinds=kinds, arts=arts, W=W, ys=ys, gap=gap, yf=yf, yr=yr,
+                            res=res, gap3=gap3, med3=med3)
+        if best is not None:
+            break
+    if best is None:
+        raise RuntimeError("sill row: no layout passes on both sides")
+    _SILL_PLAN.update(best)
+    b = best
+    print(f"   sill row: height {b['H'] * 100:.1f} cm, centre z {b['zc']:.3f}, y {b['yf']:+.3f} .. {b['yr']:+.3f}; "
+          f"3-logo gaps would be {b['gap3'] * 100:.1f} cm vs {SILL_GAP_MAX} x median width {b['med3'] * 100:.1f} cm "
+          f"-> {len(b['kinds'])} logos, equal gaps {b['gap'] * 100:.1f} cm: "
+          + ", ".join(f"{k} {w * 100:.1f} cm @ y {y:+.3f}" for k, w, y in zip(b["kinds"], b["W"], b["ys"])),
+          flush=True)
+    for s in ("L", "R"):
+        SILL_LOG.append(dict(side=s, height_cm=round(b["H"] * 100, 1), z_centre=b["zc"], y_front=round(b["yf"], 3),
+                             y_rear=round(b["yr"], 3), gap_cm=round(b["gap"] * 100, 1),
+                             gap3_cm=round(b["gap3"] * 100, 1), median3_cm=round(b["med3"] * 100, 1),
+                             logos=[dict(kind=k, y=round(float(y), 3), width_cm=round(float(w) * 100, 1))
+                                    for k, y, w in zip(b["kinds"], b["ys"], b["W"])]))
+    return _SILL_PLAN
+
+
+def sill_row(s):
+    """Paint the sill row (layout from sill_plan, identical on both sides)."""
+    b = sill_plan()
+    sl = ["sill"]
+    sd = "left" if s == "L" else "right"
+    for k, a, r in zip(b["kinds"], b["arts"], b["res"]):
+        c, n, u = r[s][1]
+        decal(f"sill_{k}_{s}", a, c, n, u, ppm=PPM, side=s, parts=sl, min_clear_cm=1.0,
+              occl_views=[f"side_{sd}", f"front34_{sd}", f"rear34_{sd}"])
+
+
 def side_decals(s):
     sg = 1 if s == "L" else -1
 
@@ -1369,21 +1673,8 @@ def side_decals(s):
     decal_fit(f"driveoil_{s}", lambda h: asset_driveoil(px(h)), [0.065, 0.060, 0.056, 0.052, 0.048, 0.044],
               lambda h: sc((1.83, 1.825, 1.835), (0.615, 0.60, 0.63), rq, h * 3.6),
               parts=rq, tilt_gate=12.0, line_min=2.0, deco_min=4.0, depth_tol=0.03, **kw)
-    # sill: BR ENGINEERING (white on a deep-ink pill) + KARTING64 artwork (pearl pad, real orientation)
-    decal_fit(f"sill_breng_{s}", lambda h: pill(asset_mono("br_engineering_black.png", px(h), WHITE), px(0.012),
-                                                px(0.005), INK_D), [0.045, 0.042, 0.039, 0.036, 0.033],
-              lambda h: sc((0.10, 0.06, 0.14), (0.234, 0.229, 0.239), sl, h * 11),
-              parts=sl, tilt_gate=13.0, line_min=1.0, min_clear_cm=0.5, **kw)
-    decal_fit(f"sill_karting64_{s}", lambda h: pill(asset_karting64(px(h)), px(0.010), px(0.006), (250, 244, 250),
-                                                    line=INK_D),
-              [0.066, 0.062, 0.058, 0.054, 0.050],
-              lambda h: sc((0.84, 0.80, 0.88), (0.236, 0.231, 0.241), sl, h * 4),
-              parts=sl, tilt_gate=13.0, line_min=1.0, min_clear_cm=0.5, **kw)
-    # karting64.ru as a separate url (same face as simkart.vercel.app), deep ink on the sill next to the kart logo
-    decal_fit(f"url_karting64_{s}", lambda h: ink_text("karting64.ru", F_SPON(px(h)), INK_D),
-              [0.052, 0.050, 0.048, 0.045, 0.042],
-              lambda h: sc((0.52, 0.50, 0.54), (0.236, 0.232, 0.240), sl, h * 6),
-              parts=sl, kind="text", tilt_gate=10.0, min_clear_cm=0.5, line_min=1.0, deco_min=5.0, **kw)
+    # sill: one evenly spread row of partner logos (see sill_row)
+    sill_row(s)
     # sparkles (Y2K) – kept >= 4 cm from the plates and logos, >= 1.5 cm from lines
     for k, (ys, zs, rr, pp) in enumerate((((-0.84, -0.82, -0.80), (0.74, 0.70, 0.66), 0.016, fd),
                                           ((0.90, 0.93, 0.87), (0.50, 0.47, 0.44), 0.012, rd))):
@@ -1451,17 +1742,17 @@ def top_decals():
     for k, (xs, ys, rr, pp) in enumerate((((0.30, 0.32), (0.05, 0.0), 0.026, roof), ((-0.30, -0.32), (0.80, 0.84), 0.020, roof),
                                           ((0.37, 0.40), (-1.30, -1.26), 0.024, hood), ((-0.37, -0.40), (-1.62, -1.58), 0.018, hood))):
         place_fx(f"sparkle_top{k}", sparkle(px(rr)), top_cands(xs, ys, pp, (0, 1, 0), normal="z"), ppm=PPM, parts=pp)
-    # Trunk lid: «арка» reads from behind. Only the rear strip of the lid is clear of the rear wing in every view:
-    # the wing blade hides the lid ahead of y ~2.05 in both rear 3/4 views, and its two stays (x = +-0.20) cross the
-    # lid from above / behind (measured with a z-buffer of the model in the 9 standard views). The logo therefore
-    # sits between the stays (|x| <= 0.17) on y 2.055-2.135, the КРЕСТЕЦ label it displaces is dropped (it is not one
-    # of the chart's brief labels; the rump is still drawn by the cut lines).
+    # Trunk lid: the pig's curly tail + «ХВОСТИК», reads from behind. Only the rear strip of the lid is clear of the
+    # rear wing in every view: the wing blade hides the lid ahead of y ~2.05 in both rear 3/4 views, and its two stays
+    # (x = +-0.20) cross the lid from above / behind (measured with a z-buffer of the model in the 9 standard views).
+    # The art therefore sits between the stays (|x| <= 0.17) on y 2.055-2.135 (keep-out gate), and it is also
+    # checked against the renderer's own visibility in rear, both rear 3/4 and top views. (The «арка» that sat here
+    # repeated the «арка» on the wing, in the same visual plane.)
     tr = ["trunk_lid"]
-    decal_fit("arka_trunk", lambda h: asset_arka(px(h), taimcafe=False),
-              [0.075, 0.072, 0.070, 0.067, 0.064, 0.060, 0.056, 0.052],
+    decal_fit("tail_trunk", tail_with_label, [0.030, 0.029, 0.028, 0.027, 0.026, 0.025, 0.024, 0.023, 0.022],
               lambda h: top_cands((0.0,), (2.098, 2.095, 2.100, 2.092, 2.102, 2.090), tr, (0, -1, 0), r=0.04),
-              ppm=PPM, parts=tr, depth_tol=0.06, check_angle=40, air=1.0,
-              keepout=dict(y_min=2.052, x_abs_max=0.170))
+              ppm=PPM, parts=tr, depth_tol=0.06, check_angle=40, air=1.0, kind="text", tilt_gate=10.0,
+              keepout=dict(y_min=2.052, x_abs_max=0.170), occl_views=["rear", "rear34_left", "rear34_right", "top"])
 
 
 def rear_front_decals():
@@ -1485,9 +1776,26 @@ def rear_front_decals():
             for nv in (nflat(c, rb), (0, 1, 0)):
                 out.append((c, nv, (0, 0, 1)))
         return out
-    decal_fit("url_simkart_rear", lambda h: ink_text("simkart.vercel.app", F_SPON(px(h)), INK),
-              [0.062, 0.058, 0.055, 0.052, 0.048], rbc, ppm=PPM, parts=rb, depth_tol=0.10, kind="text",
-              tilt_gate=12.0, line_min=1.5, deco_min=3.0)
+    # «simkarting.ru ◆ karting64.ru»: both addresses side by side in one line (same face, size and ink). One line is
+    # kept when it fits flat (<= 12 deg), clear of the dashed cut line, at >= 4.0 cm type; otherwise the two
+    # addresses are stacked in two lines (same size). Must be fully visible in rear and both rear 3/4 views
+    # (renderer z-buffer: tow strap, trim and wing).
+    rkw = dict(ppm=PPM, parts=rb, depth_tol=0.10, kind="text", occl_views=["rear", "rear34_left", "rear34_right"])
+    rgate = dict(tilt_gate=12.0, line_min=1.5, deco_min=3.0)
+    one = fit_search("url_rear", lambda h: url_pair(px(h), INK), [0.052, 0.050, 0.048, 0.046, 0.044, 0.042, 0.040],
+                     rbc, **rgate, **rkw)
+    if one[1]:
+        pick = one
+        URL_NOTES.append(f"rear bumper: one line, {one[0] * 100:.1f} cm type")
+    else:
+        pick = fit_search("url_rear", lambda h: url_pair(px(h), INK, two_lines=True),
+                          [0.034, 0.032, 0.030, 0.028, 0.026], rbc, **rgate, **rkw)
+        URL_NOTES.append(f"rear bumper: two lines, {pick[0] * 100:.1f} cm type (one line did not fit)")
+    size, ok, (c, n, u), art, rep = pick
+    print(f"   url_rear: {'one line' if pick is one else 'two lines'} {size} m -> {'OK' if ok else 'NO FIT'} "
+          f"tilt={rep['max_tilt_deg']} edge={rep['edge_clear_cm']} line={rep.get('line_clear_cm')} "
+          f"hidden={rep.get('hidden_frac')}", flush=True)
+    decal("url_rear", art, c, n, u, **rkw)
     # front: ПЯТАЧОК (snout) on the hood nose strip ahead of the vent, reads from the front
     hood = ["hood"]
 
@@ -1564,6 +1872,124 @@ def glass_level_rot(mesh, bbox):
     return -a
 
 
+SIDE_WIN = {"L": ([115, 272, 513, 496], ("side_left", "front34_left", "rear34_left")),
+            "R": ([114, 518, 512, 741], ("side_right", "front34_right", "rear34_right"))}
+GVIS_CACHE = os.path.join(SCRATCH, "bc", "glass_side_visible_v1.npz")
+
+
+def glass_side_visible():
+    """Visible glass of the two rear side windows (glass_sticker.dds px, 1024): the window zone is made opaque and the
+    model is rasterised in the side and both 3/4 views of that side with the renderer's own cameras (opaque pass,
+    ss=2); a texel counts as visible glass only when it is the front-most surface in all three views (the black frame,
+    B-pillar trim and C-pillar corner are separate parts / outside the glass mesh). Geometry only -> cached."""
+    if os.path.exists(GVIS_CACHE):
+        d = np.load(GVIS_CACHE)
+        return {k: d[k] for k in ("L", "R")}
+    sys.path.insert(0, os.path.join(LIV, "tools"))
+    import render_rs3 as R
+    sc = R.Scene(R.DEFAULT_KN5, SRC, interior=False)
+    gm = sc.mat_names.index("glass_sticker")
+    tex = sc.tex[gm].copy()
+    for box, _ in SIDE_WIN.values():
+        x0, y0, x1, y1 = box
+        tex[y0 - 30:y1 + 30, x0 - 30:x1 + 30, 3] = 255
+    sc.tex[gm] = tex
+    tm = sc.TM
+
+    def at_filter(tt, b1, b2):
+        keep = np.ones(len(tt), bool)
+        mt = tm[tt]
+        ii = np.nonzero(sc.is_at[mt])[0]
+        if len(ii):
+            tri = sc.T[tt[ii]]
+            b0 = 1 - b1[ii] - b2[ii]
+            uv = sc.UV[tri[:, 0]] * b0[:, None] + sc.UV[tri[:, 1]] * b1[ii, None] + sc.UV[tri[:, 2]] * b2[ii, None]
+            for mid in np.unique(mt[ii]):
+                jj = mt[ii] == mid
+                t = sc.tex[mid]
+                if t is None or t.shape[2] < 4:
+                    continue
+                keep[ii[jj]] = R.sample(t, uv[jj, 0], uv[jj, 1], bilinear=False)[:, 3] >= 128
+        return keep
+    out = {}
+    for nm, (box, views) in SIDE_WIN.items():
+        vis = np.ones((1024, 1024), bool)
+        for name in views:
+            eye, f, rgt, up = R.view_camera(name)
+            rel = sc.P - eye
+            Dv = rel @ f
+            cx_, cy_ = rel @ rgt / Dv, rel @ up / Dv
+            used = np.unique(sc.T.ravel())
+            ux, uy = cx_[used], cy_[used]
+            W, H, ss, margin = 1600, 900, 2, 0.07
+            Ws, Hs = W * ss, H * ss
+            fpx = min(Ws * (1 - 2 * margin) / (ux.max() - ux.min()), Hs * (1 - 2 * margin) / (uy.max() - uy.min()))
+            mx_, my_ = (ux.min() + ux.max()) / 2, (uy.min() + uy.max()) / 2
+            X = (cx_ - mx_) * fpx + Ws / 2
+            Y = -(cy_ - my_) * fpx + Hs / 2
+            opaque = ~sc.is_glass[tm] & sc.tri_ok
+            gid = np.nonzero(opaque)[0]
+            _, tid, B1, B2 = R.rasterize(X, Y, Dv, sc.T[opaque], sc.bias[tm][opaque], Ws, Hs,
+                                         lambda tt, b1, b2: at_filter(gid[tt], b1, b2))
+            tid = np.where(tid >= 0, gid[np.maximum(tid, 0)], -1)
+            hit = tid >= 0
+            isg = np.zeros_like(hit)
+            isg[hit] = tm[tid[hit]] == gm
+            tt, b1, b2 = tid[isg], B1[isg], B2[isg]
+            tri = sc.T[tt]
+            uv = (sc.UV[tri[:, 0]] * (1 - b1 - b2)[:, None] + sc.UV[tri[:, 1]] * b1[:, None]
+                  + sc.UV[tri[:, 2]] * b2[:, None])
+            tx = np.clip(((uv[:, 0] % 1) * 1024).astype(int), 0, 1023)
+            ty = np.clip(((uv[:, 1] % 1) * 1024).astype(int), 0, 1023)
+            m = np.zeros((1024, 1024), bool)
+            m[ty, tx] = True
+            vis &= ndimage.binary_closing(m, iterations=3)       # close the pixel-sampling holes only
+        x0, y0, x1, y1 = box
+        sub = np.zeros_like(vis)
+        sub[y0 - 25:y1 + 25, x0 - 25:x1 + 25] = vis[y0 - 25:y1 + 25, x0 - 25:x1 + 25]
+        sub = ndimage.binary_opening(sub, iterations=1)
+        lab, _ = ndimage.label(sub)
+        out[nm] = lab == lab[(y0 + y1) // 2, (x0 + x1) // 2]      # the window itself (not the rear-window banner)
+    os.makedirs(os.path.dirname(GVIS_CACHE), exist_ok=True)
+    np.savez_compressed(GVIS_CACHE, **out)
+    return out
+
+
+def rrect_outline(w, h, r, rot):
+    """Outline points of a w x h rounded rectangle (corner radius r) centred on 0, turned like PIL rotate(rot)."""
+    pts = []
+    for t in np.linspace(0, 1, 400):
+        pts += [(-w / 2 + r + t * (w - 2 * r), -h / 2), (-w / 2 + r + t * (w - 2 * r), h / 2)]
+    for t in np.linspace(0, 1, 80):
+        pts += [(-w / 2, -h / 2 + r + t * (h - 2 * r)), (w / 2, -h / 2 + r + t * (h - 2 * r))]
+    for ccx, ccy, a0 in ((w / 2 - r, -h / 2 + r, -90), (w / 2 - r, h / 2 - r, 0), (-w / 2 + r, h / 2 - r, 90),
+                         (-w / 2 + r, -h / 2 + r, 180)):
+        for a in np.radians(np.linspace(a0, a0 + 90, 40)):
+            pts.append((ccx + r * math.cos(a), ccy + r * math.sin(a)))
+    P = np.array(pts)
+    A = math.radians(rot)       # PIL rotate(+a) turns the art counter-clockwise on screen (image y down)
+    return np.stack([P[:, 0] * math.cos(A) + P[:, 1] * math.sin(A), -P[:, 0] * math.sin(A) + P[:, 1] * math.cos(A)], 1)
+
+
+def centre_in_glass(vis, box, w, h, r, rot):
+    """Centre (px) of a w x h rounded plate that maximises its smallest clearance to the edge of the visible glass
+    (equal air to the frame on the tightest sides). Returns (cx, cy, clearance px)."""
+    edt = ndimage.distance_transform_edt(vis)
+    P = rrect_outline(w, h, r, rot)
+    best = (-1.0, 0.0, 0.0)
+    for cy in np.arange(box[1] + h / 2, box[3] - h / 2 + 0.5, 1.0):
+        for cx in np.arange(box[0] + w / 2, box[2] - w / 2 + 0.5, 1.0):
+            q = P + (cx, cy)
+            c = edt[np.clip(np.round(q[:, 1]).astype(int), 0, 1023), np.clip(np.round(q[:, 0]).astype(int), 0, 1023)].min()
+            if c > best[0] + 1e-9:
+                best = (float(c), float(cx), float(cy))
+    return best[1], best[2], best[0]
+
+
+NAME_SCALE = 0.85       # side-window name plate: 15 % smaller than the 386 x 82 px strip (same aspect ratio)
+_NAME_POS = {}
+
+
 def glass_sticker(driver):
     g = Image.open(os.path.join(SRC, "glass_sticker.dds")).convert("RGBA")
     S = 4                                     # draw at 4x, downsample at the end (crisp small text)
@@ -1593,7 +2019,8 @@ def glass_sticker(driver):
     d.rectangle(k([135, 168, 864, 172]), fill=(250, 248, 255, 255))
     lg = fit_h(blib.simkart_logo(50 * S, glow=True), 54 * S)
     gplace(G, "rw_simkart", lg, k([140, 172, 864, 253]), cx=380 * S, edge=0)
-    gplace(G, "rw_url", ink_text("simkart.vercel.app", F_SPON(28 * S), (236, 236, 244)), k([140, 172, 864, 253]),
+    # («simkarting.ru» is 13 characters, the old address 18: set at 34 px instead of 28 px -> 31 px letters, 223 px long)
+    gplace(G, "rw_url", ink_text(SIMKART_URL, F_SPON(34 * S), (236, 236, 244)), k([140, 172, 864, 253]),
            cx=700 * S, edge=0)
 
     # rear number: rear-window disc decal (Circle.038). Rotation computed from the mesh (-16.8 deg = exactly level).
@@ -1606,10 +2033,14 @@ def glass_sticker(driver):
            rot=glass_level_rot("Circle.038", rw_box), edge=S)
 
     # side windows: driver name + Russian flag on a burgundy strip (lower part of the rear door window)
+    # The 386 x 82 strip filled the window zone box, but the visible glass is a trapezoid inside that box (slanted
+    # B-pillar edge, C-pillar corner at the top rear): its front corners ran under the frame. The strip is drawn as
+    # before and scaled down uniformly by NAME_SCALE (aspect ratio kept), turned by the computed level angle of the
+    # glass, and centred where its smallest clearance to the edge of the visible glass (measured with the renderer's
+    # z-buffer in the side + both 3/4 views) is largest: equal air to the frame front, rear and bottom.
     first, last = driver
-    for nm, box in (("L", [115, 272, 513, 496]), ("R", [114, 518, 512, 741])):
-        bx0, by0, bx1, by1 = box
-        # (+18 %: 386 x 82 is the largest strip that keeps >= 2 px to the window zone box)
+    gvis = glass_side_visible()
+    for nm, (box, _) in SIDE_WIN.items():
         w, h = 386 * S, 82 * S
         strip = chrome_frame(w, h, 18 * S, 4 * S, INK)
         fl = ru_flag(60 * S, 40 * S)
@@ -1619,7 +2050,20 @@ def glass_sticker(driver):
         tx = fit_box(tx, w - 108 * S, h - 16 * S)
         strip.alpha_composite(fl, (18 * S, (h - fl.height) // 2))
         strip.alpha_composite(tx, (92 * S + (w - 110 * S - tx.width) // 2, (h - tx.height) // 2))
-        gplace(G, f"name_{nm}", strip, k(box), cy=(by1 - 60) * S, edge=S)
+        strip = strip.resize((round(w * NAME_SCALE), round(h * NAME_SCALE)), Image.LANCZOS)
+        rot = glass_level_rot("Circle.059", box)
+        if nm not in _NAME_POS:
+            # (+1 px: the deep-ink rim gplace puts under the art)
+            ww, hh = strip.width / S + 2, strip.height / S + 2
+            _NAME_POS[nm] = centre_in_glass(gvis[nm], box, ww, hh, 18 * NAME_SCALE + 1, rot) + (rot,)
+        cx, cy, clr, rot = _NAME_POS[nm]
+        gplace(G, f"name_{nm}", strip, k(box), cx=cx * S, cy=cy * S, rot=rot, edge=S)
+        mm_px = float(np.linalg.norm(glass_fit("Circle.059", box)[0])) * 1000
+        GCHECKS[-1].update(visible_glass_clear_px=round(clr, 1), visible_glass_clear_mm=round(clr * mm_px),
+                           centre_px=[round(cx), round(cy)], rot_deg=round(rot, 2),
+                           size_px=[strip.width // S, strip.height // S])
+        if clr < 8:
+            GCHECKS[-1]["status"] = "FAIL: plate too close to the frame / outside the visible glass"
 
     # rear wing (ext_sticker): whole area opaque; top = pearl pink, body-scale dashed cut lines, chrome
     # trailing-edge keyline, «арка» big in the middle (тайм-кафе sub-line dropped: unreadable at TV distance)
@@ -1683,6 +2127,7 @@ def main():
         side_decals(s)
     top_decals()
     rear_front_decals()
+    paint_audi_rings()
 
     out = A0.copy().reshape(-1, 3)
     pm = PAINTF
@@ -1714,19 +2159,32 @@ def main():
     for r in CHECKS:
         rep.append(f"{r['status']:<6} {r['name']:<26} {str(r['size_cm']):<14} cov={r['coverage']:.3f} "
                    f"edge={r['edge_clear_cm']:>5}cm tilt={r['max_tilt_deg']:>5}° in_mask={r.get('in_zone_mask')} "
-                   f"mask_clear={r.get('mask_clear_cm')}cm lines={r.get('line_clear_cm')}cm")
+                   f"mask_clear={r.get('mask_clear_cm')}cm lines={r.get('line_clear_cm')}cm"
+                   + (f" decals={r.get('decal_clear_cm')}cm hidden={r['hidden_frac']}" if "hidden_frac" in r else ""))
     for r in GCHECKS:  # glass checks of the first car (second car differs only in the name text)
-        rep.append(f"{r['status']:<6} glass:{r['name']:<20} box={r['box']} art={r['art_bbox']} clear={r['clear_px']}px")
+        extra = ""
+        if "visible_glass_clear_px" in r:
+            extra = (f" size={r['size_px']}px centre={r['centre_px']} rot={r['rot_deg']}deg"
+                     f" visible_glass_clear={r['visible_glass_clear_px']}px/{r['visible_glass_clear_mm']}mm")
+        rep.append(f"{r['status']:<6} glass:{r['name']:<20} box={r['box']} art={r['art_bbox']} clear={r['clear_px']}px"
+                   + extra)
     for r in BELLY_DROPPED:      # belly cut-line dashes left out whole instead of showing as stubs
         rep.append(f"INFO   line:belly dash {r['dash']}{r['side']:<3} left out whole ({r['why']}) at x={r['x']:+.3f} "
                    f"y={r['y']:+.3f}")
     for r in LINE_NOTES:
         rep.append("INFO   line:" + r)
+    for r in SILL_LOG:
+        rep.append(f"INFO   sill row {r['side']}: height {r['height_cm']} cm, centre z {r['z_centre']}, y {r['y_front']:+.3f}"
+                   f" .. {r['y_rear']:+.3f}, equal gaps {r['gap_cm']} cm: "
+                   + ", ".join(f"{g['kind']} {g['width_cm']} cm @ y {g['y']:+.3f}" for g in r["logos"]))
+    for r in URL_NOTES:
+        rep.append("INFO   url:" + r)
     txt = "\n".join(rep)
     print(txt)
     with open(os.path.join(HERE, "check_report.txt"), "w") as fh:
         fh.write(txt + "\n")
-    json.dump(dict(skin=CHECKS, glass=GCHECKS, belly_dropped=BELLY_DROPPED, line_notes=LINE_NOTES), open(os.path.join(HERE, "check_report.json"), "w"),
+    json.dump(dict(skin=CHECKS, glass=GCHECKS, belly_dropped=BELLY_DROPPED, line_notes=LINE_NOTES, sill_row=SILL_LOG,
+                   url_notes=URL_NOTES), open(os.path.join(HERE, "check_report.json"), "w"),
               ensure_ascii=False, indent=1, default=str)
 
     print("done")
