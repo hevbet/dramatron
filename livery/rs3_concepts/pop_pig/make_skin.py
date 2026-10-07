@@ -311,6 +311,17 @@ def ru_flag(w, ow=None):
     return t
 
 
+def saratov_flag(w, ow=None):
+    """Флаг Саратовской области (как на BR03): белое поле 2/3 над красной полосой 1/3, чёрный кант."""
+    h = int(w * 2 / 3)
+    ow = max(2, w // 24) if ow is None else ow
+    t = Image.new("RGBA", (w + 2 * ow, h + 2 * ow), INK + (255,))
+    d = ImageDraw.Draw(t)
+    d.rectangle([ow, ow, ow + w - 1, ow + h * 2 / 3 - 1], fill=WHITE + (255,))
+    d.rectangle([ow, ow + h * 2 / 3, ow + w - 1, ow + h - 1], fill=(213, 43, 30, 255))
+    return t
+
+
 # ---------------------------------------------------------------- комикс-элементы
 def bubble(txt, h, tail="bl", fill=WHITE):
     """Комикс-пузырь с подписью отруба: овал-«подушка», жирный контур, хвостик к отрубу."""
@@ -632,6 +643,10 @@ def make_body(G, src, shade, rings, car):
     exclude = G.parts_mask(["mirror", "hidden", "door_handle", "front_splitter", "rear_diffuser_band"])
     for sdc in F["cuts"]:
         B.fill(np.clip((0.0065 - np.abs(sdc)) * D + 0.5, 0, 1) * dash, INK, body & ~exclude & (G.z > 0.30))
+    # торец расширителя заднего крыла (ступенька, смотрит назад): сплошной комикс-чёрный —
+    # линия «брюха» по нему шла рваным зигзагом
+    step = G.parts_mask(["rear_panel"]) & (np.abs(G.x) > 0.745) & (G.y < 1.98)
+    B.fill(step.astype(np.float32), INK)
     # зеркала — цвет акцента с чёрным
     mir = G.parts_mask(["mirror"])
     B.fill(mir.astype(np.float32), acc)
@@ -691,10 +706,13 @@ def place_sponsors(B, car):
     B.put("пузырь КОРЕЙКА крыша", bubble("КОРЕЙКА", int(0.08 * P), "bl"), "top", (0.0, -0.165, 1.38),
           height_m=0.10, parts=["roof"], max_angle=40)
     # ---- корма
-    reg = stack([solid(text_h("САРАТОВСКАЯ ОБЛАСТЬ", F_SPON, int(0.038 * P)), INK),
-                 solid(text_h("РЕГИОН 64", F_SPON, int(0.028 * P), track=0.12), INK)], int(0.012 * P))
-    B.put("Саратовская обл. крышка багажника", row([saratov_coa(int(0.11 * P)), reg], int(0.03 * P)), "top_rear",
-          (0, 2.0, 1.04), height_m=0.15, parts=["trunk_lid"], max_angle=60, search=(0.05, 0.06), shrink_to=0.6)
+    # крышка багажника: между стойками антикрыла (x = ±0.208 м) — герб + флаг области + «64»,
+    # чтобы стойки не перечёркивали надпись при взгляде сзади
+    r64 = stack([solid(text_h("РЕГИОН", F_SPON, int(0.020 * P), track=0.12), INK),
+                 solid(text_h("64", F_SPON, int(0.060 * P)), INK)], int(0.008 * P))
+    B.put("Саратовская обл. крышка багажника",
+          row([saratov_flag(int(0.075 * P)), saratov_coa(int(0.11 * P)), r64], int(0.022 * P)), "top_rear",
+          (0, 1.985, 1.05), width_m=0.30, parts=["trunk_lid"], max_angle=60, search=(0.0, 0.03), shrink_to=0.75)
     edm = stack([solid(text_h("КОМАНДА", F_SPON, int(0.030 * P), track=0.1), INK),
                  solid(text_h("ЭДМ", F_SPON, int(0.075 * P)), INK)], int(0.01 * P))
     B.put("Команда ЭДМ задняя панель", row([mbu_logo(int(0.12 * P)), edm], int(0.03 * P)), "rear",
@@ -704,6 +722,9 @@ def place_sponsors(B, car):
                      int(0.03 * P), int(0.014 * P), INK, WHITE, max(3, int(0.004 * P)))
     B.put("Симкарт + ссылка задний бампер", sim_rear, "rear", (0.0, 2.25, 0.585), height_m=0.10,
           parts=["rear_bumper"], max_angle=60, search=(0.05, 0.05))
+    B.put("САРАТОВСКАЯ ОБЛАСТЬ задний бампер",
+          solid(text_h("САРАТОВСКАЯ ОБЛАСТЬ · РЕГИОН 64", F_SPON, int(0.03 * P)), INK), "rear",
+          (0.0, 2.25, 0.49), height_m=0.032, parts=["rear_bumper"], max_angle=60, search=(0.0, 0.02))
     # ---- перед
     B.put("номер 00 перед", number_plate("00", int(0.10 * P), acc), "front", (-0.52, -1.95, 0.50),
           height_m=0.10, parts=["front_bumper", "front_bumper_corner"], max_angle=55)
