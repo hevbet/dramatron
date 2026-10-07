@@ -269,9 +269,10 @@ def asset_simkart_tag(w, url=True, pin=False):
     logo = fit_w(logo, int(w * 0.80))
     items = [logo]
     if url:
-        # «simkarting.ru» (13 characters) is set at 0.085 w, 21 % larger than the old 18-character address (0.07 w):
-        # it spans ~0.56 w (old 0.64 w) under the 0.80 w wordmark; font size only (uniform glyph scale, no stretching)
-        u = ink_text(SIMKART_URL, F_SPON(int(w * 0.085)), (236, 236, 244))
+        # «simkarting.ru» (13 characters) is set at 0.078 w, 11 % larger than the old 18-character address (0.07 w):
+        # it spans ~0.51 w (old 0.64 w) under the 0.80 w wordmark and the plate grows only ~3 % in height (the hood
+        # plate keeps >= 2 cm to the hood cut line at its size); font size only (uniform glyph scale, no stretching)
+        u = ink_text(SIMKART_URL, F_SPON(int(w * 0.078)), (236, 236, 244))
         items.append(u)
     inner = stack(items, int(w * 0.012))
     bw = max(4, int(w * 0.018))

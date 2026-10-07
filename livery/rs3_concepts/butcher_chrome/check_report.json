@@ -29,14 +29,14 @@
    "side": "L",
    "size_cm": [
     42.0,
-    17.0
+    17.6
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.3,
-   "max_tilt_deg": 2.5,
+   "edge_clear_cm": 2.4,
+   "max_tilt_deg": 5.4,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.5,
-   "line_clear_cm": 10.6,
+   "line_clear_cm": 11.8,
    "decal_clear_cm": 9.0,
    "status": "OK"
   },
@@ -161,6 +161,32 @@
    "status": "OK"
   },
   {
+   "name": "sill_raf_L",
+   "kind": "logo",
+   "parts": [
+    "sill"
+   ],
+   "side": "L",
+   "size_cm": [
+    5.5,
+    4.8
+   ],
+   "coverage": 1.0,
+   "edge_clear_cm": 1.2,
+   "max_tilt_deg": 3.9,
+   "in_zone_mask": 1.0,
+   "mask_clear_cm": 2.6,
+   "line_clear_cm": 14.7,
+   "decal_clear_cm": 4.4,
+   "hidden_frac": {
+    "side_left": 0.0,
+    "front34_left": 0.0,
+    "rear34_left": 0.0
+   },
+   "occl_ok": true,
+   "status": "OK"
+  },
+  {
    "name": "sill_breng_L",
    "kind": "logo",
    "parts": [
@@ -168,16 +194,48 @@
    ],
    "side": "L",
    "size_cm": [
-    44.2,
-    4.9
+    42.8,
+    4.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.0,
-   "max_tilt_deg": 9.1,
+   "edge_clear_cm": 1.4,
+   "max_tilt_deg": 8.8,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.4,
-   "line_clear_cm": 13.7,
-   "decal_clear_cm": 3.4,
+   "mask_clear_cm": 2.9,
+   "line_clear_cm": 14.5,
+   "decal_clear_cm": 4.1,
+   "hidden_frac": {
+    "side_left": 0.0,
+    "front34_left": 0.0,
+    "rear34_left": 0.0
+   },
+   "occl_ok": true,
+   "status": "OK"
+  },
+  {
+   "name": "sill_driveoil_L",
+   "kind": "logo",
+   "parts": [
+    "sill"
+   ],
+   "side": "L",
+   "size_cm": [
+    17.2,
+    4.8
+   ],
+   "coverage": 1.0,
+   "edge_clear_cm": 2.7,
+   "max_tilt_deg": 8.0,
+   "in_zone_mask": 1.0,
+   "mask_clear_cm": 3.6,
+   "line_clear_cm": 14.9,
+   "decal_clear_cm": 6.1,
+   "hidden_frac": {
+    "side_left": 0.0,
+    "front34_left": 0.0,
+    "rear34_left": 0.0
+   },
+   "occl_ok": true,
    "status": "OK"
   },
   {
@@ -188,36 +246,22 @@
    ],
    "side": "L",
    "size_cm": [
-    22.8,
-    7.0
+    15.0,
+    4.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.8,
-   "max_tilt_deg": 5.4,
+   "edge_clear_cm": 2.8,
+   "max_tilt_deg": 1.5,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.2,
-   "line_clear_cm": 25.8,
-   "decal_clear_cm": 4.9,
-   "status": "OK"
-  },
-  {
-   "name": "url_karting64_L",
-   "kind": "text",
-   "parts": [
-    "sill"
-   ],
-   "side": "L",
-   "size_cm": [
-    32.0,
-    5.2
-   ],
-   "coverage": 1.0,
-   "edge_clear_cm": 1.8,
-   "max_tilt_deg": 7.2,
-   "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.8,
-   "line_clear_cm": 14.3,
-   "decal_clear_cm": 5.1,
+   "mask_clear_cm": 1.3,
+   "line_clear_cm": 30.5,
+   "decal_clear_cm": 10.4,
+   "hidden_frac": {
+    "side_left": 0.0,
+    "front34_left": 0.0,
+    "rear34_left": 0.0
+   },
+   "occl_ok": true,
    "status": "OK"
   },
   {
@@ -249,14 +293,14 @@
    "side": "R",
    "size_cm": [
     42.0,
-    17.0
+    17.6
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.5,
-   "max_tilt_deg": 2.5,
+   "edge_clear_cm": 2.6,
+   "max_tilt_deg": 5.4,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.8,
-   "line_clear_cm": 10.6,
+   "line_clear_cm": 11.8,
    "decal_clear_cm": 9.1,
    "status": "OK"
   },
@@ -381,6 +425,32 @@
    "status": "OK"
   },
   {
+   "name": "sill_raf_R",
+   "kind": "logo",
+   "parts": [
+    "sill"
+   ],
+   "side": "R",
+   "size_cm": [
+    5.5,
+    4.8
+   ],
+   "coverage": 1.0,
+   "edge_clear_cm": 1.2,
+   "max_tilt_deg": 3.9,
+   "in_zone_mask": 1.0,
+   "mask_clear_cm": 2.6,
+   "line_clear_cm": 14.7,
+   "decal_clear_cm": 4.4,
+   "hidden_frac": {
+    "side_right": 0.0,
+    "front34_right": 0.0,
+    "rear34_right": 0.0
+   },
+   "occl_ok": true,
+   "status": "OK"
+  },
+  {
    "name": "sill_breng_R",
    "kind": "logo",
    "parts": [
@@ -388,16 +458,48 @@
    ],
    "side": "R",
    "size_cm": [
-    44.2,
-    4.9
+    42.8,
+    4.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.0,
-   "max_tilt_deg": 9.1,
+   "edge_clear_cm": 1.6,
+   "max_tilt_deg": 8.8,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.5,
-   "line_clear_cm": 13.7,
-   "decal_clear_cm": 3.4,
+   "mask_clear_cm": 3.0,
+   "line_clear_cm": 14.5,
+   "decal_clear_cm": 4.2,
+   "hidden_frac": {
+    "side_right": 0.0,
+    "front34_right": 0.0,
+    "rear34_right": 0.0
+   },
+   "occl_ok": true,
+   "status": "OK"
+  },
+  {
+   "name": "sill_driveoil_R",
+   "kind": "logo",
+   "parts": [
+    "sill"
+   ],
+   "side": "R",
+   "size_cm": [
+    17.2,
+    4.8
+   ],
+   "coverage": 1.0,
+   "edge_clear_cm": 2.8,
+   "max_tilt_deg": 8.0,
+   "in_zone_mask": 1.0,
+   "mask_clear_cm": 3.6,
+   "line_clear_cm": 14.8,
+   "decal_clear_cm": 6.0,
+   "hidden_frac": {
+    "side_right": 0.0,
+    "front34_right": 0.0,
+    "rear34_right": 0.0
+   },
+   "occl_ok": true,
    "status": "OK"
   },
   {
@@ -408,36 +510,22 @@
    ],
    "side": "R",
    "size_cm": [
-    22.8,
-    7.0
+    15.0,
+    4.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.8,
-   "max_tilt_deg": 5.5,
+   "edge_clear_cm": 2.5,
+   "max_tilt_deg": 1.5,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.3,
-   "line_clear_cm": 25.8,
-   "decal_clear_cm": 5.6,
-   "status": "OK"
-  },
-  {
-   "name": "url_karting64_R",
-   "kind": "text",
-   "parts": [
-    "sill"
-   ],
-   "side": "R",
-   "size_cm": [
-    32.0,
-    5.2
-   ],
-   "coverage": 1.0,
-   "edge_clear_cm": 1.8,
-   "max_tilt_deg": 7.2,
-   "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.8,
-   "line_clear_cm": 15.4,
-   "decal_clear_cm": 5.1,
+   "line_clear_cm": 30.5,
+   "decal_clear_cm": 11.4,
+   "hidden_frac": {
+    "side_right": 0.0,
+    "front34_right": 0.0,
+    "rear34_right": 0.0
+   },
+   "occl_ok": true,
    "status": "OK"
   },
   {
@@ -449,15 +537,15 @@
    "side": null,
    "size_cm": [
     61.3,
-    26.5
+    27.4
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 11.0,
+   "edge_clear_cm": 11.1,
    "max_tilt_deg": 3.3,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.9,
-   "line_clear_cm": 2.4,
-   "decal_clear_cm": 85.0,
+   "mask_clear_cm": 2.4,
+   "line_clear_cm": 1.9,
+   "decal_clear_cm": 84.8,
    "status": "OK"
   },
   {
@@ -477,7 +565,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.5,
    "line_clear_cm": 2.5,
-   "decal_clear_cm": 7.0,
+   "decal_clear_cm": 6.5,
    "status": "OK"
   },
   {
@@ -581,24 +669,31 @@
    "status": "OK"
   },
   {
-   "name": "arka_trunk",
-   "kind": "logo",
+   "name": "tail_trunk",
+   "kind": "text",
    "parts": [
     "trunk_lid"
    ],
    "side": null,
    "size_cm": [
-    17.0,
-    9.4
+    32.9,
+    6.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 4.4,
-   "max_tilt_deg": 3.3,
+   "edge_clear_cm": 7.2,
+   "max_tilt_deg": 3.5,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 9.9,
-   "line_clear_cm": 56.4,
-   "decal_clear_cm": 94.3,
+   "mask_clear_cm": 11.5,
+   "line_clear_cm": 57.0,
+   "decal_clear_cm": 86.7,
    "keepout_ok": true,
+   "hidden_frac": {
+    "rear": 0.0,
+    "rear34_left": 0.0,
+    "rear34_right": 0.0,
+    "top": 0.0
+   },
+   "occl_ok": true,
    "status": "OK"
   },
   {
@@ -613,32 +708,38 @@
     14.0
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 4.2,
-   "max_tilt_deg": 5.7,
+   "edge_clear_cm": 4.8,
+   "max_tilt_deg": 5.6,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 4.4,
    "line_clear_cm": 24.9,
-   "decal_clear_cm": 19.0,
+   "decal_clear_cm": 18.9,
    "status": "OK"
   },
   {
-   "name": "url_simkart_rear",
+   "name": "url_rear",
    "kind": "text",
    "parts": [
     "rear_bumper"
    ],
    "side": null,
    "size_cm": [
-    56.8,
-    6.0
+    70.5,
+    5.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 3.9,
-   "max_tilt_deg": 11.8,
+   "edge_clear_cm": 4.1,
+   "max_tilt_deg": 11.9,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 3.8,
-   "line_clear_cm": 3.8,
-   "decal_clear_cm": 16.5,
+   "mask_clear_cm": 3.1,
+   "line_clear_cm": 4.3,
+   "decal_clear_cm": 16.7,
+   "hidden_frac": {
+    "rear": 0.0,
+    "rear34_left": 0.0,
+    "rear34_right": 0.0
+   },
+   "occl_ok": true,
    "status": "OK"
   },
   {
@@ -658,7 +759,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.2,
    "line_clear_cm": 54.0,
-   "decal_clear_cm": 41.6,
+   "decal_clear_cm": 41.2,
    "status": "OK"
   }
  ],
@@ -757,12 +858,12 @@
     1012
    ],
    "art_bbox": [
-    2290,
-    800,
-    3305,
-    901
+    2354,
+    786,
+    3243,
+    913
    ],
-   "clear_px": 111,
+   "clear_px": 98,
    "status": "OK"
   },
   {
@@ -791,13 +892,24 @@
     1984
    ],
    "art_bbox": [
-    480,
-    1576,
-    2032,
-    1912
+    599,
+    1598,
+    1921,
+    1897
    ],
-   "clear_px": 20,
-   "status": "OK"
+   "clear_px": 87,
+   "status": "OK",
+   "visible_glass_clear_px": 19.0,
+   "visible_glass_clear_mm": 34,
+   "centre_px": [
+    315,
+    437
+   ],
+   "rot_deg": -0.54,
+   "size_px": [
+    328,
+    69
+   ]
   },
   {
    "name": "name_R",
@@ -808,13 +920,24 @@
     2964
    ],
    "art_bbox": [
-    476,
-    2556,
-    2028,
-    2892
+    583,
+    2582,
+    1905,
+    2881
    ],
-   "clear_px": 20,
-   "status": "OK"
+   "clear_px": 83,
+   "status": "OK",
+   "visible_glass_clear_px": 18.4,
+   "visible_glass_clear_mm": 33,
+   "centre_px": [
+    311,
+    683
+   ],
+   "rot_deg": 0.54,
+   "size_px": [
+    328,
+    69
+   ]
   },
   {
    "name": "wing_arka",
@@ -910,13 +1033,24 @@
     1984
    ],
    "art_bbox": [
-    480,
-    1576,
-    2032,
-    1912
+    599,
+    1598,
+    1921,
+    1897
    ],
-   "clear_px": 20,
-   "status": "OK"
+   "clear_px": 87,
+   "status": "OK",
+   "visible_glass_clear_px": 19.0,
+   "visible_glass_clear_mm": 34,
+   "centre_px": [
+    315,
+    437
+   ],
+   "rot_deg": -0.54,
+   "size_px": [
+    328,
+    69
+   ]
   },
   {
    "name": "name_R@Konopelko_00",
@@ -927,13 +1061,24 @@
     2964
    ],
    "art_bbox": [
-    476,
-    2556,
-    2028,
-    2892
+    583,
+    2582,
+    1905,
+    2881
    ],
-   "clear_px": 20,
-   "status": "OK"
+   "clear_px": 83,
+   "status": "OK",
+   "visible_glass_clear_px": 18.4,
+   "visible_glass_clear_mm": 33,
+   "centre_px": [
+    311,
+    683
+   ],
+   "rot_deg": 0.54,
+   "size_px": [
+    328,
+    69
+   ]
   }
  ],
  "belly_dropped": [
@@ -983,5 +1128,74 @@
  "line_notes": [
   "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 0.9693)",
   "hood cut line meets the shoulder line at x=+-0.840 y=-0.943 on the middle of a shoulder dash; 16 whole dashes, stretch 0.9799"
+ ],
+ "sill_row": [
+  {
+   "side": "L",
+   "height_cm": 4.8,
+   "z_centre": 0.222,
+   "y_front": -0.75,
+   "y_rear": 0.99,
+   "gap_cm": 31.1,
+   "gap3_cm": 55.3,
+   "median3_cm": 15.0,
+   "logos": [
+    {
+     "kind": "raf",
+     "y": -0.722,
+     "width_cm": 5.5
+    },
+    {
+     "kind": "breng",
+     "y": -0.169,
+     "width_cm": 42.8
+    },
+    {
+     "kind": "driveoil",
+     "y": 0.443,
+     "width_cm": 17.2
+    },
+    {
+     "kind": "karting64",
+     "y": 0.915,
+     "width_cm": 15.0
+    }
+   ]
+  },
+  {
+   "side": "R",
+   "height_cm": 4.8,
+   "z_centre": 0.222,
+   "y_front": -0.75,
+   "y_rear": 0.99,
+   "gap_cm": 31.1,
+   "gap3_cm": 55.3,
+   "median3_cm": 15.0,
+   "logos": [
+    {
+     "kind": "raf",
+     "y": -0.722,
+     "width_cm": 5.5
+    },
+    {
+     "kind": "breng",
+     "y": -0.169,
+     "width_cm": 42.8
+    },
+    {
+     "kind": "driveoil",
+     "y": 0.443,
+     "width_cm": 17.2
+    },
+    {
+     "kind": "karting64",
+     "y": 0.915,
+     "width_cm": 15.0
+    }
+   ]
+  }
+ ],
+ "url_notes": [
+  "rear bumper: one line, 5.2 cm type"
  ]
 }
