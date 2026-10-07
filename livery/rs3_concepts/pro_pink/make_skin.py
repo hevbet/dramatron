@@ -430,8 +430,16 @@ def build_top(car, drv, inv):
     car.fit("hood_simkart", A.simkart_plate(900), "top", 0.87, (-0.70, 0.70, -1.75, -0.85), 0.86,
             ["hood"], prefer=(0.0, -1.22), min_clear=0.03, depth_tol=0.2, check_angle=40, blade_keep=False)
     # ---------- trunk lid: «Команда ЭДМ» + МБУ «Клуб Энгельсская молодёжь» (team)
-    car.fit("trunk_edm", A.team_edm(300, col=(W if inv else A.PLUM_D)), "top_rear", 1.0, (-0.65, 0.65, -2.15, -1.6), 0.60,
-            ["trunk_lid"], prefer=(0.0, -1.86), min_clear=0.02, depth_tol=0.2, check_angle=22, blade_keep=True)
+    # The rear-wing uprights stand on the trunk at |x| = 0.19..0.21 m (kn5 Plane.010), so from behind they would
+    # cut a wide lockup in three. Team name goes BETWEEN the uprights; the МБУ sticker sits outboard on both sides.
+    car.fit("trunk_edm", A.team_edm(300, col=(W if inv else A.PLUM_D), sticker=False), "top_rear", 1.0,
+            (-0.165, 0.165, -2.15, -1.6), 0.30, ["trunk_lid"], prefer=(0.0, -1.84), min_clear=0.02, depth_tol=0.2,
+            check_angle=22, blade_keep=True)
+    for sgn, tag in ((1, "a"), (-1, "b")):
+        reg = (0.25, 0.62) if sgn > 0 else (-0.62, -0.25)
+        car.fit(f"trunk_mbu_{tag}", A.mbu(300), "top_rear", 1.0, (reg[0], reg[1], -2.15, -1.6), 0.16,
+                ["trunk_lid"], prefer=(sgn * 0.40, -1.84), min_clear=0.02, depth_tol=0.2, check_angle=22,
+                blade_keep=True)
     # ---------- rear panel between the lights: Саратовская область · 64 (region)
     car.fit("rear_region64", A.region64(300, col=W), "rear", 2.15, (-0.6, 0.6, 0.55, 1.0), 0.50,
             ["rear_panel"], prefer=(0.0, 0.80), min_clear=0.015, depth_tol=0.25, check_angle=45)

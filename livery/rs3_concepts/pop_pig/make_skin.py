@@ -646,6 +646,11 @@ def make_body(G, src, shade, rings, car):
     # торец расширителя заднего крыла (ступенька, смотрит назад): сплошной комикс-чёрный —
     # линия «брюха» по нему шла рваным зигзагом
     step = G.parts_mask(["rear_panel"]) & (np.abs(G.x) > 0.745) & (G.y < 1.98)
+    # …и «карман» угла бампера между торцом и фонарём (обращён назад)
+    step |= (G.parts_mask(["rear_bumper_corner"]) & (np.abs(G.x) > 0.66) & (G.y < 2.06) & (G.z > 0.69)
+             & (G.nrm[..., 1] > 0.45))
+    # …и полка заднего бампера под фонарями (смотрит вверх): линия шла по ней размазанным клином
+    step |= G.parts_mask(["rear_bumper"]) & (G.nrm[..., 2] > 0.55) & (G.y > 1.98) & (G.z > 0.6)
     B.fill(step.astype(np.float32), INK)
     # зеркала — цвет акцента с чёрным
     mir = G.parts_mask(["mirror"])
@@ -724,7 +729,7 @@ def place_sponsors(B, car):
           parts=["rear_bumper"], max_angle=60, search=(0.05, 0.05))
     B.put("САРАТОВСКАЯ ОБЛАСТЬ задний бампер",
           solid(text_h("САРАТОВСКАЯ ОБЛАСТЬ · РЕГИОН 64", F_SPON, int(0.03 * P)), INK), "rear",
-          (0.0, 2.25, 0.49), height_m=0.032, parts=["rear_bumper"], max_angle=60, search=(0.0, 0.02))
+          (0.0, 2.25, 0.49), height_m=0.027, parts=["rear_bumper"], max_angle=60, search=(0.0, 0.02))
     # ---- перед
     B.put("номер 00 перед", number_plate("00", int(0.10 * P), acc), "front", (-0.52, -1.95, 0.50),
           height_m=0.10, parts=["front_bumper", "front_bumper_corner"], max_angle=55)
