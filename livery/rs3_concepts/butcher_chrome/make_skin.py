@@ -2102,6 +2102,19 @@ def glass_sticker(driver):
         bl = row([saratov_flag(66 * S, 44 * S), chrome_text("64", F_NUM(44 * S), 3 * S)], 10 * S)
         gplace(G, f"endplate_{nm}", fit_box(bl, 150 * S, 64 * S), k([ex0 + 5, 768, ex1 - 5, 849]), edge=0)
     out = G.resize((1024, 1024), Image.LANCZOS)
+    # side-window zones (only the name plates there): the transparent texels around the plate take the colour of the
+    # nearest plate texel. The downsample leaves random colours in near-zero-alpha texels, and the DXT5 colour
+    # endpoints of a 4x4 block are chosen from all 16 texels, so a red / cyan transparent texel turned a visible rim
+    # texel bright red (and texture filtering would bleed it into the edge in game).
+    arr = np.asarray(out).copy()
+    for box, _ in SIDE_WIN.values():
+        x0, y0, x1, y1 = box
+        sub = arr[y0:y1 + 1, x0:x1 + 1]
+        op = sub[..., 3] >= 128
+        if op.any():
+            _, (iy_, ix_) = ndimage.distance_transform_edt(~op, return_indices=True)
+            sub[..., :3] = np.where(op[..., None], sub[..., :3], sub[iy_, ix_, :3])
+    out = Image.fromarray(arr, "RGBA")
     # alpha: binary where we painted (alpha-tested material); keep original transparency elsewhere
     a = np.asarray(out.getchannel("A"))
     out.putalpha(Image.fromarray(np.where(a >= 128, 255, 0).astype(np.uint8)))

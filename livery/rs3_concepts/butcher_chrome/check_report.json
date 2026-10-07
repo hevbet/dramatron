@@ -29,14 +29,14 @@
    "side": "L",
    "size_cm": [
     42.0,
-    17.6
+    17.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.4,
-   "max_tilt_deg": 5.4,
+   "edge_clear_cm": 2.3,
+   "max_tilt_deg": 2.5,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.5,
-   "line_clear_cm": 11.8,
+   "line_clear_cm": 10.4,
    "decal_clear_cm": 9.0,
    "status": "OK"
   },
@@ -293,14 +293,14 @@
    "side": "R",
    "size_cm": [
     42.0,
-    17.6
+    17.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.6,
-   "max_tilt_deg": 5.4,
+   "edge_clear_cm": 2.5,
+   "max_tilt_deg": 2.5,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.8,
-   "line_clear_cm": 11.8,
+   "line_clear_cm": 10.4,
    "decal_clear_cm": 9.1,
    "status": "OK"
   },
@@ -537,15 +537,15 @@
    "side": null,
    "size_cm": [
     61.3,
-    27.4
+    27.0
    ],
    "coverage": 1.0,
    "edge_clear_cm": 11.1,
    "max_tilt_deg": 3.3,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.4,
-   "line_clear_cm": 1.9,
-   "decal_clear_cm": 84.8,
+   "mask_clear_cm": 2.6,
+   "line_clear_cm": 2.1,
+   "decal_clear_cm": 85.0,
    "status": "OK"
   },
   {
@@ -565,7 +565,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.5,
    "line_clear_cm": 2.5,
-   "decal_clear_cm": 6.5,
+   "decal_clear_cm": 6.7,
    "status": "OK"
   },
   {
@@ -759,7 +759,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.2,
    "line_clear_cm": 54.0,
-   "decal_clear_cm": 41.2,
+   "decal_clear_cm": 41.3,
    "status": "OK"
   }
  ],

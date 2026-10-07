@@ -1,5 +1,5 @@
 OK     number_door_L              [42.0, 28.3]   cov=1.000 edge=  5.8cm tilt= 14.2° in_mask=1.0 mask_clear=6.0cm lines=6.5cm
-OK     simkart_door_L             [42.0, 17.6]   cov=1.000 edge=  2.4cm tilt=  5.4° in_mask=1.0 mask_clear=2.5cm lines=11.8cm
+OK     simkart_door_L             [42.0, 17.3]   cov=1.000 edge=  2.3cm tilt=  2.5° in_mask=1.0 mask_clear=2.5cm lines=10.4cm
 OK     arka_door_L                [37.0, 27.5]   cov=1.000 edge=  5.0cm tilt=  8.7° in_mask=1.0 mask_clear=5.2cm lines=5.1cm
 OK     label_koreika_L            [20.6, 5.2]    cov=1.000 edge=  1.2cm tilt=  5.3° in_mask=1.0 mask_clear=2.3cm lines=5.1cm
 OK     label_grudinka_L           [46.7, 6.0]    cov=1.000 edge=  1.9cm tilt=  0.0° in_mask=1.0 mask_clear=1.9cm lines=5.5cm
@@ -11,7 +11,7 @@ OK     sill_breng_L               [42.8, 4.8]    cov=1.000 edge=  1.4cm tilt=  8
 OK     sill_driveoil_L            [17.2, 4.8]    cov=1.000 edge=  2.7cm tilt=  8.0° in_mask=1.0 mask_clear=3.6cm lines=14.9cm decals=6.1cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
 OK     sill_karting64_L           [15.0, 4.8]    cov=1.000 edge=  2.8cm tilt=  1.5° in_mask=1.0 mask_clear=1.3cm lines=30.5cm decals=10.4cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
 OK     number_door_R              [42.0, 28.3]   cov=1.000 edge=  5.8cm tilt= 14.3° in_mask=1.0 mask_clear=5.9cm lines=6.5cm
-OK     simkart_door_R             [42.0, 17.6]   cov=1.000 edge=  2.6cm tilt=  5.4° in_mask=1.0 mask_clear=2.8cm lines=11.8cm
+OK     simkart_door_R             [42.0, 17.3]   cov=1.000 edge=  2.5cm tilt=  2.5° in_mask=1.0 mask_clear=2.8cm lines=10.4cm
 OK     arka_door_R                [37.0, 27.5]   cov=1.000 edge=  5.3cm tilt=  8.7° in_mask=1.0 mask_clear=5.4cm lines=5.0cm
 OK     label_koreika_R            [18.4, 4.9]    cov=1.000 edge=  1.3cm tilt=  5.4° in_mask=1.0 mask_clear=2.6cm lines=5.3cm
 OK     label_grudinka_R           [46.7, 6.0]    cov=1.000 edge=  1.6cm tilt=  0.0° in_mask=1.0 mask_clear=1.8cm lines=5.5cm
@@ -22,7 +22,7 @@ OK     sill_raf_R                 [5.5, 4.8]     cov=1.000 edge=  1.2cm tilt=  3
 OK     sill_breng_R               [42.8, 4.8]    cov=1.000 edge=  1.6cm tilt=  8.8° in_mask=1.0 mask_clear=3.0cm lines=14.5cm decals=4.2cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
 OK     sill_driveoil_R            [17.2, 4.8]    cov=1.000 edge=  2.8cm tilt=  8.0° in_mask=1.0 mask_clear=3.6cm lines=14.8cm decals=6.0cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
 OK     sill_karting64_R           [15.0, 4.8]    cov=1.000 edge=  2.5cm tilt=  1.5° in_mask=1.0 mask_clear=1.3cm lines=30.5cm decals=11.4cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
-OK     simkart_hood               [61.3, 27.4]   cov=1.000 edge= 11.1cm tilt=  3.3° in_mask=1.0 mask_clear=2.4cm lines=1.9cm
+OK     simkart_hood               [61.3, 27.0]   cov=1.000 edge= 11.1cm tilt=  3.3° in_mask=1.0 mask_clear=2.6cm lines=2.1cm
 OK     label_sheika_hood          [32.0, 10.5]   cov=1.000 edge=  1.4cm tilt=  1.8° in_mask=1.0 mask_clear=1.5cm lines=2.5cm
 OK     label_lopatka_L            [22.6, 4.3]    cov=1.000 edge=  1.3cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=12.0cm
 OK     label_lopatka_R            [22.6, 4.3]    cov=1.000 edge=  1.2cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=12.1cm
