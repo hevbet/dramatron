@@ -4,10 +4,17 @@
 Usage:
     python3 render_rs3.py <skin_dir> <out_dir> [--views side_left,front34_left,...] [--ss 2]
                           [--width 1600 --height 900] [--kn5 path] [--no-interior] [--jobs N]
+                          [--fit x0,y0,z0,x1,y1,z1] [--ks-detail]
 
 <skin_dir> must contain Skin.dds (4096) and optionally glass_sticker.dds (1024, RGBA).
-Files without overrides fall back to the textures embedded in the .kn5.
+As in AC, any other file in <skin_dir> named like a texture of the .kn5 (case-insensitive,
+e.g. caliper.dds) replaces that texture for the textured materials (TEX_OK).
+Textures without overrides fall back to the ones embedded in the .kn5.
 Writes <view>.png for each view plus sheet.png (labelled contact sheet).
+
+--fit: frame the views on a world-space box instead of the whole car (close-ups, e.g. one wheel).
+--ks-detail: approximate the ksPerPixelMultiMap constant detail colour (detailUVMultiplier 0, as used
+for rim / caliper colour): diffuse.rgb *= lerp(detail.rgb, 1, diffuse.a). Off by default.
 
 Pure numpy rasterizer: z-buffer, perspective-correct UV, alpha test for *_sticker / AT
 materials, translucent glass pass, lambert + ambient + soft spec, SSAA.
@@ -71,12 +78,13 @@ def load_scene(path, interior=True):
         name = r.s(); shader = r.s(); r.u8(); r.u8()
         if ver > 4:
             r.i()
+        props = {}
         for _ in range(r.i()):
-            r.s(); r.f(); r.raw(36)
+            pn = r.s(); props[pn] = r.f(); r.raw(36)
         samplers = {}
         for _ in range(r.i()):
             sn = r.s(); r.i(); samplers[sn] = r.s()
-        mats.append(dict(name=name, shader=shader, samplers=samplers))
+        mats.append(dict(name=name, shader=shader, samplers=samplers, props=props))
     meshes = []
 
     def node(M, path_, skip):
@@ -134,6 +142,25 @@ def tex_array(img, rgba=False):
     return np.ascontiguousarray(np.asarray(img))
 
 
+def apply_const_detail(tex, img, mat, load_tex):
+    """ksPerPixelMultiMap with useDetail=1 and detailUVMultiplier=0 samples one texel of txDetail:
+    a constant colour multiplied in where the diffuse alpha is black (diffuse *= lerp(detail, 1, a)).
+    Tiled details (detailUVMultiplier != 0) are left out."""
+    props = mat.get("props", {})
+    if not mat.get("shader", "").startswith("ksPerPixelMultiMap") or props.get("useDetail", 0) < 0.5:
+        return tex
+    if abs(props.get("detailUVMultiplier", 1)) > 1e-6:
+        return tex
+    det = load_tex(mat.get("samplers", {}).get("txDetail"))
+    if det is None:
+        return tex
+    dcol = np.asarray(det.convert("RGB"), np.float32)[0, 0] / 255.0
+    a = np.asarray(img.convert("RGBA"), np.float32)[..., 3:4] / 255.0
+    out = tex.astype(np.float32)
+    out[..., :3] *= dcol * (1 - a) + a
+    return np.ascontiguousarray(np.clip(out + 0.5, 0, 255).astype(np.uint8))
+
+
 def sample(tex, u, v, bilinear=True):
     """tex HxWxC uint8; u,v arrays (wrapped). returns float32 (N,C)."""
     H, W = tex.shape[:2]
@@ -153,8 +180,19 @@ def sample(tex, u, v, bilinear=True):
 
 
 # ---------------------------------------------------------------- scene assembly
+def skin_files(skin_dir):
+    """{lower-case file name: path} of the files in the skin folder (AC matches texture names case-insensitively)."""
+    out = {}
+    if skin_dir and os.path.isdir(skin_dir):
+        for fn in sorted(os.listdir(skin_dir)):
+            fp = os.path.join(skin_dir, fn)
+            if os.path.isfile(fp):
+                out.setdefault(fn.lower(), fp)
+    return out
+
+
 class Scene:
-    def __init__(self, kn5_path, skin_dir, interior=True):
+    def __init__(self, kn5_path, skin_dir, interior=True, ks_detail=False):
         textures, mats, meshes = load_scene(kn5_path, interior)
         self.mat_names = []
         mat_id = {}
@@ -181,14 +219,33 @@ class Scene:
         self.N = n / np.maximum(ln, 1e-12)
         self.tri_ok = ln[:, 0] > 1e-12
         # textures per material
-        tex_by_name = {}
-        for k, mat in enumerate(mats):
-            tex_by_name[mat["name"]] = mat["samplers"].get("txDiffuse")
-        override = {}
-        for fn in ("Skin.dds", "glass_sticker.dds"):
-            fp = os.path.join(skin_dir, fn)
-            if os.path.exists(fp):
-                override[fn.lower()] = Image.open(fp)
+        mat_by_name = {}
+        for mat in mats:
+            mat_by_name[mat["name"]] = mat
+        # skin-folder overrides: any file named like a texture of the kn5 replaces it (as in AC)
+        files = skin_files(skin_dir)
+        self.overrides = {}          # texture name -> override file actually used
+        cache = {}
+
+        def load_tex(tn):
+            if not tn:
+                return None
+            if tn.lower() not in cache:
+                img = None
+                fp = files.get(tn.lower())
+                if fp is not None:
+                    try:
+                        img = Image.open(fp)
+                        img.load()
+                        self.overrides[tn] = fp
+                    except Exception as e:
+                        print(f"warning: cannot read {fp} ({e}); using the embedded texture", file=sys.stderr)
+                        img = None
+                if img is None and tn in textures:
+                    img = decode(textures[tn])
+                cache[tn.lower()] = img
+            return cache[tn.lower()]
+
         self.kind, self.tex, self.flat, self.spec, self.bias, self.galpha = [], [], [], [], [], []
         for name in self.mat_names:
             kind, tex, flat = "flat", None, FLAT.get(name, (40, 40, 42))
@@ -197,14 +254,12 @@ class Scene:
             elif name in GLASS_MATS:
                 kind = "glass"; flat = GLASS_MATS[name][0]
             elif name in TEX_OK:
-                tn = tex_by_name.get(name)
-                img = None
-                if tn:
-                    img = override.get(tn.lower())
-                    if img is None and tn in textures:
-                        img = decode(textures[tn])
+                mat = mat_by_name.get(name, {})
+                img = load_tex(mat.get("samplers", {}).get("txDiffuse"))
                 if img is not None:
                     kind = "tex"; tex = tex_array(img, rgba=name in AT_MATS)
+                    if ks_detail:
+                        tex = apply_const_detail(tex, img, mat, load_tex)
             self.kind.append(kind); self.tex.append(tex); self.flat.append(flat)
             self.spec.append(SPEC.get(name, 0.15)); self.bias.append(DEPTH_BIAS.get(name, 0.0))
             self.galpha.append(GLASS_MATS.get(name, (None, 0))[1])
@@ -317,14 +372,22 @@ def rasterize(X, Y, Dv, tris, tri_bias, W, H, at_filter=None, max_frag=3_000_000
 
 
 # ---------------------------------------------------------------- render one view
-def render_view(sc, name, W=1600, H=900, ss=2, margin=0.07):
+def render_view(sc, name, W=1600, H=900, ss=2, margin=0.07, fit_box=None):
     eye, f, rgt, up = view_camera(name)
     rel = sc.P - eye
     Dv = rel @ f
     cx_ = rel @ rgt / Dv; cy_ = rel @ up / Dv
-    # auto-fit: use exterior (non-interior) vertices
-    used = np.unique(sc.T.ravel())
-    ux, uy = cx_[used], cy_[used]
+    if fit_box is not None:
+        # frame the 8 corners of a world-space box (close-ups); the camera itself is unchanged
+        lo, hi = np.asarray(fit_box[:3], float), np.asarray(fit_box[3:], float)
+        corners = np.array([[(lo, hi)[i][0], (lo, hi)[j][1], (lo, hi)[k][2]]
+                            for i in (0, 1) for j in (0, 1) for k in (0, 1)])
+        rc = corners - eye; dc = rc @ f
+        ux, uy = rc @ rgt / dc, rc @ up / dc
+    else:
+        # auto-fit: use exterior (non-interior) vertices
+        used = np.unique(sc.T.ravel())
+        ux, uy = cx_[used], cy_[used]
     lo_x, hi_x = ux.min(), ux.max(); lo_y, hi_y = uy.min(), uy.max()
     Ws, Hs = W * ss, H * ss
     fpx = min(Ws * (1 - 2 * margin) / (hi_x - lo_x), Hs * (1 - 2 * margin) / (hi_y - lo_y))
@@ -464,9 +527,9 @@ _JOB = None
 
 
 def _render_one(v):
-    sc, W, H, ss, out_dir = _JOB
+    sc, W, H, ss, out_dir, fit_box = _JOB
     t1 = time.time()
-    im = render_view(sc, v, W, H, ss)
+    im = render_view(sc, v, W, H, ss, fit_box=fit_box)
     im.save(os.path.join(out_dir, v + ".png"))
     print(f"{v}: {time.time() - t1:.1f}s", flush=True)
     return im
@@ -482,14 +545,25 @@ def main():
     ap.add_argument("--no-interior", action="store_true")
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="parallel processes (one view each)")
     ap.add_argument("--title", default=None)
+    ap.add_argument("--fit", default=None, metavar="x0,y0,z0,x1,y1,z1",
+                    help="frame the views on this world-space box (close-ups) instead of the whole car")
+    ap.add_argument("--ks-detail", action="store_true",
+                    help="apply the ksPerPixelMultiMap constant detail colour (masked by diffuse alpha)")
     a = ap.parse_args()
+    fit_box = None
+    if a.fit:
+        fit_box = [float(t) for t in a.fit.split(",")]
+        if len(fit_box) != 6:
+            ap.error("--fit needs 6 numbers: x0,y0,z0,x1,y1,z1")
     t0 = time.time()
     os.makedirs(a.out_dir, exist_ok=True)
-    sc = Scene(a.kn5, a.skin_dir, interior=not a.no_interior)
+    sc = Scene(a.kn5, a.skin_dir, interior=not a.no_interior, ks_detail=a.ks_detail)
     print(f"scene: {len(sc.T)} tris, {len(sc.mat_names)} materials, {time.time() - t0:.1f}s", flush=True)
+    if sc.overrides:
+        print("skin textures: " + ", ".join(sorted(os.path.basename(p) for p in sc.overrides.values())), flush=True)
     views = [v for v in a.views.split(",") if v]
     global _JOB
-    _JOB = (sc, a.width, a.height, a.ss, a.out_dir)
+    _JOB = (sc, a.width, a.height, a.ss, a.out_dir, fit_box)
     jobs = max(1, min(a.jobs, len(views)))
     if jobs > 1:
         import multiprocessing as mp
