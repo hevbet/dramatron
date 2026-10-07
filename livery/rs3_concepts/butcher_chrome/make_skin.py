@@ -806,9 +806,8 @@ def catmull3(pts, n=40):
     return np.array(res)
 
 
-def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mode=None, ctrl2d=None, scale=1.0,
-               clip=None, trim=None, taper=None, ymin=None):
-    """Paint a 3D curve (through surface points) as a line of constant 3D width."""
+def dense_curve(ctrl3d, parts, side, resnap_mode):
+    """the dense centre line curve_line paints (catmull-rom through ctrl3d, re-glued to the surface)"""
     C = catmull3(ctrl3d, 60)
     if resnap_mode is not None:          # keep the dense curve glued to the surface
         if resnap_mode == "side":
@@ -817,6 +816,17 @@ def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mo
             C = snap([(p[0], p[1]) for p in C], "top", parts, side, exact=True)
         C[:, 0] = ndimage.uniform_filter1d(C[:, 0], 9, mode="nearest")
         C[:, 2] = ndimage.uniform_filter1d(C[:, 2], 9, mode="nearest")
+    return C
+
+
+def arclen(C):
+    return np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(C, axis=0), axis=1))])
+
+
+def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mode=None, ctrl2d=None, scale=1.0,
+               clip=None, trim=None, taper=None, ymin=None):
+    """Paint a 3D curve (through surface points) as a line of constant 3D width."""
+    C = dense_curve(ctrl3d, parts, side, resnap_mode)
     seg = np.linalg.norm(np.diff(C, axis=0), axis=1)
     S = np.concatenate([[0], np.cumsum(seg)])
     idx = cand(parts, side)
@@ -1141,9 +1151,11 @@ def paint_body():
     #  probed normals: below 0.855 the wide-body flare top faces UP (nz ~0.95) and made the line look thin)
     A_PTS = [A_FRONT, (-1.30, 0.842), (-1.05, 0.848), (-0.90, 0.855), (-0.60, 0.862),
              (0.00, 0.866), (0.60, 0.867), (0.92, 0.867), (1.06, 0.867), (1.30, 0.868), (1.60, 0.868), (1.86, 0.867)]
+    shoulder = {}
     for s in ("L", "R"):
         c3 = snap(A_PTS, "side", SIDE_PARTS, s)
         C = curve_line(c3, SIDE_PARTS, s, 0.011, INK, dash=DASH, resnap_mode="side")
+        shoulder[s] = C
         belly_connector(s, A_PTS, C)
         front_connector(s, C)
         # chrome keyline above the whole shoulder line (6 mm half width), white core with grey edges
@@ -1154,14 +1166,32 @@ def paint_body():
 
     # --- hood / roof transverse cut lines (meet the shoulder crease on the fenders)
     TOP = ["hood", "front_fender_top", "front_fender", "roof", "roof_rail"]
-    # parallel to the curved hood rear edge, 15 cm ahead of it, ending on the fender crease (shoulder line)
+    # parallel to the curved hood rear edge, 15 cm ahead of it, running on across the fender tops until it MEETS
+    # the shoulder cut line (it used to stop at x = +-0.78, ~7 cm short of it, ending in a lone dot).
+    # The junction is put on the middle of a shoulder dash, and the hood dashes are stretched (< 1 dash period over
+    # the whole line) so the line starts and ends with a full dash whose rounded end sits on that shoulder dash:
+    # an ink T-junction on both fenders, no stub.
     hx = np.array([0.0, 0.3, 0.5, 0.6, 0.7])
     he = np.array([-1.116, -1.095, -1.048, -1.002, -0.923])
     xs = np.linspace(-0.70, 0.70, 29)
     pts = [(x, np.interp(abs(x), hx, he) - 0.15) for x in xs]
-    pts = [(-0.78, -1.02)] + pts + [(0.78, -1.02)]
-    hood = snap(pts, "top", TOP)
-    curve_line(hood, TOP, None, 0.011, INK, dash=(0.075, 0.045), resnap_mode="top")
+    CL = shoulder["L"]
+    SL = arclen(CL)
+    y_aim = pts[-1][1] + (0.86 - pts[-1][0]) * 0.79      # straight on along the hood line's end slope (dy/dx 0.79)
+    s_aim = float(np.interp(y_aim, CL[:, 1], SL))
+    s_j = math.floor(s_aim / DPER) * DPER + DASH[0] / 2
+    s_j = min((s_j - DPER, s_j, s_j + DPER), key=lambda v: abs(v - s_aim))
+    xj, yj = float(np.interp(s_j, SL, CL[:, 0])), float(np.interp(s_j, SL, CL[:, 1]))
+    mid = (0.5 * (0.70 + xj), 0.5 * (pts[-1][1] + yj) - 0.006)
+    pts = [(-xj, yj), (-mid[0], mid[1])] + pts + [mid, (xj, yj)]
+    hood = snap(pts, "top", TOP, exact=True)
+    Ch = dense_curve(hood, TOP, None, "top")
+    Lh = float(arclen(Ch)[-1])
+    nper = round((Lh - DASH[0]) / DPER)
+    curve_line(hood, TOP, None, 0.011, INK, dash=DASH, resnap_mode="top", scale=(nper * DPER + DASH[0]) / Lh)
+    print(f"   hood cut line meets the shoulder line at x=+-{xj:.3f} y={yj:.3f} (z {Ch[-1, 2]:.3f} vs shoulder "
+          f"{float(np.interp(s_j, SL, CL[:, 2])):.3f}); {nper + 1} dashes, stretch {(nper * DPER + DASH[0]) / Lh:.4f}; "
+          f"R shoulder there x={float(np.interp(s_j, arclen(shoulder['R']), shoulder['R'][:, 0])):.3f}")
     for yl in (-0.24, 1.10):
         rl = snap([(x, yl) for x in np.linspace(-0.60, 0.60, 17)], "top", ["roof", "roof_rail"])
         curve_line(rl, ["roof", "roof_rail"], None, 0.011, INK, dash=(0.075, 0.045), resnap_mode="top")
