@@ -12,7 +12,8 @@ e.g. caliper.dds) replaces that texture for the textured materials (TEX_OK).
 Textures without overrides fall back to the ones embedded in the .kn5.
 Writes <view>.png for each view plus sheet.png (labelled contact sheet).
 
---fit: frame the views on a world-space box instead of the whole car (close-ups, e.g. one wheel).
+--fit: frame the views on a world-space box instead of the whole car (close-ups, e.g. one wheel);
+       write it as --fit=x0,... when the first number is negative.
 --ks-detail: approximate the ksPerPixelMultiMap constant detail colour (detailUVMultiplier 0, as used
 for rim / caliper colour): diffuse.rgb *= lerp(detail.rgb, 1, diffuse.a). Off by default.
 
