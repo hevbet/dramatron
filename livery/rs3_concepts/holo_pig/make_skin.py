@@ -34,6 +34,9 @@ FONTS = os.path.join(LIV, "fonts")
 BRAND = os.path.join(LIV, "br03", "brand")
 BX = os.path.join(LIV, "br03_pro", "brand_extra")
 N = 4096
+K64_Y, K64_W = 0.80, 0.24      # логотип KARTING64 (только рисунок) на рокере задней двери
+K64U_W = 0.24                  # ширина ссылки karting64.ru на пороге
+MBU_Y, MBU_W = 1.00, 0.30      # стикер МБУ «Клуб Энгельсская молодёжь» на крыше (был 24 см)
 D = 2000                      # плотность арта, px на метр (текстура ≈ 795 px/m)
 
 # ---------------------------------------------------------------- палитра
@@ -313,20 +316,24 @@ def coat(h):
     return scale_to(im, h=h)
 
 
-def karting64(h, col_text=WHITE, flip=False):
-    """KARTING64: картинг с пилотом и флагом из логотипа, подпись KARTING64.RU шрифтом Tektur."""
+def karting64(h, flip=False):
+    """KARTING64: ТОЛЬКО рисунок логотипа (картинг с пилотом и флагом), без текста.
+    В исходниках рисунок занимает строки 3–1460, надпись KARTING64.RU начинается со строки 1552
+    (строки 1500–1540 пусты во всех слоях) — режем по 1520, в кадр не попадает ни одной буквы."""
     k = _L("karting64_black.png")
-    cut = 1500
+    cut = 1520
     im = Image.new("RGBA", (k.width, cut), (0, 0, 0, 0))
     for n, c in (("white", WHITE), ("blue", (0, 57, 166)), ("red", (213, 43, 30)), ("black", WHITE)):
         im.alpha_composite(solid(_L(f"karting64_{n}.png").crop((0, 0, k.width, cut)), c))
     im = im.crop(im.getbbox())
     if flip:
         im = im.transpose(Image.FLIP_LEFT_RIGHT)
-    im = scale_to(im, h=int(h * 0.62))
-    t = solid(text_mask("KARTING64.RU", F_TECH(200), track=0.04), col_text)
-    t = scale_to(t, w=int(im.width * 1.0))
-    return stack([im, t], gap=int(h * 0.06))
+    return scale_to(im, h=h)
+
+
+def url_text(s, col):
+    """Ссылка в стиле simkart.vercel.app: Exo 2 ExtraBold Italic, сплошной цвет."""
+    return solid(text_mask(s, F_URL(300)), col)
 
 
 def driveoil(h):
@@ -872,9 +879,9 @@ def build(skin_name):
         do = driveoil(int(0.055 * D))
         layers.append(car.project(do, view, (X, 0.47 if sgn > 0 else 0.47, 0.348), 0.26, ["rear_door"],
                                   f"DriveOil низ задней двери {S}", zones=[f"rear_door_{S}"], min_clear_cm=1))
-        k64 = karting64(int(0.10 * D), flip=(sgn > 0))
-        layers.append(car.project(k64, view, (X, 0.80, 0.350), 0.17, ["rear_door"],
-                                  f"KARTING64.RU низ задней двери {S}", zones=[f"rear_door_{S}"], min_clear_cm=1))
+        k64 = karting64(int(0.06 * D), flip=(sgn > 0))
+        layers.append(car.project(k64, view, (X, K64_Y, 0.350), K64_W, ["rear_door"],
+                                  f"KARTING64 логотип низ задней двери {S}", zones=[f"rear_door_{S}"], min_clear_cm=1))
         # пороги: SMP RACING ESPORTS + BR ENGINEERING (белые на сливе)
         lk = smp_lockup(int(0.05 * D))
         layers.append(car.project(lk, view, (X + 0.05 * sgn, -0.45 if sgn > 0 else 0.45, 0.207), 0.175, ["sill"],
@@ -882,6 +889,13 @@ def build(skin_name):
         be = mono("br_engineering_black.png", int(0.04 * D), WHITE)
         layers.append(car.project(be, view, (X + 0.05 * sgn, 0.40 if sgn > 0 else -0.40, 0.207), 0.36, ["sill"],
                                   f"BR ENGINEERING порог {S}", max_angle=62, zones=[f"sill_{S}"], min_clear_cm=0.5))
+        # karting64.ru — порог, в просвете между SMP RACING ESPORTS и BR ENGINEERING; шрифт и подача как у
+        # ссылки simkart.vercel.app (Exo 2 ExtraBold Italic, сплошной белый на сливе — как на капоте).
+        # Проекция по виду сбоку: базовая линия = ось r вида = мировая ±y (z-компонента 0) → строго параллельно
+        # земле (в зоне sill text_baseline_world ≈ [0.01, 1.0, -0.03], т.е. порог сам наклонён на ~1.7°).
+        ku = url_text("karting64.ru", WHITE)
+        layers.append(car.project(ku, view, (X + 0.05 * sgn, -0.07 * sgn, 0.207), K64U_W, ["sill"],
+                                  f"karting64.ru порог {S}", max_angle=62, zones=[f"sill_{S}"], min_clear_cm=0.5))
         # подписи отрубов (тон в тон)
         for txt, y, z, part in LABELS:
             lab = label_art(txt, 0.030)
@@ -901,8 +915,8 @@ def build(skin_name):
     rn = number_plate(int(0.74 * D), int(0.48 * D))
     layers.append(car.project(rn, "top_left", (0.0, 0.36, 1.40), 0.74, ["roof"], "номер 00 крыша",
                               zones=["roof"], min_clear_cm=4))
-    st = edm_sticker(int(0.24 * D))
-    layers.append(car.project(st, "top_rear", (0.0, 0.98, 1.38), 0.24, ["roof"], "МБУ стикер крыша",
+    st = edm_sticker(int(MBU_W * D))
+    layers.append(car.project(st, "top_rear", (0.0, MBU_Y, 1.38), MBU_W, ["roof"], "МБУ стикер крыша",
                               zones=["roof"], min_clear_cm=2))
 
     # --- багажник: «КОМАНДА ЭДМ» (читается сзади)

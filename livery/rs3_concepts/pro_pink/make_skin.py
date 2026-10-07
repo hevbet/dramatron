@@ -368,14 +368,19 @@ def build_body(car, drv, inv):
     # ---------- front bumper corner (ahead of the wheel): SMP RACING ESPORTS (series)
     car.fit_sides("smp_bumper", lambda s: A.smp(200), (-2.3, -1.5), (0.25, 0.85), 0.30,
                   ["front_bumper_corner", "front_fender"], prefer=(-1.9, 0.6), depth=0.85, depth_tol=0.2)
-    # ---------- lower door strip = partner strip: DriveOil (fuel) + KARTING64.RU
+    # ---------- lower door strip = partner strip: DriveOil (fuel) + KARTING64 logo (artwork only, no lettering)
     car.fit_sides("driveoil", lambda s: A.driveoil(120), (-0.84, -0.30), (0.22, 0.47), 0.32, ["front_door_low"],
                   prefer=(-0.60, 0.33), min_clear=0.012)
-    car.fit_sides("karting64", lambda s: A.karting64(300, flip=(s == "L")), (-0.25, 0.30), (0.22, 0.47), 0.30,
+    car.fit_sides("karting64", lambda s: A.karting64(300, flip=(s == "L")), (-0.25, 0.30), (0.22, 0.47), 0.42,
                   ["front_door_low"], prefer=(0.0, 0.33), min_clear=0.010)
     # ---------- sill: BR ENGINEERING
     car.fit_sides("br_sill", lambda s: A.mono("br_engineering_black.png", 100, W), (-1.0, 1.1), (0.10, 0.32), 0.70,
                   ["sill"], prefer=(0.0, 0.21), min_clear=0.008)
+    # ---------- sill, ahead of BR ENGINEERING (under the front door): karting64.ru — set exactly like the
+    # simkart.vercel.app link (F_SPON = Exo 2 ExtraBold Italic, white, no tracking). Region stops at y=-0.47 so
+    # there is >= 10 cm of air to BR ENGINEERING (which ends at y~-0.35); level with the ground by projection.
+    car.fit_sides("k64_url", lambda s: A.text("karting64.ru", A.F_SPON(300), W), (-1.0, -0.47), (0.10, 0.32), 0.34,
+                  ["sill"], prefer=(-0.72, 0.21), min_clear=0.010)
     # ---------- Y2K sparkles riding the blade where it kinks up (rear door, behind Арка)
     car.fit_sides("sparkle_a", lambda s: A.sparkle(80), (0.62, 1.25), (0.62, 1.0), 0.10, ["rear_door"],
                   prefer=(0.95, 0.88), min_clear=0.012)
@@ -437,7 +442,7 @@ def build_top(car, drv, inv):
             check_angle=22, blade_keep=True)
     for sgn, tag in ((1, "a"), (-1, "b")):
         reg = (0.25, 0.62) if sgn > 0 else (-0.62, -0.25)
-        car.fit(f"trunk_mbu_{tag}", A.mbu(300), "top_rear", 1.0, (reg[0], reg[1], -2.15, -1.6), 0.16,
+        car.fit(f"trunk_mbu_{tag}", A.mbu(300), "top_rear", 1.0, (reg[0], reg[1], -2.15, -1.6), 0.22,
                 ["trunk_lid"], prefer=(sgn * 0.40, -1.84), min_clear=0.02, depth_tol=0.2, check_angle=22,
                 blade_keep=True)
     # ---------- rear panel between the lights: Саратовская область · 64 (region)

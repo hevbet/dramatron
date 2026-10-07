@@ -65,7 +65,6 @@ F_NUM = lambda s: font("Unbounded[wght].ttf", s, "Black")                 # но
 F_NAME = lambda s: font("Exo2-Italic[wght].ttf", s, "Black Italic")        # имена пилотов
 F_SPON = lambda s: font("MontserratAlternates-BlackItalic.ttf", s)         # команда / регион
 F_URL = lambda s: font("Exo2-Italic[wght].ttf", s, "ExtraBold Italic")     # ссылки
-F_TECH = lambda s: font("Tektur[wdth,wght].ttf", s, axes=[100, 800])       # KARTING64.RU
 F_CUT = lambda s: font("Podkova[wght].ttf", s, "ExtraBold")                # подписи отрубов
 F_POP = lambda s: font("RubikBubbles-Regular.ttf", s)                      # Y2K-заголовок «ХРЮ!»
 
@@ -274,25 +273,37 @@ def saratov_coa(h):
     return out
 
 
-def karting64_logo(h, col=INK):
-    """KARTING64.RU: картинг с пилотом (верх фирменного знака) + надпись шрифтом Tektur."""
-    m = Image.open(os.path.join(BX, "karting64_black.png")).convert("L")
-    a = np.asarray(m) > 127
-    rows = np.nonzero(a.any(1))[0]
-    # верхняя часть — картинг: до первой «пустой» полосы над буквами
-    prof = a.sum(1)
-    top = rows[0]
-    gap_rows = [r for r in range(top + 50, a.shape[0]) if prof[r] < 4]
-    cut = gap_rows[0] if gap_rows else int(a.shape[0] * 0.45)
-    kart = m.crop((0, top, m.width, cut))
-    kart = kart.crop(kart.getbbox())
-    kh = int(h * 0.62)
-    kart = kart.resize((round(kart.width * kh / kart.height), kh), Image.LANCZOS)
-    txt = text_h("KARTING64.RU", F_TECH, int(h * 0.36))
-    out = Image.new("L", (max(kart.width, txt.width), kh + txt.height + int(h * 0.04)), 0)
-    out.paste(kart, ((out.width - kart.width) // 2 + int(txt.width * 0.04), 0))
-    out.paste(txt, ((out.width - txt.width) // 2, kh + int(h * 0.04)))
-    return solid(out, col)
+def karting64_logo(h):
+    """KARTING64 — только фирменный знак (картинг с пилотом + флаг-шлейф) БЕЗ надписи.
+    Слои бренда: чёрный (рисунок), белый/синий/красный (флаг). Верхняя часть отрезается по пустой
+    полосе между рисунком и буквами (в исходнике строки 1463–1549 пустые) — буквы в кроп не попадают."""
+    L = {c: np.asarray(Image.open(os.path.join(BX, f"karting64_{c}.png")).convert("L"))
+         for c in ("black", "white", "blue", "red")}
+    U = np.maximum.reduce(list(L.values())) > 10
+    prof = U.sum(1)
+    rows = np.nonzero(prof)[0]
+    r = rows[0]
+    while prof[r] > 0:                               # конец рисунка: первая пустая строка
+        r += 1
+    g0 = r
+    while prof[r] == 0:                              # конец пустой полосы (начало букв)
+        r += 1
+    assert r - g0 >= 40, "между рисунком и надписью нет чистой полосы"
+    U = U[:g0]
+    ys, xs = np.nonzero(U)
+    box = (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+    k = h / (box[3] - box[1])
+    sz = (max(1, round((box[2] - box[0]) * k)), int(h))
+    t = Image.new("RGBA", sz, (0, 0, 0, 0))
+    for c, col in (("black", INK), ("white", WHITE), ("blue", RU[1]), ("red", RU[2])):
+        m = Image.fromarray(L[c]).crop(box).resize(sz, Image.LANCZOS)
+        t.alpha_composite(solid(m, col))
+    return t
+
+
+def karting64_url(h, col=INK):
+    """Ссылка karting64.ru — тем же шрифтом и так же, как simkart.vercel.app на пороге."""
+    return solid(text_h("karting64.ru", F_URL, h), col)
 
 
 def driveoil_logo(h, plate=True):
@@ -538,6 +549,8 @@ class Body:
         flat = self.A.reshape(-1, 3)
         al = rgba[:, 3:4]
         flat[idx] = flat[idx] * (1 - al) + rgba[:, :3] * 255.0 * al
+        rep.update(center=tuple(float(v) for v in c), height_m=float(h),
+                   width_m=float(h * art.width / art.height))
         rep.update(name=name, min_clear=min_clear, ok=rep["inside"] > 0.999 and rep["clear_cm"] >= min_clear)
         self.report.append(rep)
         return rep
@@ -677,16 +690,20 @@ def place_sponsors(B, car):
         # 3. Пузырь «ГРУДИНКА» между номером и щелью дверей
         B.put(f"пузырь ГРУДИНКА {s}", bubble("ГРУДИНКА", int(0.075 * P), "bl" if s == "L" else "br"), view,
               (xc, 0.03, 0.60), height_m=0.11, parts=["front_door"], side=s, max_angle=50)
-        # 4. Ряд под дверью (второй цвет): DriveOil (топливо) + KARTING64.RU + РАФ
+        # 4. Ряд под дверью (второй цвет): DriveOil (топливо) + знак KARTING64 (только рисунок, без текста) + РАФ
         B.put(f"DriveOil полоса под дверью {s}", driveoil_logo(int(0.060 * P)), view, (xc, -0.60, 0.352),
               height_m=0.078, parts=["front_door_low"], side=s, max_angle=60)
-        B.put(f"KARTING64.RU полоса под дверью {s}", karting64_logo(int(0.085 * P)), view, (xc, -0.22, 0.352),
-              height_m=0.085, parts=["front_door_low"], side=s, max_angle=60)
+        # центр — посередине между DriveOil (до y≈−0.46) и РАФ (от y≈+0.04): одинаковый воздух с обеих сторон
+        B.put(f"KARTING64 знак полоса под дверью {s}", karting64_logo(int(0.075 * P)), view, (xc, -0.21, 0.352),
+              height_m=0.075, parts=["front_door_low"], side=s, max_angle=60, search=(0.02, 0.02))
         B.put(f"РАФ полоса под дверью {s}", raf_logo(int(0.09 * P)), view, (xc, 0.08, 0.352),
               height_m=0.09, parts=["front_door_low"], side=s, max_angle=60)
         # 5. Порог: simkart.vercel.app
         B.put(f"simkart.vercel.app порог {s}", solid(text_h("simkart.vercel.app", F_URL, int(0.04 * P)), INK), view,
               (xc, 0.05, 0.215), height_m=0.045, parts=["sill"], side=s, max_angle=60)
+        # 5б. Порог, перед ссылкой Симкарта: karting64.ru — тот же шрифт/кегль/цвет, что simkart.vercel.app
+        B.put(f"karting64.ru порог {s}", karting64_url(int(0.04 * P)), view,
+              (xc, -0.45, 0.215), height_m=0.045, parts=["sill"], side=s, max_angle=60, search=(0.03, 0.02))
         # 6. Угол переднего бампера: SMP RACING ESPORTS (серия)
         B.put(f"SMP RACING ESPORTS бампер {s}", smp_lockup(int(0.06 * P), INK, INK), view, (xc, -1.87, 0.44),
               width_m=0.17, parts=["front_bumper_corner"], side=s, max_angle=65)
@@ -718,8 +735,9 @@ def place_sponsors(B, car):
           (0, 1.985, 1.05), width_m=0.30, parts=["trunk_lid"], max_angle=60, search=(0.0, 0.03), shrink_to=0.75)
     edm = stack([solid(text_h("КОМАНДА", F_SPON, int(0.030 * P), track=0.1), INK),
                  solid(text_h("ЭДМ", F_SPON, int(0.075 * P)), INK)], int(0.01 * P))
-    B.put("Команда ЭДМ задняя панель", row([mbu_logo(int(0.12 * P)), edm], int(0.03 * P)), "rear",
-          (0.0, 2.16, 0.77), height_m=0.12, parts=["rear_panel"], max_angle=55)
+    # стикер МБУ «Клуб Энгельсская молодёжь» — крупнее надписи (≈15 см), чтобы читался сзади
+    B.put("МБУ + Команда ЭДМ задняя панель", row([mbu_logo(int(0.15 * P)), edm], int(0.03 * P)), "rear",
+          (0.0, 2.16, 0.77), height_m=0.15, parts=["rear_panel"], max_angle=55, shrink_to=0.9)
     sim_rear = panel(row([simkart_logo(int(0.055 * P)),
                           solid(text_h("simkart.vercel.app", F_URL, int(0.026 * P)), WHITE)], int(0.03 * P)),
                      int(0.03 * P), int(0.014 * P), INK, WHITE, max(3, int(0.004 * P)))

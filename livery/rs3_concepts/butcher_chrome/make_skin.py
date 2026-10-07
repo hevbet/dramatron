@@ -66,7 +66,6 @@ F_LABEL = lambda s: font("YesevaOne-Regular.ttf", s)                            
 F_STAMP = lambda s: font("Podkova[wght].ttf", s, "ExtraBold")                   # vet stamp
 F_SPON = lambda s: font("Exo2-Italic[wght].ttf", s, "ExtraBold Italic")         # urls / partner text
 F_TEAM = lambda s: font("MontserratAlternates-BlackItalic.ttf", s)              # «Команда ЭДМ»
-F_TECH = lambda s: font("Tektur[wdth,wght].ttf", s, axes=[100, 800])            # KARTING64.RU
 
 
 # ================================================================= 2D art helpers
@@ -306,8 +305,10 @@ def asset_mbu(h):
     return fit_h(im.crop(im.getbbox()), h)
 
 
-def asset_karting64(h, text_col=INK, flip=False):
-    """Kart + pilot + flag from the KARTING64 logo (top part only), KARTING64.RU set in Tektur."""
+def asset_karting64(h, flip=False):
+    """KARTING64 logo artwork ONLY (kart + pilot + RU-flag stripes), no lettering.
+    Source layers are 7535x2682: artwork occupies rows 0..1461, the «KARTING64.RU» letters start at row 1550
+    (slogan + underline below) -> cutting at row 1500 keeps zero letter pixels. Colours = the brand layers."""
     k = _L(os.path.join(BX, "karting64_black.png"))
     cut = 1500
     im = Image.new("RGBA", (k.width, cut), (0, 0, 0, 0))
@@ -316,10 +317,7 @@ def asset_karting64(h, text_col=INK, flip=False):
     im = im.crop(im.getbbox())
     if flip:
         im = im.transpose(Image.FLIP_LEFT_RIGHT)
-    kart = fit_h(im, int(h * 0.62))
-    t = ink_text("KARTING64.RU", F_TECH(int(h * 0.42)), text_col)
-    t = fit_w(t, int(kart.width * 1.05))
-    return stack([kart, t], int(h * 0.05))
+    return fit_h(im, int(h))          # uniform scale: aspect ratio kept
 
 
 def asset_driveoil(h):
@@ -858,9 +856,15 @@ def side_decals(s):
     decal_best(f"sill_breng_{s}", asset_mono("br_engineering_black.png", px(0.036), INK),
                [(at(0.25, zz, sl), nrm, up) for zz in (0.235, 0.232, 0.238, 0.229)], ppm=PPM, parts=sl, side=s,
                min_clear_cm=0.5)
-    decal_best(f"sill_karting64_{s}", asset_karting64(px(0.085), flip=(s == "L")),
-               [(at(yy, zz, sl), nrm, up) for yy in (0.80, 0.82, 0.78) for zz in (0.240, 0.237, 0.243)],
+    # KARTING64: logo artwork only (no text) on the sill; 7 cm is the largest that stays flat (tilt < 10 deg)
+    decal_best(f"sill_karting64_{s}", asset_karting64(px(0.070), flip=(s == "L")),
+               [(at(yy, zz, sl), nrm, up) for yy in (0.84, 0.82, 0.86) for zz in (0.234, 0.237, 0.231)],
                ppm=PPM, parts=sl, side=s, min_clear_cm=0.5)
+    # karting64.ru as a separate url, same face/ink as the simkart.vercel.app link, on the clear holo strip of the
+    # lower rear door (below the swoosh cut line, above the sill seam; ahead of the sill kart logo)
+    decal_best(f"url_karting64_{s}", ink_text("karting64.ru", F_SPON(px(0.050)), INK),
+               [(at(yy, zz, rd), nrm, up) for yy in (0.50, 0.52, 0.48) for zz in (0.330, 0.335, 0.325)],
+               ppm=PPM, parts=rd, side=s, kind="text", min_clear_cm=1.5)
     # sparkles (Y2K) around the number plate
     for (yy, zz, rr) in ((-0.28, 0.79, 0.020), (-0.72, 0.46, 0.014), (0.17, 0.48, 0.011)):
         decal(f"sparkle_{s}", sparkle(px(rr)), at(yy, zz, fd), nrm, up, PPM, fd, s, check=False, kind="fx")
@@ -910,7 +914,7 @@ def rear_front_decals():
     # rear panel between the tail lights: team + МБУ sticker
     rp = ["rear_panel"]
     n = (0, 1, 0)
-    team = row([asset_mbu(px(0.125)), stack([ink_text("КОМАНДА", F_TEAM(px(0.040)), INK),
+    team = row([asset_mbu(px(0.140)), stack([ink_text("КОМАНДА", F_TEAM(px(0.040)), INK),
                                               ink_text("ЭДМ", F_TEAM(px(0.062)), INK)], px(0.008))], px(0.02))
     decal("team_edm_rear", team, (0.0, 2.17, 0.775), n, (0, 0, 1), PPM, rp, depth_tol=0.10)
     # rear bumper: Simkart url, big

@@ -9,10 +9,12 @@ OK   {"name": "smp_bumper_L", "view": "left", "size_cm": [17.4, 4.2], "clearance
 OK   {"name": "smp_bumper_R", "view": "right", "size_cm": [17.4, 4.2], "clearance_cm": 2.6, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 35.2, "zones": ["front_bumper_corner_R", "front_fender_R"], "ok": true}
 OK   {"name": "driveoil_L", "view": "left", "size_cm": [29.4, 8.1], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 0.0, "zones": ["front_door_low_L"], "ok": true}
 OK   {"name": "driveoil_R", "view": "right", "size_cm": [29.4, 8.1], "clearance_cm": 1.6, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 0.0, "zones": ["front_door_low_R"], "ok": true}
-OK   {"name": "karting64_L", "view": "left", "size_cm": [28.8, 11.7], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 1.8, "zones": ["front_door_low_L"], "ok": true}
-OK   {"name": "karting64_R", "view": "right", "size_cm": [28.8, 11.7], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 1.8, "zones": ["front_door_low_R"], "ok": true}
+OK   {"name": "karting64_L", "view": "left", "size_cm": [30.0, 8.3], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 1.8, "zones": ["front_door_low_L"], "ok": true}
+OK   {"name": "karting64_R", "view": "right", "size_cm": [30.0, 8.3], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 1.8, "zones": ["front_door_low_R"], "ok": true}
 OK   {"name": "br_sill_L", "view": "left", "size_cm": [70.2, 6.6], "clearance_cm": 1.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 4.7, "zones": ["sill_L"], "ok": true}
 OK   {"name": "br_sill_R", "view": "right", "size_cm": [70.2, 6.6], "clearance_cm": 1.5, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 4.7, "zones": ["sill_R"], "ok": true}
+OK   {"name": "k64_url_L", "view": "left", "size_cm": [24.6, 3.8], "clearance_cm": 1.4, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 14.7, "zones": ["sill_L"], "ok": true}
+OK   {"name": "k64_url_R", "view": "right", "size_cm": [24.6, 3.8], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 14.7, "zones": ["sill_R"], "ok": true}
 OK   {"name": "sparkle_a_L", "view": "left", "size_cm": [10.2, 14.1], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 20.6, "zones": ["rear_door_L"], "ok": true}
 OK   {"name": "sparkle_a_R", "view": "right", "size_cm": [10.2, 14.1], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 20.6, "zones": ["rear_door_R"], "ok": true}
 OK   {"name": "sparkle_b_L", "view": "left", "size_cm": [5.4, 7.5], "clearance_cm": 2.6, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 34.2, "zones": ["rear_door_L"], "ok": true}
@@ -22,8 +24,8 @@ OK   {"name": "raf_R", "view": "right", "size_cm": [16.2, 16.5], "clearance_cm":
 OK   {"name": "roof_number_cut", "view": "top_left", "size_cm": [109.8, 82.9], "clearance_cm": 8.2, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 4.7, "zones": ["roof"], "ok": true}
 OK   {"name": "hood_simkart", "view": "top", "size_cm": [85.8, 30.5], "clearance_cm": 3.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 8.0, "zones": ["hood"], "ok": true}
 OK   {"name": "trunk_edm", "view": "top_rear", "size_cm": [26.4, 13.0], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 10.9, "zones": ["trunk_lid"], "ok": true}
-OK   {"name": "trunk_mbu_a", "view": "top_rear", "size_cm": [16.2, 16.2], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 13.5, "zones": ["trunk_lid"], "ok": true}
-OK   {"name": "trunk_mbu_b", "view": "top_rear", "size_cm": [16.2, 16.2], "clearance_cm": 3.1, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 13.3, "zones": ["trunk_lid"], "ok": true}
+OK   {"name": "trunk_mbu_a", "view": "top_rear", "size_cm": [22.2, 22.2], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 13.3, "zones": ["trunk_lid"], "ok": true}
+OK   {"name": "trunk_mbu_b", "view": "top_rear", "size_cm": [22.2, 22.2], "clearance_cm": 3.1, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 13.5, "zones": ["trunk_lid"], "ok": true}
 OK   {"name": "rear_region64", "view": "rear", "size_cm": [49.8, 13.2], "clearance_cm": 2.2, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 9.1, "zones": ["rear_panel"], "ok": true}
 OK   {"name": "rear_url", "view": "rear", "size_cm": [91.2, 9.1], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 11.5, "zones": ["rear_bumper"], "ok": true}
 OK   {"name": "glass:smp_banner", "zone": "windscreen", "clearance_px": 12.0, "outside_px": 0, "ok": true}
@@ -49,10 +51,12 @@ OK   {"name": "smp_bumper_L", "view": "left", "size_cm": [17.4, 4.2], "clearance
 OK   {"name": "smp_bumper_R", "view": "right", "size_cm": [17.4, 4.2], "clearance_cm": 2.6, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 35.2, "zones": ["front_bumper_corner_R", "front_fender_R"], "ok": true}
 OK   {"name": "driveoil_L", "view": "left", "size_cm": [29.4, 8.1], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 0.0, "zones": ["front_door_low_L"], "ok": true}
 OK   {"name": "driveoil_R", "view": "right", "size_cm": [29.4, 8.1], "clearance_cm": 1.6, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 0.0, "zones": ["front_door_low_R"], "ok": true}
-OK   {"name": "karting64_L", "view": "left", "size_cm": [28.8, 11.7], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 1.8, "zones": ["front_door_low_L"], "ok": true}
-OK   {"name": "karting64_R", "view": "right", "size_cm": [28.8, 11.7], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 1.8, "zones": ["front_door_low_R"], "ok": true}
+OK   {"name": "karting64_L", "view": "left", "size_cm": [30.0, 8.3], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 1.8, "zones": ["front_door_low_L"], "ok": true}
+OK   {"name": "karting64_R", "view": "right", "size_cm": [30.0, 8.3], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 1.8, "zones": ["front_door_low_R"], "ok": true}
 OK   {"name": "br_sill_L", "view": "left", "size_cm": [70.2, 6.6], "clearance_cm": 1.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 4.7, "zones": ["sill_L"], "ok": true}
 OK   {"name": "br_sill_R", "view": "right", "size_cm": [70.2, 6.6], "clearance_cm": 1.5, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 4.7, "zones": ["sill_R"], "ok": true}
+OK   {"name": "k64_url_L", "view": "left", "size_cm": [24.6, 3.8], "clearance_cm": 1.4, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 14.7, "zones": ["sill_L"], "ok": true}
+OK   {"name": "k64_url_R", "view": "right", "size_cm": [24.6, 3.8], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 14.7, "zones": ["sill_R"], "ok": true}
 OK   {"name": "sparkle_a_L", "view": "left", "size_cm": [10.2, 14.1], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 20.6, "zones": ["rear_door_L"], "ok": true}
 OK   {"name": "sparkle_a_R", "view": "right", "size_cm": [10.2, 14.1], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 20.6, "zones": ["rear_door_R"], "ok": true}
 OK   {"name": "sparkle_b_L", "view": "left", "size_cm": [5.4, 7.5], "clearance_cm": 2.6, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 34.2, "zones": ["rear_door_L"], "ok": true}
@@ -62,8 +66,8 @@ OK   {"name": "raf_R", "view": "right", "size_cm": [16.2, 16.5], "clearance_cm":
 OK   {"name": "roof_number_cut", "view": "top_left", "size_cm": [109.8, 82.9], "clearance_cm": 8.2, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 4.7, "zones": ["roof"], "ok": true}
 OK   {"name": "hood_simkart", "view": "top", "size_cm": [85.8, 30.5], "clearance_cm": 3.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 8.0, "zones": ["hood"], "ok": true}
 OK   {"name": "trunk_edm", "view": "top_rear", "size_cm": [26.4, 13.0], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 10.9, "zones": ["trunk_lid"], "ok": true}
-OK   {"name": "trunk_mbu_a", "view": "top_rear", "size_cm": [16.2, 16.2], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 13.5, "zones": ["trunk_lid"], "ok": true}
-OK   {"name": "trunk_mbu_b", "view": "top_rear", "size_cm": [16.2, 16.2], "clearance_cm": 3.1, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 13.3, "zones": ["trunk_lid"], "ok": true}
+OK   {"name": "trunk_mbu_a", "view": "top_rear", "size_cm": [22.2, 22.2], "clearance_cm": 3.0, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 13.3, "zones": ["trunk_lid"], "ok": true}
+OK   {"name": "trunk_mbu_b", "view": "top_rear", "size_cm": [22.2, 22.2], "clearance_cm": 3.1, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 13.5, "zones": ["trunk_lid"], "ok": true}
 OK   {"name": "rear_region64", "view": "rear", "size_cm": [49.8, 13.2], "clearance_cm": 2.2, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 9.1, "zones": ["rear_panel"], "ok": true}
 OK   {"name": "rear_url", "view": "rear", "size_cm": [91.2, 9.1], "clearance_cm": 1.8, "clipped_cells": 0, "outside_zone_texels": 0, "tilt_deg": 11.5, "zones": ["rear_bumper"], "ok": true}
 OK   {"name": "glass:smp_banner", "zone": "windscreen", "clearance_px": 12.0, "outside_px": 0, "ok": true}

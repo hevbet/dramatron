@@ -180,15 +180,34 @@
    ],
    "side": "L",
    "size_cm": [
-    19.8,
-    7.8
+    25.1,
+    7.0
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.0,
-   "max_tilt_deg": 42.1,
+   "edge_clear_cm": 3.4,
+   "max_tilt_deg": 10.3,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 0.1,
+   "mask_clear_cm": 2.4,
    "line_clear_cm": 99.0,
+   "status": "OK"
+  },
+  {
+   "name": "url_karting64_L",
+   "kind": "text",
+   "parts": [
+    "rear_door"
+   ],
+   "side": "L",
+   "size_cm": [
+    30.8,
+    4.9
+   ],
+   "coverage": 1.0,
+   "edge_clear_cm": 3.6,
+   "max_tilt_deg": 6.9,
+   "in_zone_mask": 1.0,
+   "mask_clear_cm": 3.8,
+   "line_clear_cm": 4.6,
    "status": "OK"
   },
   {
@@ -371,15 +390,34 @@
    ],
    "side": "R",
    "size_cm": [
-    19.8,
-    7.8
+    25.1,
+    7.0
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.0,
-   "max_tilt_deg": 42.1,
+   "edge_clear_cm": 3.5,
+   "max_tilt_deg": 10.3,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 0.1,
+   "mask_clear_cm": 2.4,
    "line_clear_cm": 99.0,
+   "status": "OK"
+  },
+  {
+   "name": "url_karting64_R",
+   "kind": "text",
+   "parts": [
+    "rear_door"
+   ],
+   "side": "R",
+   "size_cm": [
+    30.8,
+    4.9
+   ],
+   "coverage": 1.0,
+   "edge_clear_cm": 3.6,
+   "max_tilt_deg": 6.9,
+   "in_zone_mask": 1.0,
+   "mask_clear_cm": 3.8,
+   "line_clear_cm": 5.5,
    "status": "OK"
   },
   {
@@ -544,14 +582,14 @@
    ],
    "side": null,
    "size_cm": [
-    38.2,
-    12.5
+    39.7,
+    14.0
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 4.8,
-   "max_tilt_deg": 10.6,
+   "edge_clear_cm": 4.0,
+   "max_tilt_deg": 15.8,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 5.0,
+   "mask_clear_cm": 4.2,
    "line_clear_cm": 99.0,
    "status": "OK"
   },

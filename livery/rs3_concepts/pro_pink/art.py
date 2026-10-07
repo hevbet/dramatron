@@ -44,7 +44,7 @@ F_NUM = lambda s: _font("Unbounded[wght].ttf", s, "Black")                      
 F_NAME = lambda s: _font("SofiaSansCondensed-Italic[wght].ttf", s, "Black Italic")  # driver names
 F_SPON = lambda s: _font("Exo2-Italic[wght].ttf", s, "ExtraBold Italic")            # urls / partner lines
 F_TEAM = lambda s: _font("MontserratAlternates-BlackItalic.ttf", s)                 # «Команда ЭДМ»
-F_TECH = lambda s: _font("Tektur[wdth,wght].ttf", s, axes=[100, 800])               # KARTING64.RU / 64
+F_TECH = lambda s: _font("Tektur[wdth,wght].ttf", s, axes=[100, 800])               # region «64»
 F_CUT = lambda s: _font("YesevaOne-Regular.ttf", s)                                 # butcher cut labels
 F_Y2K = lambda s: _font("RubikMonoOne-Regular.ttf", s)                              # chrome headline
 
@@ -248,19 +248,31 @@ def mbu(h):
     return fit_h(im.crop(im.getbbox()), h)
 
 
-def karting64(h, text_col=WHITE, flip=False, outline=None):
-    """KARTING64: kart + pilot + flag (top part of the logo), url set in Tektur."""
+def _k64_art_rows():
+    """Rows of the KARTING64 source that hold ONLY the artwork (kart + pilot + flag): cut in the middle of the
+    empty band between the artwork and the 'KARTING64.RU' lettering (detected from the colour layers)."""
+    layers = [np.asarray(_L(os.path.join(BX, f"karting64_{n}.png"))) > 10 for n in ("white", "blue", "red", "black")]
+    rows = np.any([l.any(1) for l in layers], axis=0)
+    ys = np.flatnonzero(rows)
+    gaps = np.flatnonzero(np.diff(ys) > 40)          # first big empty band = artwork | lettering
+    art_end, text_start = ys[gaps[0]], ys[gaps[0] + 1]
+    cut = int((art_end + text_start) // 2)
+    assert not any(l[cut:text_start].any() for l in layers)
+    return cut
+
+
+def karting64(h, col=WHITE, flip=False):
+    """KARTING64 LOGO ONLY: kart + pilot + Russian-flag artwork, no lettering (the url is a separate decal).
+    `h` = height of the artwork; the black line-art layer is recoloured to `col`, flag keeps its own colours."""
+    cut = _k64_art_rows()
     k = _L(os.path.join(BX, "karting64_black.png"))
-    cut = 1500
     im = Image.new("RGBA", (k.width, cut), (0, 0, 0, 0))
-    for n, c in (("white", WHITE), ("blue", (0, 57, 166)), ("red", (213, 43, 30)), ("black", text_col)):
+    for n, c in (("white", WHITE), ("blue", (0, 57, 166)), ("red", (213, 43, 30)), ("black", col)):
         im.alpha_composite(solid(_L(os.path.join(BX, f"karting64_{n}.png")).crop((0, 0, k.width, cut)), c))
     im = im.crop(im.getbbox())
-    if flip:
+    if flip:                       # kart drives towards the car's nose on the left side
         im = im.transpose(Image.FLIP_LEFT_RIGHT)
-    kart = fit_h(im, int(h * 0.6))
-    t = fit_w(text("KARTING64.RU", F_TECH(300), text_col, track=0.02), int(kart.width * 1.0))
-    return stack([kart, t], int(h * 0.06))
+    return fit_h(im, int(h))
 
 
 def driveoil(h, plate=True):
