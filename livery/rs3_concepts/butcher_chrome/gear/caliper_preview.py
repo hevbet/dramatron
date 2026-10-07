@@ -2,10 +2,10 @@
 """Preview sheet for the pink calipers -> gear/caliper_preview.png
 
   1. flat caliper.dds: original (embedded in the kn5) vs new (gear/out/Pozdnyakov_00/caliper.dds)
-  2. wheel close-ups (front/rear, both sides) rendered with tools/render_rs3.py from a test skin
-     = copy of butcher_chrome/Pozdnyakov_00 + the new caliper.dds
+  2. wheel close-ups (front/rear, both sides) rendered with tools/render_rs3.py --ks-detail from a test skin
+     = copy of butcher_chrome/Pozdnyakov_00 + the new caliper.dds + caliper_detail.dds
   3. full side_left / side_right of the same test skin
-  4. the AC detail multiply (render_rs3 --ks-detail): original / pink with the original alpha / final
+  4. the AC detail multiply (render_rs3 --ks-detail): original / pink with the stock detail / final
 
 Usage: python3 caliper_preview.py [--work DIR] [--skip-render]
 """
@@ -64,11 +64,12 @@ def render(skin, out, view, w, h, fit=None, detail=False):
     return Image.open(os.path.join(out, view + ".png")).convert("RGB")
 
 
-def make_skin_copy(dst, dds):
+def make_skin_copy(dst, files):
     if os.path.exists(dst):
         shutil.rmtree(dst)
     shutil.copytree(SKIN, dst)
-    shutil.copy(dds, os.path.join(dst, MC.TEX))
+    for f in files:
+        shutil.copy(f, os.path.join(dst, os.path.basename(f)))
 
 
 def label(d, xy, text, f, fill=FG, bg=(0, 0, 0)):
@@ -87,27 +88,24 @@ def main():
     W = a.work
     os.makedirs(W, exist_ok=True)
     final = os.path.join(HERE, "out", "Pozdnyakov_00", MC.TEX)
-    keep = os.path.join(W, "keepalpha", "Pozdnyakov_00", MC.TEX)
-    test, test_keep = os.path.join(W, "test_skin"), os.path.join(W, "test_skin_keepalpha")
+    detail = os.path.join(HERE, "out", "Pozdnyakov_00", MC.DETAIL)
+    test, test_stock = os.path.join(W, "test_skin"), os.path.join(W, "test_skin_stockdetail")
 
     if not a.skip_render:
-        subprocess.run([sys.executable, os.path.join(HERE, "make_caliper.py"), "--keep-alpha",
-                        "--out", os.path.join(W, "keepalpha"), "--skins", "Pozdnyakov_00"], check=True,
-                       stdout=subprocess.DEVNULL)
-        make_skin_copy(test, final)
-        make_skin_copy(test_keep, keep)
+        make_skin_copy(test, [final, detail])
+        make_skin_copy(test_stock, [final])
     R = {}
     for name, (view, fit) in WHEELS.items():
         out = os.path.join(W, "pv_" + name.replace(" ", "_"))
         R[name] = (Image.open(os.path.join(out, view + ".png")).convert("RGB") if a.skip_render
-                   else render(test, out, view, 900, 820, fit))
+                   else render(test, out, view, 900, 820, fit, True))
     for view in ("side_left", "side_right"):
         out = os.path.join(W, "pv_full")
         R[view] = (Image.open(os.path.join(out, view + ".png")).convert("RGB") if a.skip_render
-                   else render(test, out, view, 1600, 900))
+                   else render(test, out, view, 1600, 900, None, True))
     fl = WHEELS["front left"]
     det = [("original, no detail", SKIN, False), ("original, in game", SKIN, True),
-           ("pink + original alpha", test_keep, True), ("final (alpha 255)", test, True)]
+           ("pink, stock detail (x0.18)", test_stock, True), ("final: + white detail", test, True)]
     for k, (lab, skin, dflag) in enumerate(det):
         out = os.path.join(W, f"pv_detail{k}")
         R[lab] = (Image.open(os.path.join(out, fl[0] + ".png")).convert("RGB") if a.skip_render
@@ -125,47 +123,47 @@ def main():
     y = PAD
     d.text((PAD, y), "СУППОРТЫ  ·  Butcher Chart Chrome", font=F_T(46), fill=PIG)
     y += 64
-    d.text((PAD, y), "caliper.dds 256×256 DXT5, 9 mips — same file for Pozdnyakov_00 and Konopelko_00; "
-           "all 4 calipers share one UV (right side = rotated copy, not mirrored)", font=F_L(22), fill=DIM)
+    d.text((PAD, y), "caliper.dds 256×256 DXT5, 9 mips, alpha = original + caliper_detail.dds 4×4 white — same "
+           "files for Pozdnyakov_00 and Konopelko_00; all 4 calipers share one UV", font=F_L(22), fill=DIM)
     y += 46
 
     # row 1: flat before / after + swatches / notes
     T = 520
-    for k, (im, lab) in enumerate(((before, "original (kn5), grey AO, alpha 0"), (after, "new, alpha 255"))):
+    for k, (im, lab) in enumerate(((before, "original (kn5), grey AO, alpha 0"), (after, "new, original alpha (0)"))):
         x = PAD + k * (T + PAD)
         sheet.paste(im.resize((T, T), Image.NEAREST), (x, y))
         label(d, (x, y + T - 40), lab, F_L(22))
     x0 = PAD + 2 * (T + PAD) + 10
     yy = y
     d.text((x0, yy), "colour", font=F_T(30), fill=FG); yy += 44
-    for col, txt in ((tuple(int(v) for v in MC.CAL), f"caliper  {tuple(int(v) for v in MC.CAL)}  hot flesh pink"),
-                     (PIG, f"body PIG  {PIG}  (for reference)"), (INK, f"INK  {INK}  — the AO creases fall here")):
+    for col, txt in ((PIG, f"PIG  {PIG}  lit faces (= car body)"), (INK, f"INK  {INK}  mid AO"),
+                     ((40, 10, 22), "INK_D  (40, 10, 22)  deep AO creases")):
         d.rectangle([x0, yy, x0 + 64, yy + 40], fill=col, outline=(255, 255, 255))
         d.text((x0 + 80, yy + 6), txt, font=F_L(22), fill=FG)
         yy += 54
     yy += 10
     notes = [
-        "body islands: pink x original AO (shading kept, deep AO lifted a bit)",
+        "body: gradient map of the original AO, palette only",
         "brake pads (inside the caliper): neutral steel grey",
         "bleed screws (tiny top parts): silver",
         "no lettering in the original texture -> none added",
         "",
         "alpha: material ksPerPixelMultiMap, useDetail=1, detailUVMultiplier=0,",
-        "txDetail = caliper_detail.dds (one grey 45 texel, also the txMaps).",
-        "AC: diffuse.rgb *= lerp(detail, 1, diffuse.alpha).",
-        "Original alpha 0 -> every texel x0.18 -> the caliper is black in game,",
-        "pink would turn dark burgundy (see the bottom row).",
-        "So alpha is written as 255 (detail off). Spec/gloss/reflection",
-        "still come from caliper_detail.dds, unchanged.",
+        "txDetail = txMaps = caliper_detail.dds (one grey 45 texel).",
+        "AC: diffuse.rgb *= lerp(detail, 1, diffuse.alpha); alpha is 0 everywhere",
+        "-> with the stock detail every texel x0.18 (black / dark burgundy).",
+        "caliper.dds keeps the original alpha bit for bit; the skin also",
+        "overrides caliper_detail.dds with white (x1.0) -> the pink shows.",
+        "txMaps side effect: spec/gloss/refl 0.18 -> 1.0 (satin paint).",
     ]
     for t in notes:
-        d.text((x0, yy), t, font=F_L(21), fill=FG if t and not t.startswith(("AC", "Orig", "pink", "So", "still",
+        d.text((x0, yy), t, font=F_L(21), fill=FG if t and not t.startswith(("AC", "->", "cal", "over", "txMaps",
                                                                             "txDetail", "alpha")) else DIM)
         yy += 30
     y = max(y + T, yy) + PAD
 
     # row 2: wheel close-ups
-    d.text((PAD, y), "wheel close-ups (test skin = Pozdnyakov_00 + caliper.dds, render_rs3 --fit)", font=F_T(30),
+    d.text((PAD, y), "wheel close-ups (test skin = Pozdnyakov_00 + caliper.dds + caliper_detail.dds, render_rs3 --fit --ks-detail)", font=F_T(30),
            fill=FG)
     y += 46
     cw = (SW - PAD * 5) // 4

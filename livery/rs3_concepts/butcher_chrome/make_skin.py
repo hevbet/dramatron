@@ -1419,7 +1419,7 @@ def top_decals():
     # ШЕЙКА: the neck cut between the hood cut line and the windscreen
     decal_fit("label_sheika_hood", lambda h: cut_label("ШЕЙКА", px(h)), [0.075, 0.070, 0.065, 0.060, 0.055, 0.050],
               lambda h: top_cands((0.0,), (-1.19, -1.18, -1.20, -1.17, -1.21), hood, (0, 1, 0), r=0.08),
-              ppm=PPM, parts=hood, kind="text", tilt_gate=10.0, line_min=1.0)
+              ppm=PPM, parts=hood, kind="text", tilt_gate=10.0, line_min=2.0)      # >= 2 cm air to the hood cut line
     # ЛОПАТКА (shoulder): on the side face of the front fender behind the wheel arch, under the shoulder cut line.
     # (it used to sit on the fender top, which rises ~6 deg toward the windscreen: projected there the word followed
     #  that slope - 9.5 deg tilt. On the side face the art is projected along a normal with its fore-aft component

@@ -496,7 +496,7 @@
    "max_tilt_deg": 0.0,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.5,
-   "line_clear_cm": 10.5,
+   "line_clear_cm": 12.0,
    "decal_clear_cm": 18.8,
    "status": "OK"
   },
@@ -516,7 +516,7 @@
    "max_tilt_deg": 0.0,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.5,
-   "line_clear_cm": 10.4,
+   "line_clear_cm": 12.1,
    "decal_clear_cm": 18.7,
    "status": "OK"
   },
@@ -935,5 +935,53 @@
    "clear_px": 20,
    "status": "OK"
   }
+ ],
+ "belly_dropped": [
+  {
+   "dash": 41,
+   "side": "R",
+   "why": "truncated",
+   "y": 2.061,
+   "x": -0.767
+  },
+  {
+   "dash": 41,
+   "side": "L",
+   "why": "truncated",
+   "y": 2.061,
+   "x": 0.767
+  },
+  {
+   "dash": 42,
+   "side": "R",
+   "why": "truncated",
+   "y": 2.125,
+   "x": -0.713
+  },
+  {
+   "dash": 42,
+   "side": "L",
+   "why": "truncated",
+   "y": 2.126,
+   "x": 0.712
+  },
+  {
+   "dash": 44,
+   "side": "R",
+   "why": "hidden in rear",
+   "y": 2.22,
+   "x": -0.544
+  },
+  {
+   "dash": 45,
+   "side": "R",
+   "why": "hidden in rear,rear34_right",
+   "y": 2.247,
+   "x": -0.446
+  }
+ ],
+ "line_notes": [
+  "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 0.9693)",
+  "hood cut line meets the shoulder line at x=+-0.840 y=-0.943 on the middle of a shoulder dash; 16 whole dashes, stretch 0.9799"
  ]
 }

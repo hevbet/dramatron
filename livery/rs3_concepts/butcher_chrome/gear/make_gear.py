@@ -391,6 +391,28 @@ def inpaint(V, M):
     return out
 
 
+def denoise_dark(V, r=4, sig_s=3.0, sig_r=4.0, passes=2, lo=45.0, hi=110.0):
+    """Edge-preserving (bilateral, `passes` times) smoothing of the luminance, faded in where the original is dark.
+    Near-black DXT texels carry only a few 5/6-bit levels, so V / local-mean turns their block noise and 1-level
+    banding into posterised blotches and contour rings on a light new colour; seams and folds (steps of 10+ levels)
+    stay."""
+    H, W = V.shape
+    B = V
+    for _ in range(passes):
+        P = np.pad(B, r, mode="edge")
+        acc = np.zeros_like(V)
+        wsum = np.zeros_like(V)
+        for dy in range(-r, r + 1):
+            for dx in range(-r, r + 1):
+                N = P[r + dy:r + dy + H, r + dx:r + dx + W]
+                w = math.exp(-(dx * dx + dy * dy) / (2 * sig_s ** 2)) * np.exp(-((N - B) ** 2) / (2 * sig_r ** 2))
+                acc += w * N
+                wsum += w
+        B = acc / wsum
+    t = np.clip((hi - ndimage.gaussian_filter(V, 3)) / (hi - lo), 0, 1)
+    return V * (1 - t) + B * t
+
+
 def shade_map(V, groups, params=None, sig_f=10, sig_m=40, sig_lo=150, c_f=1.0, c_m=0.6, g_lo=0.15,
               lo_clip=(0.85, 1.08), k=10.0, clip=(0.42, 1.45), flat=()):
     """Per original colour group (normalised only over the pixels of that group, so neighbouring prints / the
@@ -749,10 +771,16 @@ def suit16_prep():
     redm = ndimage.binary_fill_holes(ndimage.binary_closing(red & (yy > 400) & (yy < 900), iterations=3))
     lab, n = ndimage.label(redm)
     redm = lab == (np.argmax(ndimage.sum(redm, lab, range(1, n + 1))) + 1)
-    boot = ndimage.binary_fill_holes(ndimage.binary_closing(gray & (xx > 330) & (xx < 1040) & (yy > 780) &
-                                                            (yy < 1192), iterations=6)) & (yy < 1192)
+    # boot upper with laces / collar strap: the whole neutral (unsaturated) island, i.e. the grey leather AND its
+    # dark shading (the shadow round the black boot opening, the dark folds of the strap: V < 40, so not `gray`)
+    def neutral_island(box):
+        m = ((sat < 0.4) | (V < 6)) & box
+        lab, n = ndimage.label(m)
+        m = lab == (np.argmax(ndimage.sum(m, lab, range(1, n + 1))) + 1)
+        return ndimage.binary_fill_holes(ndimage.binary_closing(m, iterations=3)) & box
+    boot = neutral_island((xx > 330) & (xx < 1040) & (yy > 780) & (yy < 1192))
     rect = gray & (xx > 390) & (xx < 1000) & (yy >= 1192)
-    collar = ndimage.binary_closing(gray & (xx > 1450) & (yy > 975) & (yy < 1080), iterations=2)
+    collar = neutral_island((xx > 1450) & (yy > 975) & (yy < 1080))
     blk = black & (ndimage.binary_opening(black, iterations=2))
     groups = np.zeros((H, W), np.int16)          # 0 cloth (blue + background + inpainted logos)
     groups[band & ~logo] = 1
@@ -769,8 +797,11 @@ def suit16_prep():
     bg = (np.abs(rgb - np.array((2, 12, 27), np.float32)).max(-1) <= 3) & (sd < 0.6)
     bg = ndimage.binary_closing(ndimage.binary_opening(bg, iterations=3), iterations=2)
     groups[bg & (groups == 0)] = 7
-    Vi = inpaint(V, logo)
+    Vi = inpaint(denoise_dark(V), logo)
     S = shade_map(Vi, groups, params={6: dict(k=12.0)}, flat=(7,))
+    # black parts (boot opening, ...) never get highlights: their rim (V 5..9 against a group mean of ~1) would
+    # light up as a grey line along the soft shadow edge
+    S[groups == 6] = np.minimum(S[groups == 6], 1.0)
     cost = seam_cost(V)
     return dict(rgb=rgb, alpha=alpha, V=V, Vi=Vi, S=S, groups=groups, band=band, red=redm, logo=logo, cost=cost,
                 shape=(H, W), black=blk)

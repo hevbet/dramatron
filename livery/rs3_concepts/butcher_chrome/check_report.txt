@@ -22,8 +22,8 @@ OK     sill_karting64_R           [22.8, 7.0]    cov=1.000 edge=  1.8cm tilt=  5
 OK     url_karting64_R            [32.0, 5.2]    cov=1.000 edge=  1.8cm tilt=  7.2° in_mask=1.0 mask_clear=2.8cm lines=15.4cm
 OK     simkart_hood               [61.3, 26.5]   cov=1.000 edge= 11.0cm tilt=  3.3° in_mask=1.0 mask_clear=2.9cm lines=2.4cm
 OK     label_sheika_hood          [34.1, 11.3]   cov=1.000 edge=  2.0cm tilt=  1.8° in_mask=1.0 mask_clear=2.0cm lines=1.1cm
-OK     label_lopatka_L            [22.6, 4.3]    cov=1.000 edge=  1.3cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=10.5cm
-OK     label_lopatka_R            [22.6, 4.3]    cov=1.000 edge=  1.2cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=10.4cm
+OK     label_lopatka_L            [22.6, 4.3]    cov=1.000 edge=  1.3cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=12.0cm
+OK     label_lopatka_R            [22.6, 4.3]    cov=1.000 edge=  1.2cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=12.1cm
 OK     number_roof                [74.0, 51.8]   cov=1.000 edge= 12.5cm tilt=  5.7° in_mask=1.0 mask_clear=17.0cm lines=35.6cm
 OK     stamp_vyrezka_roof         [32.0, 19.2]   cov=1.000 edge= 14.1cm tilt= 11.9° in_mask=1.0 mask_clear=16.6cm lines=4.7cm
 OK     saratov_roof               [68.1, 20.0]   cov=1.000 edge=  9.9cm tilt=  9.5° in_mask=1.0 mask_clear=19.8cm lines=6.3cm
@@ -47,3 +47,11 @@ OK     glass:endplate_R           box=[460, 3072, 1200, 3396] art=[530, 3150, 11
 OK     glass:endplate_L           box=[1324, 3072, 2064, 3396] art=[1394, 3150, 1994, 3319] clear=70px
 OK     glass:name_L@Konopelko_00  box=[460, 1088, 2052, 1984] art=[480, 1576, 2032, 1912] clear=20px
 OK     glass:name_R@Konopelko_00  box=[456, 2072, 2048, 2964] art=[476, 2556, 2028, 2892] clear=20px
+INFO   line:belly dash 41R   left out whole (truncated) at x=-0.767 y=+2.061
+INFO   line:belly dash 41L   left out whole (truncated) at x=+0.767 y=+2.061
+INFO   line:belly dash 42R   left out whole (truncated) at x=-0.713 y=+2.125
+INFO   line:belly dash 42L   left out whole (truncated) at x=+0.712 y=+2.126
+INFO   line:belly dash 44R   left out whole (hidden in rear) at x=-0.544 y=+2.220
+INFO   line:belly dash 45R   left out whole (hidden in rear,rear34_right) at x=-0.446 y=+2.247
+INFO   line:tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 0.9693)
+INFO   line:hood cut line meets the shoulder line at x=+-0.840 y=-0.943 on the middle of a shoulder dash; 16 whole dashes, stretch 0.9799

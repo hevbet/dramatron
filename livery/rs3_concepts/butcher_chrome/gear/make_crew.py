@@ -7,8 +7,9 @@ the original, into out/<skin>/ for both skins (identical files):
   ac_crew.dds            512x512   DXT5, no mips   crew shirt (flat navy + 3 SMP logos in the original)
   Crew_HELMET_Color.dds  1024x512  DXT5, no mips   crew helmet + chin straps (2x SMP ESPORTS on the straps)
   Brands_Crew.dds        512x256   DXT5, no mips   logo decal sheet; its ALPHA is the logo cut-out
-  Brands_Crew_NM.dds     512x256   DXT5, no mips   flat normal map (one colour) -> copied byte for byte
   Meccanico_Gadgets.png  256x256   PNG RGBA        headset ear cups (СМП РСКГ / mirrored SMP ESPORTS) etc.
+  (Brands_Crew_NM.dds, the flat normal map of the decal sheet, is NOT written: the logo shapes do not change,
+   so a copy of it would override nothing.)
 
 Design (palette from make_skin.py): deep maroon-plum shirt and helmet shell; flesh-pink accents (PIG);
 «арка» + SMP RACING ESPORTS on a pink butcher price tag with a dashed burgundy cut line (the car's
@@ -26,8 +27,9 @@ Rules kept
   * the right ear-cup disc of Meccanico_Gadgets carries MIRRORED text in the original (its UV is
     mirrored), so it gets no text: only a mirror-symmetric holo sparkle;
   * Brands_Crew: the alpha is the decal cut-out and must stay as is, so the logo SHAPES cannot change:
-    BR ENGINEERING / BR03 are recoloured flesh pink, the two SMP RACING keep their white/blue, and the
-    unrelated KRB monogram is filled with the shirt colour (it melts into the shirt). The RGB under
+    BR ENGINEERING is recoloured flesh pink, the two SMP RACING keep their white/blue, and the marks that are
+    not team partners (the KRB monogram and BR03 - on the driver suit BR03 became «арка») are filled with the
+    shirt colour, so they melt into the shirt instead of being highlighted. The RGB under
     alpha=0 is filled with the nearest logo colour so DXT blocks at the logo edges do not pull black.
 
 Usage: python3 make_crew.py [--out DIR] [--preview PATH]
@@ -35,7 +37,6 @@ Usage: python3 make_crew.py [--out DIR] [--preview PATH]
 import argparse
 import math
 import os
-import shutil
 import struct
 import sys
 
@@ -413,7 +414,7 @@ BRANDS = {                      # component boxes on the sheet (alpha), what to 
     "br_engineering": ((38, 14, 112, 118), "pink"),
     "smp_racing_top": ((170, 20, 329, 51), "keep"),
     "krb_monogram": ((399, 13, 491, 110), "shirt"),
-    "br03": ((15, 145, 120, 185), "pink"),
+    "br03": ((15, 145, 120, 185), "shirt"),       # not a listed partner -> hidden like KRB
     "smp_racing_bot": ((159, 208, 353, 247), "keep"),
 }
 
@@ -544,7 +545,7 @@ def make_preview(res, path):
           (x, y))
     cv.paste(over(br_o, NAVY).resize((1024, 512), Image.LANCZOS), (x, y + LBL)); x += 1024 + G
     cv.paste(over(br_n, SHIRT).resize((1024, 512), Image.LANCZOS), (x, y + LBL))
-    label(cv, "Brands_Crew_NM: flat normal map, logos unchanged in shape -> copied as is.",
+    label(cv, "Brands_Crew_NM: flat normal map, logo shapes unchanged -> not overridden (no file written).",
           (G, Hc - 38), size=22, col=(180, 176, 190))
     cv.save(path)
 
@@ -580,7 +581,6 @@ def main():
             shown[name] = (src, Image.open(p).convert("RGBA"))
             assert np.array_equal(np.asarray(shown[name][1].getchannel("A")),
                                   np.asarray(src.getchannel("A"))), ("alpha changed", name)
-        shutil.copyfile(os.path.join(SRC, "Brands_Crew_NM.dds"), os.path.join(od, "Brands_Crew_NM.dds"))
         print(skin, "->", od)
     make_preview(shown, args.preview)
     print("preview ->", args.preview)

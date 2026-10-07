@@ -2,29 +2,34 @@
 """Pink brake calipers for the «Butcher Chart Chrome» skins.
 
 Recolours the caliper texture embedded in the .kn5 (caliper.dds, 256x256 DXT5 with 9 mip levels)
-and writes it as a skin-folder override:
-    out/Pozdnyakov_00/caliper.dds
-    out/Konopelko_00/caliper.dds          (identical files)
+and writes it as a skin-folder override, together with the caliper's detail/maps texture:
+    out/<skin>/caliper.dds                (256x256 DXT5, 9 mips, ORIGINAL alpha = 0 on every texel)
+    out/<skin>/caliper_detail.dds         (4x4, 3 mips: one white texel, written as DXT5)
+    identical files for Pozdnyakov_00 and Konopelko_00
 
 How it works
   * the original is a grey baked-AO map (R=G=B), no lettering at all; the shading of each texel is kept:
-    body colour = CAL * s(L), with s a gentle curve of the original grey L (the dark creases
-    fall to the burgundy ink of the livery on their own);
+    body colour = gradient map of s(L) through the livery palette only (s a gentle curve of the original
+    grey L): deep AO -> INK_D, mid -> INK (burgundy), lit faces -> PIG (the body's flesh pink), the few
+    hottest texels a soft pearl sheen;
   * UV islands are taken from the caliper mesh and split into: caliper body (pink), brake pads (steel
     grey, they sit inside the caliper) and the tiny bleed screws (silver);
   * texels outside the islands get the colour of the nearest island texel (clean mip padding);
   * the DDS keeps the original 128-byte header (DXT5, 256x256, 9 mips) and gets a full mip chain.
 
-Alpha: the material is ksPerPixelMultiMap with useDetail=1, detailUVMultiplier=0 and
-txDetail = caliper_detail.dds (one flat grey 45/255 texel, the same file is also txMaps).
-AC multiplies the diffuse by that detail colour where the diffuse alpha is black:
+Alpha and caliper_detail.dds: the material is ksPerPixelMultiMap with useDetail=1, detailUVMultiplier=0
+and txDetail = txMaps = caliper_detail.dds (one flat grey 45/255 texel). AC multiplies the diffuse by
+that detail colour where the diffuse alpha is black:
     diffuse.rgb *= lerp(detail.rgb, 1, diffuse.a)
-The original alpha is 0 everywhere, so in game every caliper texel is multiplied by 0.18 and the
-caliper renders near-black whatever its colour.  For the pink to show, the alpha is written
-as 255 (detail off).  Specular / gloss / reflection still come from caliper_detail.dds, unchanged.
---keep-alpha writes the original alpha instead (the caliper then turns dark burgundy in game).
+The original alpha is 0 everywhere, so with the stock detail every caliper texel is multiplied by 0.18
+and renders near-black whatever its colour. The alpha of caliper.dds is kept EXACTLY as in the original
+(0, all levels); instead the skin also overrides caliper_detail.dds with a white texel (detail x1.0), so
+the pink shows. Side effect (the same texel is txMaps): the spec / gloss / reflection multipliers of the
+caliper material go from 0.18 to 1.0, i.e. ksSpecular 0.2, ksSpecularEXP 50, fresnelMaxLevel 0.1 as set
+in the material - a satin painted caliper instead of a matte black one. Only the caliper material uses
+caliper_detail.dds.
 
-Usage: python3 make_caliper.py [--keep-alpha] [--out DIR] [--png PATH]
+Usage: python3 make_caliper.py [--out DIR] [--png PATH]
 """
 import argparse
 import io
@@ -47,7 +52,12 @@ TEX = "caliper.dds"
 SKINS = ("Pozdnyakov_00", "Konopelko_00")
 
 # palette (butcher_chrome/make_skin.py): PIG (242,158,178) body, INK (96,18,42), INK_D (40,10,22)
-CAL = np.array((236, 64, 124), np.float32)      # caliper: hot flesh pink, deeper than PIG, same rose hue
+PIG = np.array((242, 158, 178), np.float32)
+INK = np.array((96, 18, 42), np.float32)
+INK_D = np.array((40, 10, 22), np.float32)
+PEARL = np.array((250, 240, 248), np.float32)
+CAL_STOPS = ((0.10, INK_D), (0.40, INK), (1.00, PIG))   # shading s -> body colour (palette only)
+DETAIL = "caliper_detail.dds"
 PAD = np.array((1.00, 0.98, 1.00), np.float32)  # brake pads: neutral steel (x grey value)
 HW = np.array((0.97, 0.97, 1.00), np.float32)   # bleed screws: silver (x grey value)
 PAD_TEXELS = 4                                  # island edge padding (texels); the rest is one flat colour
@@ -136,10 +146,12 @@ def recolour(src, cover, near, cls, idx):
     iy, ix = idx
     Lp = np.where(inside, L, L[iy, ix])
     c = cls[near]
-    s = shade_curve(Lp)[..., None]
-    body = CAL * np.minimum(s, 1.0)
-    hl = np.clip(s - 1.0, 0, None) / 0.09                     # the few hottest texels: soft sheen
-    body = body + (255.0 - body) * 0.35 * np.clip(hl, 0, 1)
+    s = shade_curve(Lp)
+    xs = [p for p, _ in CAL_STOPS]
+    body = np.stack([np.interp(s, xs, [col[k] for _, col in CAL_STOPS]) for k in range(3)], -1)
+    s = s[..., None]
+    hl = np.clip(s - 1.0, 0, None) / 0.09                     # the few hottest texels: soft pearl sheen
+    body = body + (PEARL - body) * 0.35 * np.clip(hl, 0, 1)
     pad = PAD * (14.0 + 0.55 * Lp)[..., None]
     hw = HW * np.clip(70.0 + 0.8 * Lp, 0, 235)[..., None]
     rgb = np.where((c == 0)[..., None], body, np.where((c == 1)[..., None], pad, hw))
@@ -186,9 +198,21 @@ def write_dds(path, rgba_f, alpha, header):
     return len(out)
 
 
+def copy_alpha_blocks(orig, path):
+    """Same header, same level layout: copy the 8-byte DXT5 alpha half of every block from the original."""
+    out = bytearray(open(path, "rb").read())
+    assert len(out) == len(orig) and out[:128] == orig[:128]
+    for o in range(128, len(out), 16):
+        out[o:o + 8] = orig[o:o + 8]
+    open(path, "wb").write(bytes(out))
+
+
 def read_dds_levels(path):
     """Decode every mip level of a DXT5 DDS (Pillow reads the top level only -> re-wrap each level)."""
-    data = open(path, "rb").read()
+    return read_dds_levels_bytes(open(path, "rb").read())
+
+
+def read_dds_levels_bytes(data):
     hh = struct.unpack_from("<31I", data, 4)
     H, W, mips = hh[2], hh[3], max(1, hh[6])
     off, levels = 128, []
@@ -205,10 +229,22 @@ def read_dds_levels(path):
     return levels
 
 
+def detail_header(w=4, h=4, mips=3):
+    """DXT5 header for the small caliper_detail.dds (same size and mip count as the kn5 original, which is
+    uncompressed A8R8G8B8): linear size of one 4x4 block, RGBBitCount 0."""
+    hd = bytearray(128)
+    hd[0:4] = b"DDS "
+    struct.pack_into("<7I", hd, 4, 124, 0x1 | 0x2 | 0x4 | 0x1000 | 0x20000 | 0x80000, h, w,
+                     max(1, w // 4) * max(1, h // 4) * 16, 0, mips)
+    struct.pack_into("<2I", hd, 76, 32, 0x4)                 # pixel format: FOURCC
+    hd[84:88] = b"DXT5"
+    struct.pack_into("<I", hd, 108, 0x1000 | 0x8 | 0x400000)  # TEXTURE | COMPLEX | MIPMAP
+    return bytes(hd)
+
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--keep-alpha", action="store_true", help="write the original alpha (0) instead of 255")
     ap.add_argument("--out", default=os.path.join(HERE, "out"), help="writes <out>/<skin>/caliper.dds")
     ap.add_argument("--skins", default=",".join(SKINS))
     ap.add_argument("--png", default=None, help="also save the flat level-0 RGB as PNG")
@@ -228,7 +264,14 @@ def main():
     for k, nt, ar, xe, c in info:
         print(f"  island {k:2d}: {nt:3d} tris {ar:7.2f} cm2  thickness {xe:.4f} m -> {names[c]}")
     rgb = recolour(src, cover, near, cls, idx)
-    alpha = np.asarray(src)[..., 3] if a.keep_alpha else np.full((src.height, src.width), 255, np.uint8)
+    alpha = np.asarray(src)[..., 3]                           # the original alpha, untouched (0 everywhere)
+    m = kn5.load(KN5, keep_tex=True)
+    det_src = Image.open(io.BytesIO(dict(m["textures"])[DETAIL]))
+    det_src.load()
+    dh = struct.unpack_from("<31I", dict(m["textures"])[DETAIL], 4)
+    det_hdr = detail_header(det_src.width, det_src.height, max(1, dh[6]))
+    det_rgb = np.full((det_src.height, det_src.width, 3), 255.0, np.float32)            # detail x1.0
+    det_a = np.asarray(det_src.convert("RGBA"))[..., 3]                                  # original alpha (255)
     if a.png:
         Image.fromarray(np.clip(rgb + 0.5, 0, 255).astype(np.uint8)).save(a.png)
     for skin in [s for s in a.skins.split(",") if s]:
@@ -236,12 +279,20 @@ def main():
         os.makedirs(d, exist_ok=True)
         p = os.path.join(d, TEX)
         n = write_dds(p, rgb, alpha, header)
+        copy_alpha_blocks(data, p)                             # alpha halves byte-identical to the original
         lv = read_dds_levels(p)
         h2 = struct.unpack_from("<31I", open(p, "rb").read(128), 4)
         err = np.abs(lv[0][..., :3].astype(int) - np.clip(rgb + 0.5, 0, 255).astype(int)).mean()
+        same_a = all(np.array_equal(x[..., 3], y[..., 3]) for x, y in zip(lv, read_dds_levels_bytes(data)))
         print(f"wrote {p}: {n} bytes (orig {len(data)}), {h2[3]}x{h2[2]}, mips {h2[6]} "
-              f"[{' '.join(f'{x.shape[1]}' for x in lv)}], alpha {lv[0][..., 3].min()}..{lv[0][..., 3].max()}, "
-              f"mean |DXT5 - target| {err:.2f}")
+              f"[{' '.join(f'{x.shape[1]}' for x in lv)}], alpha {lv[0][..., 3].min()}..{lv[0][..., 3].max()} "
+              f"(identical to the original on every level: {same_a}), mean |DXT5 - target| {err:.2f}")
+        pd = os.path.join(d, DETAIL)
+        nd = write_dds(pd, det_rgb, det_a, det_hdr)
+        dl = read_dds_levels(pd)
+        print(f"wrote {pd}: {nd} bytes, {dl[0].shape[1]}x{dl[0].shape[0]}, mips {len(dl)}, "
+              f"texel {tuple(int(v) for v in dl[0][0, 0])} on every level: "
+              f"{all((x == dl[0][0, 0]).all() for x in dl)}")
 
 
 if __name__ == "__main__":
