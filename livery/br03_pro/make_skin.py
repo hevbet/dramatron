@@ -383,7 +383,7 @@ txt('САРАТОВСКАЯ ОБЛАСТЬ', 800, 26, (186, 3130), -94.5, 'white
 txt('САРАТОВСКАЯ ОБЛАСТЬ', 800, 26, (3891, 3104), 97, 'white', 'skirt_text_L', 0.06)
 # --- wing
 logo_rgba('smp_lockup', (2045, 110), 0, h=80, name='smp_wing')
-txt('KARTING64.RU   ·   SIMKART.VERCEL.APP', 900, 34, (2045, 214), 180, 'white', 'wing_links', 0.03)
+txt('KARTING64.RU   ·   SIMKARTING.RU', 900, 34, (2045, 214), 180, 'white', 'wing_links', 0.03)
 def frog(h):
     S4 = 4; W_, H_ = int(h * 1.35) * S4, h * S4
     t = Image.new('RGBA', (W_, H_), (0, 0, 0, 0)); d = ImageDraw.Draw(t)
@@ -424,9 +424,9 @@ txt('64', 900, 70, (3846, 545), 90, 'ink', 'n64_endplate_L')
 # BR03 на нижней боковине перед задним колесом (как у ADR), читается вдоль борта
 logo_rgba('br03', (1180, 3170), -90, h=62, name='br03_R')
 logo_rgba('br03', (2950, 3170), 90, h=62, name='br03_L')
-# simkart.vercel.app — под тэглайном на крыле L и под «Симкарт» на заднем крыле R
-txt('SIMKART.VERCEL.APP', 700, 16, (3054, 1165), 90, 'white', 'link_fin_L', 0.06)
-txt('SIMKART.VERCEL.APP', 700, 22, (436, 820), -90, 'white', 'link_haunch_R', 0.08)
+# simkarting.ru — под тэглайном на крыле L и под «Симкарт» на заднем крыле R
+txt('SIMKARTING.RU', 700, 16, (3054, 1165), 90, 'white', 'link_fin_L', 0.06)
+txt('SIMKARTING.RU', 700, 22, (436, 820), -90, 'white', 'link_haunch_R', 0.08)
 
 
 

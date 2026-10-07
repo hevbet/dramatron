@@ -264,7 +264,7 @@ for side, ang in ((1, 90), (-1, -90)):
     # задняя дверь: главный спонсор борта; на левом борту — Симкарт, на правом — Арка (второй — на капоте/багажнике)
     if side == 1:
         place(blib.simkart_logo(118, tagline=True), X(3255), 1440, ang)
-        place(T("SIMKART.VERCEL.APP", 24, 330, WHITE, weight="Bold Italic", track=0.05), X(3425), 1530, ang)
+        place(T("SIMKARTING.RU", 24, 330, WHITE, weight="Bold Italic", track=0.05), X(3425), 1530, ang)
     else:
         place(blib.arka_logo(150, taimcafe=True), X(3270), 1440, ang)
     place(number_plate(300), X(3265), 2275, ang)                        # передняя дверь
