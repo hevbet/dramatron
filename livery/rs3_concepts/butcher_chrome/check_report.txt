@@ -21,7 +21,7 @@ OK     sill_breng_R               [44.2, 4.9]    cov=1.000 edge=  1.0cm tilt=  9
 OK     sill_karting64_R           [22.8, 7.0]    cov=1.000 edge=  1.8cm tilt=  5.5° in_mask=1.0 mask_clear=1.3cm lines=25.8cm
 OK     url_karting64_R            [32.0, 5.2]    cov=1.000 edge=  1.8cm tilt=  7.2° in_mask=1.0 mask_clear=2.8cm lines=15.4cm
 OK     simkart_hood               [61.3, 26.5]   cov=1.000 edge= 11.0cm tilt=  3.3° in_mask=1.0 mask_clear=2.9cm lines=2.4cm
-OK     label_sheika_hood          [34.1, 11.3]   cov=1.000 edge=  2.0cm tilt=  1.8° in_mask=1.0 mask_clear=2.0cm lines=1.1cm
+OK     label_sheika_hood          [32.0, 10.5]   cov=1.000 edge=  1.4cm tilt=  1.8° in_mask=1.0 mask_clear=1.5cm lines=2.5cm
 OK     label_lopatka_L            [22.6, 4.3]    cov=1.000 edge=  1.3cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=12.0cm
 OK     label_lopatka_R            [22.6, 4.3]    cov=1.000 edge=  1.2cm tilt=  0.0° in_mask=1.0 mask_clear=1.5cm lines=12.1cm
 OK     number_roof                [74.0, 51.8]   cov=1.000 edge= 12.5cm tilt=  5.7° in_mask=1.0 mask_clear=17.0cm lines=35.6cm

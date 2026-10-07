@@ -468,16 +468,16 @@
    ],
    "side": null,
    "size_cm": [
-    34.1,
-    11.3
+    32.0,
+    10.5
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.0,
+   "edge_clear_cm": 1.4,
    "max_tilt_deg": 1.8,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.0,
-   "line_clear_cm": 1.1,
-   "decal_clear_cm": 5.5,
+   "mask_clear_cm": 1.5,
+   "line_clear_cm": 2.5,
+   "decal_clear_cm": 7.0,
    "status": "OK"
   },
   {
