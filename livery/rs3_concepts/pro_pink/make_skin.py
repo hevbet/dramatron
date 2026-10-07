@@ -378,7 +378,7 @@ def build_body(car, drv, inv):
                   ["sill"], prefer=(0.0, 0.21), min_clear=0.008)
     # ---------- sill, ahead of BR ENGINEERING (under the front door): karting64.ru — set exactly like the
     # simkart.vercel.app link (F_SPON = Exo 2 ExtraBold Italic, white, no tracking). Region stops at y=-0.47 so
-    # there is >= 10 cm of air to BR ENGINEERING (which ends at y~-0.35); level with the ground by projection.
+    # there is plenty of air to BR ENGINEERING further back on the sill; level with the ground by projection.
     car.fit_sides("k64_url", lambda s: A.text("karting64.ru", A.F_SPON(300), W), (-1.0, -0.47), (0.10, 0.32), 0.34,
                   ["sill"], prefer=(-0.72, 0.21), min_clear=0.010)
     # ---------- Y2K sparkles riding the blade where it kinks up (rear door, behind Арка)
@@ -440,10 +440,12 @@ def build_top(car, drv, inv):
     car.fit("trunk_edm", A.team_edm(300, col=(W if inv else A.PLUM_D), sticker=False), "top_rear", 1.0,
             (-0.165, 0.165, -2.15, -1.6), 0.30, ["trunk_lid"], prefer=(0.0, -1.84), min_clear=0.02, depth_tol=0.2,
             check_angle=22, blade_keep=True)
+    # The trunk-lid pins (3D, not in the skin) stand at |x|~0.56-0.60 m: the outboard limit 0.52 keeps them off the
+    # МБУ sticker, which is now enlarged (wmax 16 -> 22 cm) so it reads clearly from behind / above.
     for sgn, tag in ((1, "a"), (-1, "b")):
-        reg = (0.25, 0.62) if sgn > 0 else (-0.62, -0.25)
+        reg = (0.25, 0.52) if sgn > 0 else (-0.52, -0.25)
         car.fit(f"trunk_mbu_{tag}", A.mbu(300), "top_rear", 1.0, (reg[0], reg[1], -2.15, -1.6), 0.22,
-                ["trunk_lid"], prefer=(sgn * 0.40, -1.84), min_clear=0.02, depth_tol=0.2, check_angle=22,
+                ["trunk_lid"], prefer=(sgn * 0.385, -1.84), min_clear=0.02, depth_tol=0.2, check_angle=22,
                 blade_keep=True)
     # ---------- rear panel between the lights: Саратовская область · 64 (region)
     car.fit("rear_region64", A.region64(300, col=W), "rear", 2.15, (-0.6, 0.6, 0.55, 1.0), 0.50,
