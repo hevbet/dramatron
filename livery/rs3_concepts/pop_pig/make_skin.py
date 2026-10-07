@@ -649,8 +649,6 @@ def make_body(G, src, shade, rings, car):
     # …и «карман» угла бампера между торцом и фонарём (обращён назад)
     step |= (G.parts_mask(["rear_bumper_corner"]) & (np.abs(G.x) > 0.66) & (G.y < 2.06) & (G.z > 0.69)
              & (G.nrm[..., 1] > 0.45))
-    # …и полка заднего бампера под фонарями (смотрит вверх): линия шла по ней размазанным клином
-    step |= G.parts_mask(["rear_bumper"]) & (G.nrm[..., 2] > 0.55) & (G.y > 1.98) & (G.z > 0.6)
     B.fill(step.astype(np.float32), INK)
     # зеркала — цвет акцента с чёрным
     mir = G.parts_mask(["mirror"])
