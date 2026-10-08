@@ -1884,11 +1884,12 @@ def eyeliner_curve(shoulder_C):
     return out
 
 
-def eyeliner_dash(L, a_n, SB):
+def eyeliner_dash(L, a_n, SB, end_tgt=None):
     """Dash coordinate along the front cut line (decreasing from SB at the branch, where it continues the shoulder
     line's dashes): two stretches k1 (branch -> neck) and k2 (neck -> centreline), each as close to 1 as possible, that
     put the middle of a dash on the neck point a_n and the middle of a dash or a gap on the end (the centreline). Returns
-    (k1, k2, s_neck, s_end). The neck point gets the middle of a dash (narrowed there, see eyeliner_width)."""
+    (k1, k2, s_neck, s_end, end target); end_tgt forces the end target (the right side takes the left side's, so the
+    two halves meet on the centreline in the same dash / gap). The neck point gets the middle of a dash (narrowed there, see eyeliner_width)."""
     best = None
     dash_mid = DASH[0] / 2
     base_n = math.floor((SB - a_n - dash_mid) / DPER)
@@ -1896,12 +1897,13 @@ def eyeliner_dash(L, a_n, SB):
         s_n = dash_mid + i * DPER          # (a dash centred in the neck: the line visibly runs through it, narrowed)
         k1 = (SB - s_n) / a_n
         base_e = math.floor((s_n - (L - a_n) - dash_mid) / DPER)
-        for j, tgt in [(j, t) for j in range(base_e - 2, base_e + 3) for t in (dash_mid, DASH[0] + DASH[1] / 2)]:
+        tgts = (dash_mid, DASH[0] + DASH[1] / 2) if end_tgt is None else (end_tgt,)
+        for j, tgt in [(j, t) for j in range(base_e - 2, base_e + 3) for t in tgts]:
             s_e = tgt + j * DPER                # (the centreline on the middle of a dash or of a gap)
             k2 = (s_n - s_e) / (L - a_n)
             sc = max(abs(k1 - 1), abs(k2 - 1))
-            if k1 > 0 and k2 > 0 and (best is None or sc < best[0]):
-                best = (sc, k1, k2, s_n, s_e)
+            if k1 > 0 and k2 > 0 and (best is None or sc < best[0] - 1e-9):
+                best = (sc, k1, k2, s_n, s_e, tgt)
     return best[1:]
 
 
@@ -3099,14 +3101,14 @@ def paint_body():
         shoulder[s] = C
         SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
         Se = arclen(eye)
-        k1, k2, s_n, s_e = eyeliner_dash(float(Se[-1]), E["a_neck"], S_B + phase)
+        k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se[-1]), E["a_neck"], S_B + phase, EYE.get("L", {}).get("tgt"))
         sd = np.where(Se <= E["a_neck"], S_B + phase - k1 * Se, s_n - k2 * (Se - E["a_neck"]))
         hw = eyeliner_width(eye, s)
         drop = set()                       # (no dash is left out: the neck dash is narrowed instead)
         ink = paint_eyeliner(eye, s, sd, drop, hw)
         EYE[s] = dict(C=eye, sd=sd, k1=k1, k2=k2, ink=ink, drop=drop, neck_cm=E["neck_cm"], r_min_cm=E["r_min_cm"],
                       dev_cm=E["dev_cm"], seam_cm=E["seam_cm"], hw_min_cm=round(float(hw.min()) * 200, 2),
-                      neck_dash=int(dash_owner(np.array([s_n]))[0]))
+                      neck_dash=int(dash_owner(np.array([s_n]))[0]), tgt=tgt_e)
         CREASE[s]["off_cm"] = crease_offset_cm(C[np.searchsorted(arclen(C), S_B):], s)
         print(f"   shoulder line {s}: on the crease from y {C[np.searchsorted(arclen(C), S_B), 1]:.3f} to "
               f"{C[-1, 1]:.3f} (last dash end {SH_REAR_AIR * 100:.1f} cm from the tail lamp), phase {phase:.4f}; "
