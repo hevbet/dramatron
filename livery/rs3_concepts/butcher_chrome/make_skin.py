@@ -712,7 +712,7 @@ def _band_pts():
     return front + mid + rear
 
 
-B_PTS = _band_pts()
+B_PTS = None         # (built on first use: it needs the mesh-section helpers defined further down)
 
 
 _CB = {}
@@ -734,6 +734,9 @@ def band_curve3d():
 
 
 def b_curve(y):
+    global B_PTS
+    if B_PTS is None:
+        B_PTS = _band_pts()
     ys, zs = np.array(B_PTS).T
     # monotone cubic (PCHIP) keeps the flare smooth and never overshoots
     from scipy.interpolate import PchipInterpolator
@@ -748,7 +751,7 @@ def arc_y():
     return yy, s
 
 
-_AY, _AS = arc_y()
+_AY, _AS = None, None    # (arc length of B: set by paint_belly)
 
 
 SLOT_GAP = 0.004            # air between the band's chrome keyline and the black lower-trim fin's slot
@@ -803,6 +806,8 @@ def band_edge(P):
 
 
 def paint_belly():
+    global _AY, _AS
+    _AY, _AS = arc_y()
     idx = np.flatnonzero(PAINTF & np.isin(PARTF, [PID[p] for p in ALL_PARTS]))
     P = POSF[idx]
     z, dz = b_curve(P[:, 1])
@@ -2147,7 +2152,10 @@ def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mo
 GH_GAP_WS = 0.024           # A-pillar line centre -> windscreen glass / frame (m)
 GH_GAP_HEAD = 0.034         # header line centre -> windscreen top edge
 GH_GAP_SIDE = 0.030         # roof side line centre -> side window
-GH_GAP_RW = 0.034           # C-pillar / rear cross / trunk line centre -> rear window
+GH_GAP_RW = 0.034           # C-pillar / rear cross line centre -> rear window
+GH_GAP_TRUNK = 0.0145       # trunk line centre -> rear window's lower edge: the rear wing's stays pierce the lid only
+#                             2.9 cm behind that edge (x +-0.20), the line runs midway (see GH_STAY_X)
+GH_STAY_X = 0.20            # |x| of the rear wing stays where they go into the trunk lid: the middle of a dash gap
 GH_R_MIN = 0.05             # smallest turn radius of the greenhouse lines (client: >= 5 cm)
 GH_HW = 0.011               # dash half width; narrowed to GH_HW_MIN where the strip is narrow
 GH_HW_MIN = 0.006
@@ -2157,7 +2165,7 @@ GH_PARTS = ["hood", "front_fender_top", "front_fender", "a_pillar", "roof", "roo
 GH_BOX = ((-0.01, -1.35, 0.84), (1.0, 2.25, 1.45))
 HOOD_EDGE = (np.array([0.0, 0.3, 0.5, 0.6, 0.7]), np.array([-1.116, -1.095, -1.048, -1.002, -0.923]))
 HOOD_LINE_OFF = 0.15        # hood cut line: 15 cm ahead of the hood's rear edge
-GH_CACHE = os.path.join(SCRATCH, "bc", "greenhouse_clouds_v3.npz")
+GH_CACHE = os.path.join(SCRATCH, "bc", "greenhouse_rims_v4.npz")
 GH = {}
 GH_LOG = []
 
@@ -2180,52 +2188,80 @@ def _tri_sample(T, step):
 
 
 def greenhouse_clouds():
-    """Point clouds (posmap frame, both sides) from the kn5: 'ws' windscreen glass (glass / black glass / glass sticker
-    triangles facing forward-up) + its frame (Circle.012), 'rw' rear window, 'sd' side windows (|n_x| >= 0.6), 'all'
-    every exterior non-skin triangle above z 0.75 (frames, seals, mirror, wing stays ...). Geometry only -> cached."""
+    """The glass edges as the renderer shows them, from the kn5: the greenhouse in close-up in the top, side, front /
+    rear and 3/4 views (renderer cameras and z-buffer, 3200 x 1800, all opaque + glass triangles), every pixel labelled
+    skin / windscreen / rear window / side window / other part. Returns 3D points (posmap frame, left half, x > -1 cm)
+    of the skin pixels within 2 px of each: 'ws' (windscreen incl. its frame Circle.012 and black frit), 'rw', 'sd',
+    'out' (any other part: frames, seals, trims, mirror, wing stays). The distance to them is the gap to the VISIBLE
+    edge (glass that runs on under the skin does not count). Geometry only -> cached."""
     if os.path.exists(GH_CACHE):
         d = np.load(GH_CACHE)
         return {k: d[k] for k in d.files}
     sys.path.insert(0, os.path.join(LIV, "tools"))
-    import render_rs3
-    _, _, meshes = render_rs3.load_scene(render_rs3.DEFAULT_KN5, True)
-    gl, frame, other = [], [], []
-    for m in meshes:
-        if m["interior"]:
-            continue
-        P = np.stack([m["pos"][:, 0], -m["pos"][:, 2], m["pos"][:, 1] + 0.07237756], 1)
-        T = P[m["idx"].reshape(-1, 3)]
-        if m["mat"] != "skin":
-            other.append(T[T.mean(1)[:, 2] > 0.75])
-        if m["mat"] in ("glass", "glassblack", "glass_sticker"):
-            gl.append(T)
-        if m["name"].endswith("/Circle.012"):
-            frame.append(T)
-    G_ = np.concatenate(gl)
-    c = G_.mean(1)
-    n = np.cross(G_[:, 1] - G_[:, 0], G_[:, 2] - G_[:, 0])
+    import render_rs3 as R
+    sc = R.Scene(R.DEFAULT_KN5, SRC, interior=False)
+    to_pm = lambda p: np.stack([p[..., 0], -p[..., 2], p[..., 1] + 0.07237756], -1)
+    mat = np.array(sc.mat_names)[sc.TM]
+    V = to_pm(sc.P[sc.T])
+    c = V.mean(1)
+    n = np.cross(V[:, 1] - V[:, 0], V[:, 2] - V[:, 0])
     n /= np.linalg.norm(n, axis=1, keepdims=True) + 1e-12
-    ws = G_[(c[:, 1] < -0.15) & (c[:, 1] > -1.2) & (c[:, 2] > 0.85) & (np.abs(n[:, 0]) < 0.6)]
-    rw = G_[(c[:, 1] > 0.9) & (c[:, 2] > 0.95) & (np.abs(n[:, 0]) < 0.6)]
-    sd = G_[(c[:, 2] > 0.9) & (np.abs(n[:, 0]) >= 0.6)]
-    allp = _tri_sample(np.concatenate(other), 0.006)
-    # parts that stand OUT of the skin (or lie on it, within 3 mm): frames, seals, black frit strips, trims; not the
-    # panels' own inner skins / the structure under them
-    sk = np.flatnonzero(COV.reshape(-1) & (PARTF >= 0) & (POSF[:, 2] > 0.7))[::3]
-    dq, jq = cKDTree(POSF[sk]).query(allp, distance_upper_bound=0.08)
-    ok = np.isfinite(dq)
-    h = np.full(len(allp), -1.0)
-    h[ok] = ((allp[ok] - POSF[sk[jq[ok]]]) * NRMF[sk[jq[ok]]]).sum(1)
-    outp = allp[ok & (h > -0.003)]
-    to = cKDTree(outp)
-    glass = {}
-    for nm, T in (("ws", np.concatenate([ws] + frame)), ("rw", rw), ("sd", sd)):
-        g_ = _tri_sample(T, 0.004)
-        near = to.query(g_, distance_upper_bound=0.03)[0]
-        # each glass edge with the frames / frit / seals attached to it (outside parts within 3 cm of that glass)
-        att = np.isfinite(cKDTree(g_).query(outp, distance_upper_bound=0.03)[0])
-        glass[nm] = np.vstack([g_, outp[att]]).astype(np.float32)
-    out = dict(glass, all=allp.astype(np.float32), out=outp.astype(np.float32))
+    gl = np.isin(mat, ["glass", "glassblack", "glass_sticker"])
+    cls = np.full(len(mat), 5, np.int8)                               # 5: any other part
+    cls[gl & (c[:, 2] > 0.9) & (np.abs(n[:, 0]) >= 0.6)] = 4          # side windows
+    cls[gl & (c[:, 1] > 0.9) & (c[:, 2] > 0.95) & (np.abs(n[:, 0]) < 0.6)] = 3      # rear window
+    cls[gl & (c[:, 1] < -0.15) & (c[:, 1] > -1.2) & (c[:, 2] > 0.85) & (np.abs(n[:, 0]) < 0.6)] = 2   # windscreen
+    # frames / seals / frit that hold a glass (any vertex within 2.5 cm of it) belong to that glass's edge
+    oth = np.flatnonzero((cls == 5) & ~np.isin(mat, ["skin", "lights", "lights_glass", "reflector"]) & (c[:, 2] > 0.85))
+    for k_ in (3, 4, 2):
+        tg = cKDTree(_tri_sample(V[cls == k_], 0.01))
+        dv = tg.query(V[oth].reshape(-1, 3), distance_upper_bound=0.025)[0].reshape(-1, 3)
+        cls[oth[np.isfinite(dv).any(1)]] = k_
+    W, H = 3200, 1800
+    acc = {k: [] for k in (2, 3, 4, 5)}
+    boxes = {"top": (-0.10, 0.78, -2.05, 1.0, 1.42, 1.30), "side_left": (0.4, 0.78, -2.05, 1.0, 1.42, 1.30),
+             "front34_left": (-0.10, 0.78, 0.2, 1.0, 1.42, 1.30), "rear34_left": (-0.10, 0.78, -2.05, 1.0, 1.42, -0.9),
+             "front": (-0.10, 0.78, 0.2, 1.0, 1.42, 1.30), "rear": (-0.10, 0.78, -2.05, 1.0, 1.42, -0.9)}
+    for v, box in boxes.items():
+        eye, f, rgt, up = R.view_camera(v)
+        rel = sc.P - eye
+        Dv = rel @ f
+        cx_, cy_ = rel @ rgt / Dv, rel @ up / Dv
+        blo, bhi = np.array(box[:3]), np.array(box[3:])
+        corners = np.array([[(blo, bhi)[i][0], (blo, bhi)[j][1], (blo, bhi)[k][2]]
+                            for i in (0, 1) for j in (0, 1) for k in (0, 1)])
+        rc = corners - eye
+        dc = rc @ f
+        ux, uy = rc @ rgt / dc, rc @ up / dc
+        fpx = min(W * 0.92 / (ux.max() - ux.min()), H * 0.92 / (uy.max() - uy.min()))
+        mx, my = (ux.min() + ux.max()) / 2, (uy.min() + uy.max()) / 2
+        X = (cx_ - mx) * fpx + W / 2
+        Y = -(cy_ - my) * fpx + H / 2
+        sel = sc.tri_ok
+        gid = np.nonzero(sel)[0]
+        zb, tid, B1, B2 = R.rasterize(X, Y, Dv, sc.T[sel], sc.bias[sc.TM][sel], W, H, None)
+        tid = np.where(tid >= 0, gid[np.maximum(tid, 0)], -1)
+        hit = tid >= 0
+        t_ = np.maximum(tid, 0)
+        lab = np.zeros(W * H, np.int8)
+        lab[hit] = cls[t_[hit]]
+        lab[hit & (mat[t_] == "skin")] = 1
+        tri = sc.T[t_]
+        p = sc.P[tri[:, 0]] * (1 - B1 - B2)[:, None] + sc.P[tri[:, 1]] * B1[:, None] + sc.P[tri[:, 2]] * B2[:, None]
+        pm = to_pm(p).reshape(H, W, 3).astype(np.float32)
+        lab = lab.reshape(H, W)
+        zz = zb.reshape(H, W)
+        sk = lab == 1
+        for k_ in acc:
+            # a skin pixel next to a pixel of class k whose surface is at about the same depth (within -3 / +5 cm): a
+            # real edge, not the silhouette of something far in front of it (the wing over the trunk lid in the top
+            # view) or a view down into a gap
+            zk = ndimage.minimum_filter(np.where(lab == k_, zz, np.inf), size=5)
+            # (other parts: only those standing out of the skin - frames, seals, stays - not the inside of a shut gap)
+            nb = sk & (zk > zz - 0.03) & (zk < zz + (0.05 if k_ < 5 else 0.002))
+            q = pm[nb]
+            acc[k_].append(q[q[:, 0] > -0.01])
+    out = {nm: np.concatenate(acc[k_]) for nm, k_ in (("ws", 2), ("rw", 3), ("sd", 4), ("out", 5))}
     os.makedirs(os.path.dirname(GH_CACHE), exist_ok=True)
     np.savez_compressed(GH_CACHE, **out)
     return out
@@ -2285,10 +2321,13 @@ def _fit_curve(G, w, surf, s_fac=0.0002, r_min=GH_R_MIN, keep=None, iters=30):
     w = np.asarray(w, float).copy()
     for it in range(iters):
         tck, _u = splprep(np.asarray(G).T, w=w, s=s_fac * len(G), k=3)
-        C = np.array(splev(np.linspace(0, 1, 12000), tck)).T
-        C = _resample(surf.snap(C), 0.002)
-        r, S, kg = _fair_radius(C, surf)
+        C0 = _resample(np.array(splev(np.linspace(0, 1, 12000), tck)).T, 0.002)
+        C = _resample(surf.snap(C0), 0.002)
+        # fairness on the spline itself (the glued curve also steps over the 1 cm offsets between panels at shut
+        # lines - hood / fender - which are not turns of the line)
+        r, S, kg = _fair_radius(C0, surf)
         tight = np.flatnonzero(kg[18:-18] > 1.0 / r_min) + 18
+        tight = tight[tight < len(C)]
         if not len(tight):
             break
         near = cKDTree(C[tight]).query(G)[0] < 0.06
@@ -2344,14 +2383,14 @@ def greenhouse_curves():
     foot = snap([(0.792, -0.88), (0.795, -0.92), (0.792, -0.96)], "top", ["front_fender_top"], exact=True)
     S = _iso_guides(P, ds, GH_GAP_SIDE, L_ & (P[:, 0] > 0.45) & (P[:, 1] > -0.24) & (P[:, 1] < 1.08) & (P[:, 2] > 1.2),
                     lambda Q: Q[:, 1], np.arange(-0.24, 1.08, 0.02))
-    Cp = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 0] > 0.52) & (P[:, 1] > 1.22) & (P[:, 1] < 1.72), lambda Q: Q[:, 1],
-                     np.arange(1.22, 1.72, 0.02))
-    Tr = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 1] > 1.74) & (P[:, 2] < 1.2), lambda Q: -Q[:, 0],
-                     np.arange(-0.58, 0.121, 0.03))
+    Cp = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 0] > 0.52) & (P[:, 1] > 1.22) & (P[:, 1] < 1.66), lambda Q: Q[:, 1],
+                     np.arange(1.22, 1.66, 0.02))         # (the rear window's lower corner is rounded off by the spline)
+    Tr = _iso_guides(P, dr, GH_GAP_TRUNK, L_ & (P[:, 1] > 1.80) & (P[:, 2] < 1.2) & (P[:, 0] < 0.44),
+                     lambda Q: -Q[:, 0], np.arange(-0.44, 0.121, 0.03))
     Hd = _iso_guides(P, dw, GH_GAP_HEAD, L_ & (P[:, 1] > -0.45) & (P[:, 1] < -0.1) & (P[:, 2] > 1.2), lambda Q: Q[:, 0],
                      np.arange(-0.12, 0.43, 0.03))
     Rc = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 1] < 1.26) & (P[:, 2] > 1.25), lambda Q: Q[:, 0],
-                     np.arange(-0.12, 0.34, 0.03))
+                     np.arange(-0.12, 0.31, 0.03))
     G = np.vstack([hood, foot[::-1], A, S, Cp, Tr])
     grp = np.concatenate([np.full(len(hood), 0), np.full(len(foot), 1), np.full(len(A), 1), np.full(len(S), 2),
                           np.full(len(Cp), 3), np.full(len(Tr), 4)])
@@ -2361,9 +2400,9 @@ def greenhouse_curves():
     Sm = arclen(main)
     # roof cross lines: guide points along their glass edge, then on along 'main' past the roof corner (they join it)
     out = dict(main=main, r_main=r_main)
-    # (the cross lines leave their glass edge before the roof corner - header at |x| 0.43, rear at 0.34 - and join the
+    # (the cross lines leave their glass edge before the roof corner - header at |x| 0.43, rear at 0.31 - and join the
     #  side / C-pillar line 10-15 cm along it: room for a round turn, the glass corners themselves are tighter)
-    for nm, guides, ysel in (("head", Hd, (-0.14, 0.06)), ("rear", Rc, (1.31, 1.50))):
+    for nm, guides, ysel in (("head", Hd, (-0.14, 0.06)), ("rear", Rc, (1.34, 1.52))):
         on = main[(main[:, 1] > ysel[0]) & (main[:, 1] < ysel[1])][::5]
         Gb = np.vstack([guides, on])
         wb = np.concatenate([np.full(len(guides), 6.0), np.full(len(on), 30.0)])
@@ -2391,7 +2430,7 @@ def _gh_width(C, sg):
     cl = greenhouse_clouds()
     if "_out_tree" not in GH:
         GH["_out_tree"] = cKDTree(cl["out"])
-    d = np.minimum(GH["_out_tree"].query(C, distance_upper_bound=0.05)[0], 0.05)
+    d = np.minimum(GH["_out_tree"].query(C * np.array([sg, 1.0, 1.0]), distance_upper_bound=0.05)[0], 0.05)
     raw = np.clip(d - GH_AIR, GH_HW_MIN, GH_HW)
     hw = ndimage.minimum_filter1d(raw, 25, mode="nearest")          # (5 cm either side) ...
     hw = ndimage.gaussian_filter1d(hw, 8.0, mode="nearest")          # ... and eased in / out
@@ -2426,16 +2465,24 @@ def paint_greenhouse():
     L = float(Sm[-1])
     # main: a dash centred on the hood centreline; one stretch (closest to 1) puts the trunk centreline on the middle of
     # a dash or of a gap
+    # two stretches: hood centre -> the wing stay (the middle of a gap there), stay -> trunk centre (middle of a dash or
+    # of a gap); each as close to 1 as possible
+    ks = np.flatnonzero((main[:-1, 0] > GH_STAY_X) & (main[1:, 0] <= GH_STAY_X) & (main[:-1, 1] > 1.7))
+    a_s = float(Sm[ks[-1]])
+    gap_mid = DASH[0] + DASH[1] / 2
+    n1 = round((DASH[0] / 2 + a_s - gap_mid) / DPER)
+    k1 = (gap_mid + n1 * DPER - DASH[0] / 2) / a_s
+    s_st = gap_mid + n1 * DPER
     best = None
-    for tgt in (DASH[0] / 2, DASH[0] + DASH[1] / 2):
-        n = round((L + DASH[0] / 2 - tgt) / DPER)
-        k = (tgt + n * DPER - DASH[0] / 2) / L
-        if best is None or abs(k - 1) < abs(best[0] - 1):
-            best = (k, tgt)
-    k_m, tgt_m = best
-    sd_main = DASH[0] / 2 + k_m * Sm
+    for tgt in (DASH[0] / 2, gap_mid):
+        n = round((s_st + (L - a_s) - tgt) / DPER)
+        k2 = (tgt + n * DPER - s_st) / (L - a_s)
+        if best is None or abs(k2 - 1) < abs(best[0] - 1):
+            best = (k2, tgt)
+    k2, tgt_m = best
+    sd_main = np.where(Sm <= a_s, DASH[0] / 2 + k1 * Sm, s_st + k2 * (Sm - a_s))
     curves = {"main": (main, sd_main)}
-    log = dict(main_cm=round(L * 100, 1), main_stretch=round(k_m, 4),
+    log = dict(main_cm=round(L * 100, 1), main_stretch=[round(k1, 4), round(k2, 4)],
                trunk_centre="dash middle" if tgt_m < DASH[0] else "gap middle", r_main_cm=round(g["r_main"] * 100, 1))
     for nm in ("head", "rear"):
         Cb = g[nm]
