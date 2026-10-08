@@ -2180,12 +2180,18 @@ def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mo
 # line centre is the iso-line of the distance to them on the renderer-visible skin, ordered and joined by one smoothing
 # spline glued to the surface (fair: turns >= GH_R_MIN). No dash is ever dropped: where the paintable strip is narrow
 # (another part closer than half the dash + 0.8 cm) the dash narrows smoothly, down to 1.2 cm. No keyline here.
-GH_GAP_WS = 0.024           # A-pillar line centre -> windscreen glass / frame (m)
+GH_GAP_WS = 0.028           # A-pillar line centre -> windscreen glass / frame (m): 1.5 cm of paint + half a dash; where the
+#                             visible pillar is narrower than twice that (between the windscreen frame and the side
+#                             window's frame) the line runs in the middle of the strip, narrowed (see _gh_width)
 GH_GAP_HEAD = 0.034         # header line centre -> windscreen top edge
 GH_GAP_SIDE = 0.030         # roof side line centre -> side window
 GH_GAP_RW = 0.034           # C-pillar / rear cross line centre -> rear window
-GH_GAP_TRUNK = 0.0145       # trunk line centre -> rear window's lower edge: the rear wing's stays pierce the lid only
-#                             2.9 cm behind that edge (x +-0.20), the line runs midway (see GH_STAY_X)
+GH_GAP_TRUNK = 0.034        # trunk line centre -> rear window's lower edge incl. its black frame (>= 1.5 cm of paint + half
+#                             a dash); the rear wing's stays pierce the lid 2.9 cm behind that edge (x +-0.20): each
+#                             stands in the middle of a dash gap (see GH_STAY_X)
+GH_RC_X = 0.40              # the rear cross line follows the rear window's top edge out to |x| ~0.40 ...
+GH_RC_JOIN = (0.80, 0.96)   # ... and lands on the rail line ahead of the window's upper corner (y range on the rail)
+GH_CLEAR = 0.015            # least clear paint between a dash and any glass / glass frame (client, round 3 item B)
 GH_STAY_X = 0.20            # |x| of the rear wing stays where they go into the trunk lid: the middle of a dash gap
 GH_R_MIN = 0.05             # smallest turn radius of the greenhouse lines (client: >= 5 cm)
 GH_HW = 0.011               # dash half width; narrowed to GH_HW_MIN where the strip is narrow
@@ -2406,25 +2412,37 @@ def greenhouse_curves():
     L_ = P[:, 0] > -0.004
     hood = snap([(x, float(np.interp(x, *HOOD_EDGE)) - HOOD_LINE_OFF) for x in np.arange(-0.12, 0.521, 0.04)], "top",
                 ["hood", "front_fender_top"], exact=True)
-    A = _iso_guides(P, dw, GH_GAP_WS, L_ & (P[:, 0] > 0.5) & (P[:, 1] < -0.30) & (P[:, 1] > -0.80), lambda Q: Q[:, 1],
-                    np.arange(-0.80, -0.30, 0.02))
+    # A-pillar and roof edge: GH_GAP_WS from the windscreen / GH_GAP_SIDE from the side window, but in the middle of the
+    # visible strip where it is narrower than twice that (the upper A-pillar between the windscreen frame and the side
+    # window's frame is only 3-4.5 cm wide): the guide is the iso-line of d - min(gap, (dw + ds) / 2)
+    half = 0.5 * (dw + ds)
+    A = _iso_guides(P, dw - np.minimum(GH_GAP_WS, half), 0.0,
+                    L_ & (P[:, 0] > 0.5) & (P[:, 1] < -0.20) & (P[:, 1] > -0.80), lambda Q: Q[:, 1],
+                    np.arange(-0.80, -0.20, 0.02))
     # the A-pillar's foot: the windscreen's lower corner is boxed in by a black cowl trim (the hood corner under it is
     # not visible), so the line comes down onto the fender top outboard of it - the middle of the fender top's strip
     # between the hood shut line and the fender's outer roll (x 0.77 .. 0.82) - and turns in across the hood from there
     foot = snap([(0.792, -0.88), (0.795, -0.92), (0.792, -0.96)], "top", ["front_fender_top"], exact=True)
-    S = _iso_guides(P, ds, GH_GAP_SIDE, L_ & (P[:, 0] > 0.45) & (P[:, 1] > -0.24) & (P[:, 1] < 1.08) & (P[:, 2] > 1.2),
-                    lambda Q: Q[:, 1], np.arange(-0.24, 1.08, 0.02))
-    Cp = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 0] > 0.52) & (P[:, 1] > 1.22) & (P[:, 1] < 1.66), lambda Q: Q[:, 1],
-                     np.arange(1.22, 1.66, 0.02))         # (the rear window's lower corner is rounded off by the spline)
-    Tr = _iso_guides(P, dr, GH_GAP_TRUNK, L_ & (P[:, 1] > 1.80) & (P[:, 2] < 1.2) & (P[:, 0] < 0.44),
-                     lambda Q: -Q[:, 0], np.arange(-0.44, 0.121, 0.03))
+    S = _iso_guides(P, ds - np.minimum(GH_GAP_SIDE, half), 0.0,
+                    L_ & (P[:, 0] > 0.45) & (P[:, 1] > -0.20) & (P[:, 1] < 1.08) & (P[:, 2] > 1.2),
+                    lambda Q: Q[:, 1], np.arange(-0.20, 1.08, 0.02))
+    # C-pillar, round the rear window's lower corner and across the trunk lid: one iso-line of the distance to the rear
+    # window (its glass and black frame), ordered by the angle around a point inside the window (it turns through the
+    # corner, so neither y nor x orders it); the corner itself used to be left to the spline, which cut it onto the frame
+    ang = lambda Q: np.arctan2(Q[:, 1] - 1.50, Q[:, 0] - 0.10)
+    CT = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 1] > 1.22) & (P[:, 0] < 0.80) & (P[:, 2] < 1.30) &
+                     ((P[:, 0] > 0.52) | (P[:, 1] > 1.76)), ang, np.radians(np.arange(-40.0, 121.0, 2.0)))
+    CT = CT[(CT[:, 0] > -0.12)]
     Hd = _iso_guides(P, dw, GH_GAP_HEAD, L_ & (P[:, 1] > -0.45) & (P[:, 1] < -0.1) & (P[:, 2] > 1.2), lambda Q: Q[:, 0],
                      np.arange(-0.12, 0.43, 0.03))
+    # rear cross line: along the rear window's top edge, then it turns FORWARD at the roof's rear corner, round the
+    # window's upper corner on painted roof (the glass corner reaches the roof rail: there is no paint behind it), and
+    # lands on the rail line ahead of the corner (see below), like the header at the front corner
     Rc = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 1] < 1.26) & (P[:, 2] > 1.25), lambda Q: Q[:, 0],
-                     np.arange(-0.12, 0.31, 0.03))
-    G = np.vstack([hood, foot[::-1], A, S, Cp, Tr])
+                     np.arange(-0.12, GH_RC_X, 0.03))
+    G = np.vstack([hood, foot[::-1], A, S, CT])
     grp = np.concatenate([np.full(len(hood), 0), np.full(len(foot), 1), np.full(len(A), 1), np.full(len(S), 2),
-                          np.full(len(Cp), 3), np.full(len(Tr), 4)])
+                          np.full(len(CT), 3)])
     w = np.where(grp == 0, 8.0, 6.0)
     main, r_main, it_m = _fit_curve(G, w, surf)
     main = _cut_at_centre(_cut_at_centre(main, "start"), "end")
@@ -2433,7 +2451,7 @@ def greenhouse_curves():
     out = dict(main=main, r_main=r_main)
     # (the cross lines leave their glass edge before the roof corner - header at |x| 0.43, rear at 0.31 - and join the
     #  side / C-pillar line 10-15 cm along it: room for a round turn, the glass corners themselves are tighter)
-    for nm, guides, ysel in (("head", Hd, (-0.14, 0.06)), ("rear", Rc, (1.34, 1.52))):
+    for nm, guides, ysel in (("head", Hd, (-0.14, 0.06)), ("rear", Rc, GH_RC_JOIN)):
         on = main[(main[:, 1] > ysel[0]) & (main[:, 1] < ysel[1])][::5]
         Gb = np.vstack([guides, on])
         wb = np.concatenate([np.full(len(guides), 6.0), np.full(len(on), 30.0)])
