@@ -760,6 +760,18 @@ def paint_belly():
     dout = np.stack([P[:, 0], P[:, 1] - np.clip(P[:, 1], -1.7, 1.7), np.zeros(len(P))], 1)
     dout /= np.maximum(np.linalg.norm(dout, axis=1, keepdims=True), 1e-6)
     facing = (NRMF[idx] * dout).sum(1)
+    # along the sides only the outermost skin layer at each (y, z) carries lines: the body side that the bolt-on
+    # flares cover (2+ cm further in, glimpsed through gaps) does not
+    sd_ = (np.abs(P[:, 1]) < 1.93) & COV.reshape(-1)[idx]
+    iy_ = np.clip(((P[:, 1] + 2.5) / 0.01).astype(int), 0, 499)
+    iz_ = np.clip((P[:, 2] / 0.01).astype(int), 0, 199)
+    under = np.zeros(len(P), bool)
+    for sg in (1, -1):
+        m_ = sd_ & (P[:, 0] * sg > 0.3)
+        mxx = np.full((500, 200), -9.0)
+        np.maximum.at(mxx, (iy_[m_], iz_[m_]), P[m_, 0] * sg)
+        under[m_] = P[m_, 0] * sg < mxx[iy_[m_], iz_[m_]] - 0.02
+    facing = np.where(under, -1.0, facing)
     outward = facing > -0.2        # keyline: not on the inner faces of the flares / arch returns
     facing_out = facing > 0.5      # dashes: only on skin that faces out of the car - not on inner faces, the flares'
     #                                up-facing tops or the rear step face of the flare (iso-height lines smear there)
