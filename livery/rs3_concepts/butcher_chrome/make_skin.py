@@ -1151,21 +1151,35 @@ def front_arch_y():
     return float(0.5 * (y[k] + y[k + 1]))
 
 
-# -------- front cut line along the headlight («eyeliner»)
-# Seen from the side the shoulder line no longer drops vertically behind the headlight to the belly line: it leaves the
-# fender top in one smooth arc, comes down behind the lamp following its rear edge, runs forward along the lamp's
-# LOWER contour at a constant gap (like eyeliner under an eye, following the step behind the lamp's lower tooth) and
-# wraps round the front corner onto the bumper face, where it runs into the corner of the grille (the snout) with
-# one whole dash and the usual air - the line goes on «behind the snout» like the belly line behind the wheel arches.
-# The gap is computed, not drawn by eye: the lamp outline is taken from the kn5 (lamp meshes, rasterised with the
-# renderer's own cameras), the line centre is the iso-line of the on-surface distance to that outline.
+# -------- front cut line along the headlight («eyeliner») and across the nose
+# The shoulder line leaves the fender top in one smooth arc (branch at EYE_BRANCH_Y), comes down behind the lamp and
+# then follows the client's route, per side:
+#  (1) behind the lamp and under its outer part at a constant gap EYE_C from the lamp outline - a fair curve, it
+#      leaves the lamp contour before the lower «tooth» of the lamp instead of dipping into it;
+#  (2) on along the front bumper's feature edge under the headlight - the sharp crease that continues the fender
+#      flare's top edge (the shoulder crease) forward and down under the lamp to the grille's side; it is extracted from
+#      the mesh like the shoulder crease (x-sections, the convex ridge of largest curvature) and followed exactly;
+#  (3) up beside the grille's side and through the narrow neck between the lamp's inner end and the grille's upper
+#      corner, on the middle line between them (equal air to both);
+#  (4) over the TOP of the grille at a constant gap GRILLE_GAP from its upper outline (on the nose strip under the
+#      hood lip, below ПЯТАЧОК);
+#  (5) to the centreline, where the right side's mirror image continues it: one line across the nose, the dash on the
+#      centreline centred on it (the same dash on both halves).
+# The guide points of the five parts are joined by one smoothing spline glued to the surface (fair, no wobble; the
+# turns keep a radius >= EYE_R_MIN). Gaps and outlines are computed, not drawn by eye: lamp and grille outlines come
+# from the kn5 (rasterised with the renderer's own cameras), the line centre is the iso-line of the on-surface
+# distance to them. Dash rhythm: the dashes run on from the shoulder line through the branch; two stretches within a
+# few % (branch -> neck, neck -> centre) put the middle of a gap on the neck's narrowest point (no dash squeezed
+# between lamp and grille) and the middle of a dash on the centreline.
 EYE_PARTS = ["front_bumper", "front_bumper_corner", "front_fender", "front_fender_top"]
-EYE_C = 0.050          # line centre -> lamp outline (m) under the lamp's outer part and behind it (side view air ~2-3 cm)
-EYE_C_IN = 0.040       # ... under the lamp's raised inner part (forward-facing: the side view sees that gap unshortened)
-EYE_RAMP = (90.0, 120.0)   # polar angle range (deg, around the lamp in front34_left) of the smooth step EYE_C -> EYE_C_IN
-EYE_BRANCH_Y = -1.30   # the arc leaves the shoulder line here (shoulder's outermost point on the fender top, at its
-#                        first control point behind A_FRONT); the shoulder line is not painted ahead of it any more
-EYE_END_CLEAR = 0.0335  # centre-line distance of the last dash end to the nearest other part (grille): cap air ~2.3 cm
+EYE_C = 0.050          # line centre -> lamp outline (m) behind the lamp and under its outer part
+EYE_LEAVE = 46.0       # polar angle (deg, around the lamp in front34_left; 90 = straight below it) where the line
+#                        leaves the lamp contour for the bumper crease (ahead of the lamp's lower tooth at ~95 deg)
+EYE_CREASE_X = (0.64, 0.525)   # |x| range on which the line runs exactly on the bumper crease
+EYE_R_MIN = 0.04       # smallest turn radius of the line (client: ~4 cm)
+EYE_BRANCH_Y = -1.42   # the arc leaves the shoulder line (on the flare's top edge) here, tangentially, where the crease
+#                        starts to roll down in front of the fender; the shoulder line is not painted ahead of it
+GRILLE_SOFT = 0.012    # (m) the switch grille gap -> neck middle line is a soft minimum over ~1 cm (no corner)
 HL_CACHE = os.path.join(SCRATCH, "bc", "headlight_rims_v1.npz")
 HL_BOX = (0.40, 0.42, 1.38, 1.00, 0.98, 2.18)       # close-up box around the left lamp (renderer world: x, y up, z front)
 HL_VIEWS = ("side_left", "front", "front34_left")
@@ -1374,43 +1388,104 @@ class _EyeSurf:
         return out
 
 
-class _OuterSurf:
-    """Outer (renderer-visible) skin of EYE_PARTS on one side, for gluing 3D curve points onto the mesh."""
-    def __init__(self, side):
-        idx = cand(EYE_PARTS, side)
-        self.idx = idx[OUTER[idx] & (POSF[idx, 1] < -1.25)]
-        self.P = POSF[self.idx]
-        self.N = NRMF[self.idx]
-        self.tree = cKDTree(self.P)
-
-    def snap(self, pts, k=6):
-        out = np.atleast_2d(np.asarray(pts, float)).copy()
-        for _ in range(3):
-            _, j = self.tree.query(out, k=k)
-            q = self.P[j].mean(1)
-            n = self.N[j].mean(1)
-            n /= np.linalg.norm(n, axis=1, keepdims=True)
-            out = out - ((out - q) * n).sum(1, keepdims=True) * n
-        return out
-
-
 def _resample(C, step=0.002):
     s = arclen(C)
     t = np.arange(0, s[-1], step)
     return np.stack([np.interp(t, s, C[:, k]) for k in range(3)], 1)
 
 
+def front_section(x0, zlo=0.40, zhi=0.80, dz=0.0005):
+    """Section of the front skin by the plane x = x0 (left side): front-most y per z (0.5 mm), whether there is surface,
+    and the convex curvature d(elevation)/d(arc) in deg per mm (elevation = angle of the normal above the horizontal,
+    smoothed over ~1.5 mm) - the x-section counterpart of crease_section."""
+    m = _mesh()
+    P, Nt = m["P"], m["N"]
+    v = P[:, :, 0] - x0
+    sv = np.sign(v)
+    cross = (sv.min(1) < 0) & (sv.max(1) > 0) & m["ok"] & (P[:, :, 1].mean(1) < -1.5) & (Nt[:, 1] < -0.02)
+    zs = np.arange(zlo, zhi, dz)
+    Y = np.full(len(zs), 9.0)
+    T = np.full(len(zs), -1)
+    for t in np.flatnonzero(cross):
+        pts = []
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            if v[t, a] * v[t, b] < 0:
+                u = v[t, a] / (v[t, a] - v[t, b])
+                pts.append(P[t, a] + (P[t, b] - P[t, a]) * u)
+        if len(pts) != 2:
+            continue
+        a, b = pts
+        if a[2] > b[2]:
+            a, b = b, a
+        if b[2] - a[2] < 1e-6:
+            continue
+        k = np.flatnonzero((zs >= a[2]) & (zs <= b[2]))
+        y = a[1] + (b[1] - a[1]) * (zs[k] - a[2]) / (b[2] - a[2])
+        w = y < Y[k]
+        Y[k[w]] = y[w]
+        T[k[w]] = t
+    ok = T >= 0
+    n = Nt[np.maximum(T, 0)]
+    el = np.degrees(np.arctan2(n[:, 2], np.hypot(n[:, 1], n[:, 0])))
+    arc = np.concatenate([[0], np.cumsum(np.hypot(dz, np.where(ok[1:] & ok[:-1], np.diff(Y), 0.0)))])
+    w = ndimage.gaussian_filter1d(ok.astype(float), 3)
+    el_s = ndimage.gaussian_filter1d(np.where(ok, el, 0.0), 3) / np.maximum(w, 1e-6)
+    return zs, Y, ok, np.gradient(el_s, arc) / 1000.0
+
+
+def bumper_crease(x0=0.43, x1=0.93, step=0.01):
+    """The front bumper's feature edge under the left headlight, extracted from the mesh: in every x-section the convex
+    ridge (> 3.5 deg/mm) of largest curvature between z 0.48 and 0.60. Raw points, ordered from the corner inward."""
+    out = []
+    for x_ in np.arange(x1, x0 - 1e-9, -step):
+        zs, Y, ok, de = front_section(x_)
+        k = [i for i in range(4, len(zs) - 4) if ok[i - 4:i + 5].all() and de[i] > 3.5 and de[i] == de[i - 4:i + 5].max()
+             and 0.48 < zs[i] < 0.60]
+        if k:
+            i = max(k, key=lambda i: de[i])
+            out.append((x_, Y[i], zs[i]))
+    return np.array(out)
+
+
+def _smin(a, b, eps=None):
+    """smooth minimum of a and b (blends over ~eps around a = b)"""
+    eps = GRILLE_SOFT if eps is None else eps
+    return 0.5 * (a + b - np.sqrt((a - b) ** 2 + eps ** 2))
+
+
+def _geodesic_radius(C, surf):
+    """Smallest radius of the turns of a surface curve measured IN the surface (curvature with the part along the
+    surface normal removed), over 1 cm windows."""
+    S = arclen(C)
+    Cs = ndimage.gaussian_filter1d(C, 3.0, axis=0, mode="nearest")     # (6 mm: the texel noise of the glued points)
+    T = np.gradient(Cs, S, axis=0)
+    T /= np.linalg.norm(T, axis=1, keepdims=True)
+    K = np.gradient(T, S, axis=0)
+    Nn = ndimage.gaussian_filter1d(surf.N[surf.tree.query(C, k=8)[1]].mean(1), 3.0, axis=0, mode="nearest")
+    Nn /= np.linalg.norm(Nn, axis=1, keepdims=True)
+    Kg = K - (K * Nn).sum(1, keepdims=True) * Nn
+    kg = np.linalg.norm(Kg, axis=1)
+    return 1.0 / max(float(kg[8:-8].max()), 1e-6), S, kg
+
+
 def eyeliner_curve(shoulder_C):
-    """Centre line of the front cut line on the LEFT side (dense, 2 mm), starting on the shoulder line at
-    EYE_BRANCH_Y (tangent-continuous) and ending at the grille corner. Returns (C, S_B): S_B = shoulder arc length
-    (dash coordinate) at the branch point."""
+    """Centre line of the front cut line on the LEFT side (dense, 2 mm): from the shoulder line at EYE_BRANCH_Y
+    (tangent-continuous) behind and under the lamp (1), along the bumper crease (2), up through the lamp / grille
+    neck (3), over the grille (4) to the centreline x = 0, square to it (5) - see the notes above.
+    Returns dict: C, S_B (shoulder arc length at the branch), a_neck (arc length of the neck's narrowest point),
+    neck_cm (width of the neck there), r_min (smallest in-surface turn radius), dev (largest deviation from the guide
+    lines per part, cm)."""
     from scipy.interpolate import splprep, splev
     rim = headlight_rims()
-    surf = _OuterSurf("L")
-    th, to = cKDTree(rim["rim_hl"]), cKDTree(rim["rim_other"])
+    nr = nose_rims()
+    surf = _EyeSurf("L")
+    th = cKDTree(rim["rim_hl"])
+    lamp = np.vstack([rim["rim_hl"], nr["rim_hl"][nr["rim_hl"][:, 0] > 0]])
+    tl = cKDTree(lamp)
+    tg = cKDTree(nr["rim_gr"][nr["rim_gr"][:, 0] > -0.01])
     dh = th.query(surf.P)[0]
-    # iso-lines of the distance to the lamp outline; their outer branch ordered by the polar angle around the lamp in
-    # the front34_left view (image y down: 90 deg = straight below the lamp)
+    dl = tl.query(surf.P)[0]
+    dg = tg.query(surf.P)[0]
     e, f, rgt, up, mx, my, fpx, Ws, Hs = VISD["cam"]["front34_left"]
 
     def proj(Q):
@@ -1420,90 +1495,128 @@ def eyeliner_curve(shoulder_C):
 
     hx, hy = proj(rim["rim_hl"])
     cx, cy = hx.mean(), hy.mean()
-
-    def contour(c, a0=-12.0, a1=135.0, step=1.5):
-        m = np.abs(dh - c) < 0.001
-        Q = surf.P[m]
-        X, Y = proj(Q)
-        ang = np.degrees(np.arctan2(Y - cy, X - cx))
-        rad = np.hypot(X - cx, Y - cy)
-        pts, angs = [], []
-        for a in np.arange(a0, a1, step):
-            s_ = (ang >= a) & (ang < a + step)
-            if s_.sum() < 3:
-                continue
+    # (1) iso-line EYE_C of the distance to the lamp outline, its outer branch ordered by the polar angle around the
+    #     lamp in the front34_left view (image y down: 90 deg = straight below the lamp), up to EYE_LEAVE
+    m = np.abs(dh - EYE_C) < 0.001
+    Q = surf.P[m]
+    X, Y = proj(Q)
+    ang = np.degrees(np.arctan2(Y - cy, X - cx))
+    rad = np.hypot(X - cx, Y - cy)
+    P1 = []
+    for a in np.arange(-4.0, EYE_LEAVE, 1.5):
+        s_ = (ang >= a) & (ang < a + 1.5)
+        if s_.sum() >= 3:
             k_ = rad[s_] > rad[s_].max() - 4
-            pts.append(np.median(Q[s_][k_], 0))
-            angs.append(a + step / 2)
-        return np.array(pts), np.array(angs)
-
-    O1, a1 = contour(EYE_C)
-    O2, a2 = contour(EYE_C_IN)
-    # behind and under the lamp's outer part: EYE_C; under its raised inner part a smooth step down to EYE_C_IN
-    ra = np.arange(EYE_RAMP[0], 128.0, 1.5)
-    at = lambda O, a: np.stack([np.interp(ra, a, O[:, k]) for k in range(3)], 1)
-    tr = np.clip((ra - EYE_RAMP[0]) / (EYE_RAMP[1] - EYE_RAMP[0]), 0, 1)[:, None]
-    tr = tr * tr * (3 - 2 * tr)
-    ramp = surf.snap(at(O1, a1) * (1 - tr) + at(O2, a2) * tr)
-    sel = (a1 > -4) & (a1 < EYE_RAMP[0])
-    body = np.vstack([O1[sel], ramp])
-    inner = np.concatenate([np.zeros(sel.sum(), bool), ra > 99])
-    # end: the inner run carried straight on toward the grille corner until the dash end would come closer than
-    # EYE_END_CLEAR to the next part
-    a_, b_ = body[-8], body[-1]
-    dv = (b_ - a_) / np.linalg.norm(b_ - a_)
-    E = b_
-    for t in np.arange(0, 0.10, 0.0025):
-        p = surf.snap(b_ + dv * t)[0]
-        if to.query(p)[0] < EYE_END_CLEAR:
-            break
-        E = p
+            P1.append(np.median(Q[s_][k_], 0))
+    P1 = np.array(P1)
+    # (2) the bumper crease, smoothed (Gaussian over 3 stations), glued to the surface
+    BC = bumper_crease()
+    BC[:, 1:] = ndimage.gaussian_filter1d(BC[:, 1:], 1.0, axis=0, mode="nearest")
+    P2 = surf.snap(BC[(BC[:, 0] <= EYE_CREASE_X[0]) & (BC[:, 0] >= EYE_CREASE_X[1])])
+    # (3) + (4) iso-line of  d_grille - min(GRILLE_GAP, (d_grille + d_lamp) / 2):  GRILLE_GAP from the grille outline,
+    #     and in the neck between the lamp and the grille (narrower than 2 GRILLE_GAP) the middle line; ordered by the
+    #     angle around the grille centre in the front plane, from above the crease's height to the centreline
+    fld = dg - _smin(GRILLE_GAP, 0.5 * (dg + dl))
+    m = (np.abs(fld) < 0.0008) & (surf.P[:, 2] > 0.46) & (surf.P[:, 1] < -1.95)
+    Q = surf.P[m]
+    gth = np.degrees(np.arctan2(Q[:, 2] - GRILLE_C[1], Q[:, 0]))
+    P3 = []
+    for a in np.arange(-5.0, 90.0, 1.0):
+        s_ = (gth >= a) & (gth < a + 1.0)
+        if s_.sum() >= 3:
+            P3.append(np.median(Q[s_], 0))
+    P3 = np.array(P3)
+    P3 = P3[(P3[:, 2] > float(P2[-1, 2]) + 0.055) & (P3[:, 0] > 0.012)]
+    P3m = P3[::-1] * np.array([-1.0, 1.0, 1.0])        # the right half (mirror): the line ends square to x = 0
     # branch on the shoulder line (its own dense curve, so the dash coordinate continues exactly)
     S_sh = arclen(shoulder_C)
     ib = int(np.argmin(np.abs(shoulder_C[:, 1] - EYE_BRANCH_Y)))
     PB = shoulder_C[ib].copy()
     back = [shoulder_C[min(ib + 20, len(shoulder_C) - 1)], shoulder_C[min(ib + 10, len(shoulder_C) - 1)]]
-    # two guide points on the outer surface between the branch and the top of the descent (on the chord, glued on)
-    top = list(surf.snap(np.array([PB + (body[0] - PB) * t for t in (0.35, 0.70)])))
-    G = np.vstack(back + [PB] + top + list(body) + [E])
-    w = np.ones(len(G))
+    G = np.vstack(back + [PB] + list(P1) + list(P2) + list(P3) + list(P3m))
+    n1, n2, n3 = len(P1), len(P2), len(P3)
+    part = np.concatenate([np.zeros(3, int), np.full(n1, 1), np.full(n2, 2), np.full(n3, 3), np.full(n3, 4)])
+    w = np.where(part == 0, 6.0, 4.0)
     w[:3] = 40.0
-    w[3:5] = 6.0
-    w[5:5 + len(body)][inner] = 4.0
-    w[-1] = 40.0
-    for _ in range(8):
-        # smoothing B-spline through the guide points (flowing line), then glued to the surface; where it comes closer
-        # to the lamp than the target - 4 mm (3 cm at the outer lower corner, which the arc rounds) the guide points
-        # nearby get more weight
+    w[part == 2] = 6.0
+    w[part == 3] = 6.0
+    tgt = {1: (th, EYE_C), 2: (cKDTree(P2), 0.0)}
+    for it in range(12):
         tck, _u = splprep(G.T, w=w, s=0.0002 * len(G), k=3)
-        C = np.array(splev(np.linspace(0, 1, 3000), tck)).T
+        C = np.array(splev(np.linspace(0, 1, 8000), tck)).T
         k0 = int(np.argmin(np.linalg.norm(C - PB, axis=1)))
-        C = _resample(surf.snap(C[k0:]), 0.002)
-        d_ = th.query(C)[0]
-        s_ = arclen(C)
-        corner = (C[:, 1] < -1.70) & (C[:, 1] > -1.86) & (C[:, 2] < 0.64)
-        lim = np.where(corner, 0.040, np.where(C[:, 0] < 0.60, EYE_C_IN - 0.004, EYE_C - 0.004))
-        bad = (d_ < lim) & (s_ > 0.2)
+        C = C[k0:]
+        kx = np.flatnonzero((C[:-1, 0] > 0) & (C[1:, 0] <= 0))
+        k1 = int(kx[-1]) + 1
+        C = C[:k1 + 1]
+        C[-1] = C[-2] + (C[-1] - C[-2]) * (C[-2, 0] / (C[-2, 0] - C[-1, 0]))
+        C = _resample(surf.snap(C), 0.002)
+        C[-1, 0] = 0.0
+        C[0] = PB
+        # deviations from the guides near each guide group: (1) gap to the lamp, (2) distance to the crease,
+        # (3/4) the grille / neck field; guide points where the curve strays > 3 mm get more weight
+        jg = cKDTree(C).query(G)[1]
+        dev = np.zeros(len(G))
+        dev[part == 1] = np.abs(th.query(C[jg[part == 1]])[0] - EYE_C)
+        dev[part == 2] = cKDTree(C).query(G[part == 2])[0]
+        gq = C[jg[part == 3]]
+        dev[part == 3] = np.abs(tg.query(gq)[0] - _smin(GRILLE_GAP, 0.5 * (tg.query(gq)[0] + tl.query(gq)[0])))
+        bad = dev > 0.003
         if not bad.any():
             break
-        w[np.unique(cKDTree(G).query(C[bad])[1])] *= 2.5
-    C[0] = PB
-    return C, float(S_sh[ib])
+        w[bad] *= 1.6
+    r_min, S, kg = _geodesic_radius(C, surf)
+    # the neck: narrowest point of lamp + grille air along the line
+    dsum = tl.query(C)[0] + tg.query(C)[0]
+    inn = (tl.query(C)[0] < 0.05) & (tg.query(C)[0] < 0.05)
+    i_n = int(np.flatnonzero(inn)[np.argmin(dsum[inn])])
+    out = dict(C=C, S_B=float(S_sh[ib]), a_neck=float(S[i_n]), neck_cm=round(float(dsum[i_n]) * 100, 1),
+               r_min_cm=round(r_min * 100, 1),
+               dev_cm={k: round(float(dev[part == k].max()) * 100, 2) for k in (1, 2, 3)},
+               crease_pts=len(P2))
+    return out
 
 
-def paint_eyeliner(C, side, S_B, k):
-    """Dashed, constant 2.2 cm width, dash coordinate S_B - k*arc (continues the shoulder line's dashes through the
-    branch; k stretches the dashes by a few percent so the last one ends exactly at the end of the curve)."""
+def eyeliner_dash(L, a_n, SB):
+    """Dash coordinate along the front cut line (decreasing from SB at the branch, where it continues the shoulder
+    line's dashes): two stretches k1 (branch -> neck) and k2 (neck -> centreline), each as close to 1 as possible, that
+    put the middle of a gap on the neck point a_n and the middle of a dash on the end (the centreline). Returns
+    (k1, k2, s_neck, s_end)."""
+    best = None
+    gap_mid, dash_mid = DASH[0] + DASH[1] / 2, DASH[0] / 2
+    base_n = math.floor((SB - a_n - gap_mid) / DPER)
+    for i in range(base_n - 2, base_n + 3):
+        s_n = gap_mid + i * DPER
+        k1 = (SB - s_n) / a_n
+        base_e = math.floor((s_n - (L - a_n) - dash_mid) / DPER)
+        for j in range(base_e - 2, base_e + 3):
+            s_e = dash_mid + j * DPER
+            k2 = (s_n - s_e) / (L - a_n)
+            sc = max(abs(k1 - 1), abs(k2 - 1))
+            if k1 > 0 and k2 > 0 and (best is None or sc < best[0]):
+                best = (sc, k1, k2, s_n, s_e)
+    return best[1:]
+
+
+def paint_eyeliner(C, side, sd, drop=()):
+    """Dashed, constant 2.2 cm width, dash coordinate sd (per curve point). Painted on the half of the car of `side`
+    (x >= 0 / x < 0), so the two mirrored halves meet on the centreline. Dashes listed in `drop` (index floor(sd /
+    DPER)) are left out whole. Returns the painted texels."""
     S = arclen(C)
-    idx = cand(EYE_PARTS, side)
+    sg = 1.0 if side == "L" else -1.0
+    idx = cand(EYE_PARTS + NOSE_PARTS)
     P = POSF[idx]
     lo, hi = C.min(0) - 0.03, C.max(0) + 0.03
-    m = np.all((P >= lo) & (P <= hi), axis=1)
+    m = np.all((P >= lo) & (P <= hi), axis=1) & ((P[:, 0] >= 0) if side == "L" else (P[:, 0] < 0)) & OUTER[idx]
+    m |= np.all((P >= lo) & (P <= hi), axis=1) & ((P[:, 0] >= 0) if side == "L" else (P[:, 0] < 0))
     idx, P = idx[m], P[m]
     d, j = cKDTree(C).query(P, k=1, distance_upper_bound=0.03)
     ok = np.isfinite(d)
     idx, d, j = idx[ok], d[ok], j[ok]
-    s = S_B - k * S[j]
+    s = sd[j]
+    if len(drop):
+        keep = ~np.isin(np.floor(s / DPER).astype(int), list(drop))
+        idx, d, s = idx[keep], d[keep], s[keep]
     dash_line(idx, s, d, 0.011, DASH[0], DASH[1], INK)
     loc = np.mod(s, DPER)
     along = np.where(loc < DASH[0], 0.0, np.minimum(loc - DASH[0], DPER - loc))
@@ -1511,10 +1624,13 @@ def paint_eyeliner(C, side, S_B, k):
 
 
 def front_line_report():
-    """front cut line along the headlight: whole dashes, air to the lamp / other parts / the labels nearby"""
+    """front cut line along the headlight and across the nose: whole dashes, air to the lamp / grille / other parts /
+    the labels nearby"""
     for s in ("L", "R"):
         e = EYE[s]
-        r = eyeliner_checks(e["C"], s, e["S_B"], e["k"], e["ink"])
+        r = eyeliner_checks(e["C"], s, e["sd"], e["ink"], e["drop"])
+        r.update(stretch=[round(e["k1"], 4), round(e["k2"], 4)], neck_cm=e["neck_cm"], r_min_cm=e["r_min_cm"],
+                 guide_dev_cm=e["dev_cm"], dropped=sorted(e["drop"]))
         lab = {"ЛОПАТКА": f"label_lopatka_{s}", "ПЯТАЧОК": "label_pyatachok", "ШЕЙКА": "label_sheika_hood",
                "Симкарт hood tag": "simkart_hood"}
         tree = cKDTree(POSF[e["ink"]])
@@ -1526,26 +1642,28 @@ def front_line_report():
         print(f"   front cut line {s}: {r}", flush=True)
 
 
-def eyeliner_checks(C, side, S_B, k, ink):
-    """Whole dashes only: every dash of the line is checked in three strips across its width (centre, +-6 mm) for
-    holes in the outer skin (> 1.2 cm = cut by a seam / opening) and, in each of the 9 standard views that faces it,
-    for being partly hidden behind another part. Plus the air to the lamp (3D, along the surface) and to every other
-    part, and the visible air to the lamp in the side, front 3/4 and front close-ups (mirrored for the right side)."""
+def eyeliner_checks(C, side, sd, ink, drop=()):
+    """Whole dashes only: every painted dash of the line is checked in three strips across its width (centre, +-6 mm)
+    for holes in the outer skin (> 1.2 cm = cut by a seam / opening) and, in each of the 9 standard views that faces
+    it, for being partly hidden behind another part. Plus the air from the paint to the lamp, the grille and every other
+    part (3D, mirrored for the right side)."""
     S = arclen(C)
-    s = S_B - k * S
-    loc = np.mod(s, DPER)
+    loc = np.mod(sd, DPER)
     body = loc < DASH[0]
-    runs = np.split(np.arange(len(C)), np.flatnonzero(np.diff(body.astype(int))) + 1)
-    dashes = [r for r in runs if body[r[0]]]
-    surf = _OuterSurf(side)
+    dnum = np.floor(sd / DPER).astype(int)
+    surf = _EyeSurf(side)
     T = np.gradient(C, S, axis=0)
     T /= np.linalg.norm(T, axis=1, keepdims=True)
     Nn = surf.N[surf.tree.query(C)[1]]
     lat = np.cross(Nn, T)
     lat /= np.linalg.norm(lat, axis=1, keepdims=True)
-    trunc, hid = [], []
-    for i, r in enumerate(dashes):
-        if i == 0 and r[0] == 0:
+    trunc, hid, dashes = [], [], []
+    for dn in np.unique(dnum[body]):
+        if dn in drop:
+            continue
+        r = np.flatnonzero(body & (dnum == dn))
+        dashes.append(int(dn))
+        if r[0] == 0:
             continue                       # the dash through the branch: half of it is the shoulder line's
         worst = 0.0
         for off in (-0.006, 0.0, 0.006):
@@ -1556,19 +1674,12 @@ def eyeliner_checks(C, side, S_B, k, ink):
                 runs_h = np.split(np.flatnonzero(hole), np.flatnonzero(np.diff(np.flatnonzero(hole)) > 1) + 1)
                 worst = max(worst, max(len(h) for h in runs_h) * 0.002)
         if worst > 0.012:
-            trunc.append(i)
-    did = np.full(len(C), -1)
-    for i, r in enumerate(dashes):
-        did[r] = i
-    near = np.flatnonzero(did >= 0)
-    did = did[near[np.abs(near[None, :] - np.arange(len(C))[:, None]).argmin(1)]]   # caps belong to their dash
-    dash_of = did[cKDTree(C).query(POSF[ink])[1]]
+            trunc.append(int(dn))
+    dash_of = dnum[cKDTree(C).query(POSF[ink])[1]]
     for v in VIEWS9:
         e = VISD["cam"][v][0]
         dv = e[None, :] - POSF[ink]
         dv /= np.linalg.norm(dv, axis=1, keepdims=True)
-        # (texels seen at more than ~66 deg incidence are left out: where the line wraps away from a camera - the
-        #  part under the lamp seen from straight above - the last slivers graze the lamp's lower lip)
         fc = np.einsum("ij,ij->i", dv, NRMF[ink]) > 0.4
         if fc.sum() == 0:
             continue
@@ -1579,56 +1690,17 @@ def eyeliner_checks(C, side, S_B, k, ink):
             if nh > 3 and ns > 25:
                 hid.append((int(dsh), v))
     rim = headlight_rims()
+    nr = nose_rims()
     sg = 1.0 if side == "L" else -1.0
     Pm = POSF[ink] * np.array([sg, 1, 1])                     # (right side mirrored onto the left close-ups)
-    dl = cKDTree(rim["rim_hl"]).query(Pm)[0]
-    do = cKDTree(rim["rim_other"]).query(Pm)[0]
-    jc = cKDTree(C).query(POSF[ink])[1]
-    # segments: «behind» = from the top of the arc behind the lamp down to its lower outer corner, «under» = along
-    # the lower contour to the end (the curve is past the corner once it runs forward of y -1.77 below z 0.62)
-    under = (C[jc, 1] < -1.77) & (C[jc, 2] < 0.62)
-    behind = (S[jc] > 0.25) & ~under
-    after = behind | under
-    sa = S[jc]
-    mins3 = []
-    for b0 in np.arange(0.0, S[-1] - 0.06, 0.06):         # narrowest air on the paint per 6 cm, along the lamp
-        m = (sa >= b0) & (sa < b0 + 0.06)
-        if m.sum() > 20 and dl[m].min() < 0.07:
-            mins3.append(float(dl[m].min()))
-    res = dict(side=side, dashes=len(dashes), stretch=round(k, 4), length_cm=round(float(S[-1]) * 100, 1),
-               truncated=trunc, hidden=hid, air_3d_cm=[round(min(mins3) * 100, 1), round(max(mins3) * 100, 1)],
+    lamp = np.vstack([rim["rim_hl"], nr["rim_hl"][nr["rim_hl"][:, 0] > 0]])
+    dl = cKDTree(lamp).query(Pm)[0]
+    dgr = cKDTree(nr["rim_gr"][nr["rim_gr"][:, 0] > -0.01]).query(Pm)[0]
+    do = cKDTree(np.vstack([rim["rim_other"], nr["rim_ot"]])).query(Pm)[0]
+    res = dict(side=side, dashes=len(dashes), length_cm=round(float(S[-1]) * 100, 1), truncated=trunc,
+               hidden=hid, air_lamp_cm=round(float(dl.min()) * 100, 1), air_grille_cm=round(float(dgr.min()) * 100, 1),
                air_other_cm=round(float(do.min()) * 100, 1))
-    vis_air = {}
-    for v in HL_VIEWS:
-        cam = rim["cam_" + v]
-        e, f, rgt, up = cam[0:3], cam[3:6], cam[6:9], cam[9:12]
-        mx, my, fpx, Wc, Hc = cam[12:17]
-        Wc, Hc = int(Wc), int(Hc)
-        mask = np.unpackbits(rim["mask_" + v])[:Wc * Hc].reshape(Hc, Wc).astype(bool)
-        edt = ndimage.distance_transform_edt(~mask)
-        stdv = {"front": "front"}.get(v, v if side == "L" else v.replace("left", "right"))
-        vis = VISD["vis"][stdv][ink] & after
-        if vis.sum() == 0:
-            continue
-        rel = Pm - e
-        dv = rel @ f
-        X = ((rel @ rgt) / dv - mx) * fpx + Wc / 2
-        Y = -((rel @ up) / dv - my) * fpx + Hc / 2
-        xi = np.clip(X.astype(int), 0, Wc - 1)
-        yi = np.clip(Y.astype(int), 0, Hc - 1)
-        g = edt[yi, xi] * dv / fpx
-        # the air seen along the lamp: the narrowest air in every 6 cm of line, over the stretch where the line runs
-        # alongside the lamp in this view (air < 6 cm), the last 6 cm (the run into the grille corner) left out
-        sa = S[jc]
-        mins = []
-        for b0 in np.arange(0.0, S[-1] - 0.06, 0.06):
-            m = vis & (sa >= b0) & (sa < b0 + 0.06)
-            if m.sum() > 20 and g[m].min() < 0.06:
-                mins.append(float(g[m].min()))
-        if mins:
-            vis_air[v] = [round(min(mins) * 100, 1), round(max(mins) * 100, 1)]
-    res["visible_air_cm"] = vis_air
-    res["status"] = "OK" if not trunc and not hid else "FAIL"
+    res["status"] = "OK" if not trunc and not hid and min(dl.min(), dgr.min(), do.min()) >= 0.0075 else "FAIL"
     return res
 
 
