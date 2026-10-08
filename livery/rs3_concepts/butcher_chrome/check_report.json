@@ -168,7 +168,7 @@
    ],
    "side": "L",
    "size_cm": [
-    5.5,
+    4.8,
     4.8
    ],
    "coverage": 1.0,
@@ -177,7 +177,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
    "line_clear_cm": 14.7,
-   "decal_clear_cm": 4.4,
+   "decal_clear_cm": 4.5,
    "hidden_frac": {
     "side_left": 0.0,
     "front34_left": 0.0,
@@ -228,7 +228,7 @@
    "max_tilt_deg": 8.0,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.6,
-   "line_clear_cm": 14.9,
+   "line_clear_cm": 14.8,
    "decal_clear_cm": 6.1,
    "hidden_frac": {
     "side_left": 0.0,
@@ -432,7 +432,7 @@
    ],
    "side": "R",
    "size_cm": [
-    5.5,
+    4.8,
     4.8
    ],
    "coverage": 1.0,
@@ -441,7 +441,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
    "line_clear_cm": 14.7,
-   "decal_clear_cm": 4.4,
+   "decal_clear_cm": 4.5,
    "hidden_frac": {
     "side_right": 0.0,
     "front34_right": 0.0,
@@ -488,7 +488,7 @@
     4.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.8,
+   "edge_clear_cm": 2.7,
    "max_tilt_deg": 8.0,
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.6,
@@ -676,16 +676,16 @@
    ],
    "side": null,
    "size_cm": [
-    32.9,
-    6.2
+    28.7,
+    10.6
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 7.2,
-   "max_tilt_deg": 3.5,
+   "edge_clear_cm": 2.0,
+   "max_tilt_deg": 5.8,
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 11.5,
-   "line_clear_cm": 57.0,
-   "decal_clear_cm": 86.7,
+   "mask_clear_cm": 7.2,
+   "line_clear_cm": 55.7,
+   "decal_clear_cm": 89.5,
    "keepout_ok": true,
    "hidden_frac": {
     "rear": 0.0,
@@ -713,7 +713,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 4.4,
    "line_clear_cm": 24.9,
-   "decal_clear_cm": 18.9,
+   "decal_clear_cm": 18.5,
    "status": "OK"
   },
   {
@@ -1136,23 +1136,21 @@
    "z_centre": 0.222,
    "y_front": -0.75,
    "y_rear": 0.99,
-   "gap_cm": 31.1,
-   "gap3_cm": 55.3,
-   "median3_cm": 15.0,
+   "gap_cm": 31.4,
    "logos": [
     {
      "kind": "raf",
-     "y": -0.722,
-     "width_cm": 5.5
+     "y": -0.726,
+     "width_cm": 4.8
     },
     {
      "kind": "breng",
-     "y": -0.169,
+     "y": -0.174,
      "width_cm": 42.8
     },
     {
      "kind": "driveoil",
-     "y": 0.443,
+     "y": 0.44,
      "width_cm": 17.2
     },
     {
@@ -1168,23 +1166,21 @@
    "z_centre": 0.222,
    "y_front": -0.75,
    "y_rear": 0.99,
-   "gap_cm": 31.1,
-   "gap3_cm": 55.3,
-   "median3_cm": 15.0,
+   "gap_cm": 31.4,
    "logos": [
     {
      "kind": "raf",
-     "y": -0.722,
-     "width_cm": 5.5
+     "y": -0.726,
+     "width_cm": 4.8
     },
     {
      "kind": "breng",
-     "y": -0.169,
+     "y": -0.174,
      "width_cm": 42.8
     },
     {
      "kind": "driveoil",
-     "y": 0.443,
+     "y": 0.44,
      "width_cm": 17.2
     },
     {

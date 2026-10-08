@@ -23,7 +23,7 @@ import zipfile
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 from scipy import ndimage
-from scipy.spatial import cKDTree
+from scipy.spatial import ConvexHull, cKDTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIV = "/home/user/dramatron/livery"
@@ -461,11 +461,17 @@ def pig_tail(h, turns=1.4):
 
 
 def tail_with_label(h):
-    """Trunk art: curly chrome tail + «ХВОСТИК» cut label (cut_label: Podkova ExtraBold, ink, ——◆—— underline, as
-    ШЕЙКА / ЛОПАТКА / КОРЕЙКА); h = label cap height (m). The tail is as tall as the label block, centred on it."""
-    lab = cut_label("ХВОСТИК", px(h))
-    tail = pig_tail(lab.height * 1.1)
-    return row([tail, lab], px(h * 0.45))
+    """Trunk art: curly chrome tail + «ХВОСТИК» cut label (cut_label: Podkova ExtraBold, ink, as ГРУДИНКА / ОКОРОК
+    without the ——◆—— underline: the tail itself is the ornament); h = label cap height (m). The tail sits centred
+    ABOVE the word (stacked): the strip between the wing stays is ~33 cm wide but only ~11 cm deep, and the word is
+    7.8 x its cap height wide, so the tail-beside-label row ran into the stays at a 3.0 cm cap with a 5.3 cm tail
+    while using only half the depth. Stacked, both grow: the tail art is TAIL_K x the cap height tall."""
+    lab = cut_label("ХВОСТИК", px(h), underline=False)
+    tail = pig_tail(px(h) * TAIL_K / 1.178)          # (pig_tail adds outline + shadow: art = 1.178 x h)
+    return stack([tail, lab], px(h * 0.25))          # (a quarter cap of air between the tail and the word)
+
+
+TAIL_K = 1.6
 
 
 def cut_label(s, h_px, col=INK, underline=True):
@@ -1161,7 +1167,8 @@ def _check(name, art, alpha, c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_t
         fails.append("touches a cut line")
     if keepout and len(painted):         # 3D keep-out (e.g. what the rear wing hides in the standard views)
         Pp = POSF[painted]
-        ko = (Pp[:, 1].min() >= keepout.get("y_min", -9)) and (np.abs(Pp[:, 0]).max() <= keepout.get("x_abs_max", 9))
+        ko = (Pp[:, 1].min() >= keepout.get("y_min", -9)) and (Pp[:, 1].max() <= keepout.get("y_max", 9)) and \
+            (np.abs(Pp[:, 0]).max() <= keepout.get("x_abs_max", 9))
         res["keepout_ok"] = bool(ko)
         if not ko:
             fails.append("inside a keep-out (hidden by the wing in a standard view)")
@@ -1480,13 +1487,62 @@ def asset_raf(h):
     return asset_mono("raf_black.png", int(h), INK_D)
 
 
+_RAF_CIRCLE = []
+
+
+def raf_circle():
+    """Smallest circle around the РАФ emblem (raf_black.png, convex hull of the mark): (diameter / emblem height,
+    centre offset dx, dy from the bbox centre / emblem height). The wing tips reach past the inscribed circle, so the
+    emblem needs a circle of ~1.05 x its height."""
+    if not _RAF_CIRCLE:
+        m = np.asarray(_L(os.path.join(BX, "raf_black.png"))) > 127
+        ys, xs = np.nonzero(m)
+        hp = np.stack([xs, ys], 1).astype(float)
+        hp = hp[ConvexHull(hp).vertices]
+        cx, cy = (xs.min() + xs.max()) / 2, (ys.min() + ys.max()) / 2
+        best, step = (np.sqrt(((hp - (cx, cy)) ** 2).sum(1)).max(), cx, cy), 64.0
+        while step >= 0.5:                     # coarse-to-fine search of the minimax centre
+            r0, bx, by = best
+            for dx in (-step, 0, step):
+                for dy in (-step, 0, step):
+                    r = np.sqrt(((hp - (bx + dx, by + dy)) ** 2).sum(1)).max()
+                    if r < best[0] - 1e-9:
+                        best = (r, bx + dx, by + dy)
+            if best[0] >= r0 - 1e-9:
+                step /= 2
+        r, bx, by = best
+        hgt = ys.max() - ys.min() + 1
+        _RAF_CIRCLE.extend([2 * r / hgt, (bx - cx) / hgt, (by - cy) / hgt])
+    return tuple(_RAF_CIRCLE)
+
+
+def raf_badge(D):
+    """РАФ for the sill row: a round badge of diameter D (px) = the row height, so its diameter matches the pills and
+    the DriveOil plate of its neighbours. Deep-ink disc with the pink hairline of the BR ENGINEERING pill (same
+    treatment), the full emblem in white inside it, scaled uniformly (aspect kept) so that its smallest enclosing
+    circle sits concentric with the disc, 4 % of D clear of the hairline."""
+    S = 4
+    lw = max(2, D // 26)                       # (pill(): hairline = height // 26)
+    k, ox, oy = raf_circle()
+    eh = int((D - 2 * lw - 2 * 0.04 * D) / k)
+    em = asset_mono("raf_black.png", eh * S, WHITE)
+    Ds = D * S
+    disc = Image.new("RGBA", (Ds, Ds), (0, 0, 0, 0))
+    d = ImageDraw.Draw(disc)
+    d.ellipse([0, 0, Ds - 1, Ds - 1], fill=(255, 214, 232, 255))
+    d.ellipse([lw * S, lw * S, Ds - 1 - lw * S, Ds - 1 - lw * S], fill=INK_D + (255,))
+    disc.alpha_composite(em, (int(round(Ds / 2 - em.width / 2 - ox * em.height)),
+                              int(round(Ds / 2 - em.height / 2 - oy * em.height))))
+    return disc.resize((D, D), Image.LANCZOS)
+
+
 PEARL_PAD = (250, 244, 250)
 
 
 def sill_art(kind, H):
     """Sill-row logo on its backer, scaled uniformly to the common outer height H (m)."""
-    if kind == "raf":                # pearl pad + ink hairline (the KARTING64 pad treatment)
-        a = pill(asset_raf(px(H - 0.012)), px(0.010), px(0.006), PEARL_PAD, line=INK_D)
+    if kind == "raf":                # round deep-ink badge, diameter = H (the emblem is round, see raf_badge)
+        a = raf_badge(px(H))
     elif kind == "breng":            # white on a deep-ink pill (unchanged treatment)
         a = pill(asset_mono("br_engineering_black.png", px(H - 0.010), WHITE), px(0.012), px(0.005), INK_D)
     elif kind == "driveoil":         # the brand's own orange plate (as behind the rear wheel)
@@ -1498,10 +1554,7 @@ def sill_art(kind, H):
     return fit_h(a, px(H))
 
 
-SILL_ORDER = ["raf", "breng", "karting64"]            # client order, front -> rear
-SILL_EXTRA = "driveoil"                               # 4th logo when the gaps would be too wide
-SILL_EXTRA_AT = 2                                     # ... inserted between BR ENGINEERING and KARTING64
-SILL_GAP_MAX = 2.5                                    # gap / median logo width above which the 4th logo is added
+SILL_ORDER = ["raf", "breng", "driveoil", "karting64"]    # client order, front -> rear
 SILL_ARCH_AIR = 0.02                                  # extra air (m) to the first / last passing point at the arches
 SILL_LOG = []
 
@@ -1512,15 +1565,16 @@ _SILL_PLAN = {}
 
 
 def sill_plan():
-    """One sill row layout for BOTH sides (mirror-identical), front -> rear РАФ · BR ENGINEERING · (DriveOil) ·
-    KARTING64. All logos have the same outer (backer) height and one common centre line z_c (= one baseline).
+    """One sill row layout for BOTH sides (mirror-identical), front -> rear РАФ · BR ENGINEERING · DriveOil ·
+    KARTING64 (client order). All logos have the same outer (backer / badge) height and one common centre line z_c
+    (= one baseline, equal visual height: the round РАФ badge's diameter = the pill / plate height).
     The row spans the whole flat sill: the usable ends are found first with the smallest height - the first / last
     placements, scanned 1 cm at a time from the arches, that pass every gate on both sides (flat within 12 deg, >= 1 cm
     to the sill edges, fully visible in the side and both 3/4 views: the front tyre hides the sill ahead of y ~-0.75 in
     the front 3/4 view), plus SILL_ARCH_AIR - and the first logo starts there, the last one ends there, with equal gaps
     between them. Then the largest common height that passes at those ends wins; among the centre lines the one that
     keeps the most air for the tightest logo (the sill face is lower at the front: top edge z ~0.255 vs ~0.275 at the
-    rear). When the gaps exceed SILL_GAP_MAX x the median logo width, the 4th logo is added."""
+    rear)."""
     if _SILL_PLAN:
         return _SILL_PLAN
     sl = ["sill"]
@@ -1575,12 +1629,6 @@ def sill_plan():
             arts = [sill_art(k, H) for k in kinds]
             W = np.array([a.width / PPM for a in arts])
             gap = (yr - yf - W.sum()) / (len(arts) - 1)
-            gap3, med3 = gap, float(np.median(W))
-            if gap > SILL_GAP_MAX * med3:
-                kinds.insert(SILL_EXTRA_AT, SILL_EXTRA)
-                arts = [sill_art(k, H) for k in kinds]
-                W = np.array([a.width / PPM for a in arts])
-                gap = (yr - yf - W.sum()) / (len(arts) - 1)
             ys = yf + np.concatenate([[0], np.cumsum(W[:-1] + gap)]) + W / 2
             res = []
             for k, a, y in zip(kinds, arts, ys):
@@ -1593,7 +1641,7 @@ def sill_plan():
             score = min(min(v[2]["edge_clear_cm"], v[2]["mask_clear_cm"]) for r in res for v in r.values())
             if best is None or score > best["score"] + 0.05:
                 best = dict(score=score, H=H, zc=zc, kinds=kinds, arts=arts, W=W, ys=ys, gap=gap, yf=yf, yr=yr,
-                            res=res, gap3=gap3, med3=med3)
+                            res=res)
         if best is not None:
             break
     if best is None:
@@ -1601,14 +1649,12 @@ def sill_plan():
     _SILL_PLAN.update(best)
     b = best
     print(f"   sill row: height {b['H'] * 100:.1f} cm, centre z {b['zc']:.3f}, y {b['yf']:+.3f} .. {b['yr']:+.3f}; "
-          f"3-logo gaps would be {b['gap3'] * 100:.1f} cm vs {SILL_GAP_MAX} x median width {b['med3'] * 100:.1f} cm "
-          f"-> {len(b['kinds'])} logos, equal gaps {b['gap'] * 100:.1f} cm: "
+          f"{len(b['kinds'])} logos, equal gaps {b['gap'] * 100:.1f} cm: "
           + ", ".join(f"{k} {w * 100:.1f} cm @ y {y:+.3f}" for k, w, y in zip(b["kinds"], b["W"], b["ys"])),
           flush=True)
     for s in ("L", "R"):
         SILL_LOG.append(dict(side=s, height_cm=round(b["H"] * 100, 1), z_centre=b["zc"], y_front=round(b["yf"], 3),
-                             y_rear=round(b["yr"], 3), gap_cm=round(b["gap"] * 100, 1),
-                             gap3_cm=round(b["gap3"] * 100, 1), median3_cm=round(b["med3"] * 100, 1),
+                             y_rear=round(b["yr"], 3), gap_cm=round(float(b["gap"]) * 100, 1),
                              logos=[dict(kind=k, y=round(float(y), 3), width_cm=round(float(w) * 100, 1))
                                     for k, y, w in zip(b["kinds"], b["ys"], b["W"])]))
     return _SILL_PLAN
@@ -1743,17 +1789,25 @@ def top_decals():
     for k, (xs, ys, rr, pp) in enumerate((((0.30, 0.32), (0.05, 0.0), 0.026, roof), ((-0.30, -0.32), (0.80, 0.84), 0.020, roof),
                                           ((0.37, 0.40), (-1.30, -1.26), 0.024, hood), ((-0.37, -0.40), (-1.62, -1.58), 0.018, hood))):
         place_fx(f"sparkle_top{k}", sparkle(px(rr)), top_cands(xs, ys, pp, (0, 1, 0), normal="z"), ppm=PPM, parts=pp)
+    trunk_tail()
+
+
+def trunk_tail():
     # Trunk lid: the pig's curly tail + «ХВОСТИК», reads from behind. Only the rear strip of the lid is clear of the
     # rear wing in every view: the wing blade hides the lid ahead of y ~2.05 in both rear 3/4 views, and its two stays
     # (x = +-0.20) cross the lid from above / behind (measured with a z-buffer of the model in the 9 standard views).
-    # The art therefore sits between the stays (|x| <= 0.17) on y 2.055-2.135 (keep-out gate), and it is also
-    # checked against the renderer's own visibility in rear, both rear 3/4 and top views. (The «арка» that sat here
-    # repeated the «арка» on the wing, in the same visual plane.)
+    # The art therefore sits between the stays (|x| <= 0.17) on the flat rear strip of the lid: from y 2.060 (the
+    # top view loses the lid ahead of y ~2.045 under the wing-mount cross bar: >= 1.5 cm air) to y 2.166 (the lid
+    # turns down into the lip at y ~2.178: >= 1.2 cm air) - keep-out gate - and it is also checked against the
+    # renderer's own visibility in rear, both rear 3/4 and top views. Largest label cap that passes wins (tail
+    # stacked above the word, see tail_with_label). (The «арка» that sat here repeated the «арка» on the wing, in the
+    # same visual plane.)
     tr = ["trunk_lid"]
-    decal_fit("tail_trunk", tail_with_label, [0.030, 0.029, 0.028, 0.027, 0.026, 0.025, 0.024, 0.023, 0.022],
-              lambda h: top_cands((0.0,), (2.098, 2.095, 2.100, 2.092, 2.102, 2.090), tr, (0, -1, 0), r=0.04),
+    decal_fit("tail_trunk", tail_with_label, [round(0.044 - 0.001 * i, 3) for i in range(17)],
+              lambda h: top_cands((0.0,), (2.113, 2.111, 2.115, 2.109, 2.117, 2.107, 2.119), tr, (0, -1, 0), r=0.05),
               ppm=PPM, parts=tr, depth_tol=0.06, check_angle=40, air=1.0, kind="text", tilt_gate=10.0,
-              keepout=dict(y_min=2.052, x_abs_max=0.170), occl_views=["rear", "rear34_left", "rear34_right", "top"])
+              keepout=dict(y_min=2.060, y_max=2.166, x_abs_max=0.170),
+              occl_views=["rear", "rear34_left", "rear34_right", "top"])
 
 
 def rear_front_decals():

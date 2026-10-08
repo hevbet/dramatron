@@ -6,9 +6,9 @@ OK     label_grudinka_L           [46.7, 6.0]    cov=1.000 edge=  1.9cm tilt=  0
 OK     label_okorok_L             [42.5, 6.4]    cov=1.000 edge=  2.1cm tilt=  5.3° in_mask=1.0 mask_clear=2.2cm lines=3.0cm
 OK     smp_low_L                  [26.6, 7.4]    cov=1.000 edge=  2.2cm tilt= 10.1° in_mask=1.0 mask_clear=2.3cm lines=3.1cm
 OK     driveoil_L                 [20.9, 5.8]    cov=1.000 edge=  1.4cm tilt=  4.0° in_mask=1.0 mask_clear=1.4cm lines=10.2cm
-OK     sill_raf_L                 [5.5, 4.8]     cov=1.000 edge=  1.2cm tilt=  3.9° in_mask=1.0 mask_clear=2.6cm lines=14.7cm decals=4.4cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
+OK     sill_raf_L                 [4.8, 4.8]     cov=1.000 edge=  1.2cm tilt=  3.9° in_mask=1.0 mask_clear=2.6cm lines=14.7cm decals=4.5cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
 OK     sill_breng_L               [42.8, 4.8]    cov=1.000 edge=  1.4cm tilt=  8.8° in_mask=1.0 mask_clear=2.9cm lines=14.5cm decals=4.1cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
-OK     sill_driveoil_L            [17.2, 4.8]    cov=1.000 edge=  2.7cm tilt=  8.0° in_mask=1.0 mask_clear=3.6cm lines=14.9cm decals=6.1cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
+OK     sill_driveoil_L            [17.2, 4.8]    cov=1.000 edge=  2.7cm tilt=  8.0° in_mask=1.0 mask_clear=3.6cm lines=14.8cm decals=6.1cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
 OK     sill_karting64_L           [15.0, 4.8]    cov=1.000 edge=  2.8cm tilt=  1.5° in_mask=1.0 mask_clear=1.3cm lines=30.5cm decals=10.4cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
 OK     number_door_R              [42.0, 28.3]   cov=1.000 edge=  5.8cm tilt= 14.3° in_mask=1.0 mask_clear=5.9cm lines=6.5cm
 OK     simkart_door_R             [42.0, 17.3]   cov=1.000 edge=  2.5cm tilt=  2.5° in_mask=1.0 mask_clear=2.8cm lines=10.4cm
@@ -18,9 +18,9 @@ OK     label_grudinka_R           [46.7, 6.0]    cov=1.000 edge=  1.6cm tilt=  0
 OK     label_okorok_R             [42.5, 6.4]    cov=1.000 edge=  2.4cm tilt=  5.3° in_mask=1.0 mask_clear=2.5cm lines=2.8cm
 OK     smp_low_R                  [26.6, 7.4]    cov=1.000 edge=  2.4cm tilt= 10.0° in_mask=1.0 mask_clear=2.2cm lines=3.2cm
 OK     driveoil_R                 [20.9, 5.8]    cov=1.000 edge=  1.4cm tilt=  4.0° in_mask=1.0 mask_clear=1.4cm lines=10.2cm
-OK     sill_raf_R                 [5.5, 4.8]     cov=1.000 edge=  1.2cm tilt=  3.9° in_mask=1.0 mask_clear=2.6cm lines=14.7cm decals=4.4cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
+OK     sill_raf_R                 [4.8, 4.8]     cov=1.000 edge=  1.2cm tilt=  3.9° in_mask=1.0 mask_clear=2.6cm lines=14.7cm decals=4.5cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
 OK     sill_breng_R               [42.8, 4.8]    cov=1.000 edge=  1.6cm tilt=  8.8° in_mask=1.0 mask_clear=3.0cm lines=14.5cm decals=4.2cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
-OK     sill_driveoil_R            [17.2, 4.8]    cov=1.000 edge=  2.8cm tilt=  8.0° in_mask=1.0 mask_clear=3.6cm lines=14.8cm decals=6.0cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
+OK     sill_driveoil_R            [17.2, 4.8]    cov=1.000 edge=  2.7cm tilt=  8.0° in_mask=1.0 mask_clear=3.6cm lines=14.8cm decals=6.0cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
 OK     sill_karting64_R           [15.0, 4.8]    cov=1.000 edge=  2.5cm tilt=  1.5° in_mask=1.0 mask_clear=1.3cm lines=30.5cm decals=11.4cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
 OK     simkart_hood               [61.3, 27.0]   cov=1.000 edge= 11.1cm tilt=  3.3° in_mask=1.0 mask_clear=2.6cm lines=2.1cm
 OK     label_sheika_hood          [32.0, 10.5]   cov=1.000 edge=  1.4cm tilt=  1.8° in_mask=1.0 mask_clear=1.5cm lines=2.5cm
@@ -29,7 +29,7 @@ OK     label_lopatka_R            [22.6, 4.3]    cov=1.000 edge=  1.2cm tilt=  0
 OK     number_roof                [74.0, 51.8]   cov=1.000 edge= 12.5cm tilt=  5.7° in_mask=1.0 mask_clear=17.0cm lines=35.6cm
 OK     stamp_vyrezka_roof         [32.0, 19.2]   cov=1.000 edge= 14.1cm tilt= 11.9° in_mask=1.0 mask_clear=16.6cm lines=4.7cm
 OK     saratov_roof               [68.1, 20.0]   cov=1.000 edge=  9.9cm tilt=  9.5° in_mask=1.0 mask_clear=19.8cm lines=6.3cm
-OK     tail_trunk                 [32.9, 6.2]    cov=1.000 edge=  7.2cm tilt=  3.5° in_mask=1.0 mask_clear=11.5cm lines=57.0cm decals=86.7cm hidden={'rear': 0.0, 'rear34_left': 0.0, 'rear34_right': 0.0, 'top': 0.0}
+OK     tail_trunk                 [28.7, 10.6]   cov=1.000 edge=  2.0cm tilt=  5.8° in_mask=1.0 mask_clear=7.2cm lines=55.7cm decals=89.5cm hidden={'rear': 0.0, 'rear34_left': 0.0, 'rear34_right': 0.0, 'top': 0.0}
 OK     team_edm_rear              [39.7, 14.0]   cov=1.000 edge=  4.8cm tilt=  5.6° in_mask=1.0 mask_clear=4.4cm lines=24.9cm
 OK     url_rear                   [70.5, 5.2]    cov=1.000 edge=  4.1cm tilt= 11.9° in_mask=1.0 mask_clear=3.1cm lines=4.3cm decals=16.7cm hidden={'rear': 0.0, 'rear34_left': 0.0, 'rear34_right': 0.0}
 OK     label_pyatachok            [25.0, 3.2]    cov=1.000 edge=  1.0cm tilt=  2.7° in_mask=1.0 mask_clear=1.2cm lines=54.0cm
@@ -57,6 +57,6 @@ INFO   line:belly dash 44R   left out whole (hidden in rear) at x=-0.544 y=+2.22
 INFO   line:belly dash 45R   left out whole (hidden in rear,rear34_right) at x=-0.446 y=+2.247
 INFO   line:tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 0.9693)
 INFO   line:hood cut line meets the shoulder line at x=+-0.840 y=-0.943 on the middle of a shoulder dash; 16 whole dashes, stretch 0.9799
-INFO   sill row L: height 4.8 cm, centre z 0.222, y -0.750 .. +0.990, equal gaps 31.1 cm: raf 5.5 cm @ y -0.722, breng 42.8 cm @ y -0.169, driveoil 17.2 cm @ y +0.443, karting64 15.0 cm @ y +0.915
-INFO   sill row R: height 4.8 cm, centre z 0.222, y -0.750 .. +0.990, equal gaps 31.1 cm: raf 5.5 cm @ y -0.722, breng 42.8 cm @ y -0.169, driveoil 17.2 cm @ y +0.443, karting64 15.0 cm @ y +0.915
+INFO   sill row L: height 4.8 cm, centre z 0.222, y -0.750 .. +0.990, equal gaps 31.4 cm: raf 4.8 cm @ y -0.726, breng 42.8 cm @ y -0.174, driveoil 17.2 cm @ y +0.440, karting64 15.0 cm @ y +0.915
+INFO   sill row R: height 4.8 cm, centre z 0.222, y -0.750 .. +0.990, equal gaps 31.4 cm: raf 4.8 cm @ y -0.726, breng 42.8 cm @ y -0.174, driveoil 17.2 cm @ y +0.440, karting64 15.0 cm @ y +0.915
 INFO   url:rear bumper: one line, 5.2 cm type
