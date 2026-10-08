@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+"""Pink wheel nuts (lug nuts) for the «Butcher Chart Chrome» skins.
+
+Writes skin-folder overrides of the two rim textures embedded in the .kn5:
+    out/<skin>/rim_d.dds      1024x1024 DXT5, 11 mips  (rim material, the static wheel)
+    out/<skin>/rim_blur.dds   1024x1024 DXT5, 11 mips  (rimblur material, the spinning wheel)
+    identical files for Pozdnyakov_23 and Konopelko_00
+
+Where the nuts are
+  The 5 lug nuts are part of the rim mesh (WHEEL_xx/RIM_xx/Plane.0xx, material «rim»). Each nut is made of
+  separate UV islands: hex body (~62 tris), domed cap (108 tris), flange/seat ring (88 tris) and a few
+  one-triangle slivers. All 5 nuts share the same three islands in the top-left corner of rim_d.dds
+  (hex ~x10-121/y3-135, cap ~x21-92/y154-225, flange ~x138-233/y7-101). The islands are found
+  from the mesh (UV islands whose geometry is small and sits within 7 cm of the wheel axis), rasterised and
+  checked: no texel used by any other part of the rim lies within 2 texels of them. All 4 rims share
+  the same UVs. There is no centre-lock nut: the dark disc in the hub is the axle seen through the bore.
+
+How they are recoloured (rim_d.dds)
+  The stock nut is a flat grey bake (R=G=B, lit faces L=66, deep AO ~20). Each nut texel keeps its
+  shading: colour = NUT_TEX * L / L_REF (a multiply in luminance, L_REF = the lit-face grey), so faces,
+  AO and edges keep the original relative brightness. Unused texels next to the islands (6 texels of
+  padding and the small hole in the middle of the hex island, never closer than 3 texels to another island) take
+  the colour of the nearest nut texel, so filtering and mips do not pull a black halo into the pink. Every
+  other texel is untouched.
+
+The detail multiply (why the alpha stays as it is)
+  rim is ksPerPixelMultiMap with useDetail=1, detailUVMultiplier=0 and txDetail = car_paint_rims.dds,
+  one constant texel 226/255 = 0.886 grey. AC computes  diffuse.rgb *= lerp(detail.rgb, 1, diffuse.a).
+  The rim_d alpha is 0 on every texel, so the whole rim, nuts included, is multiplied by 0.886 - a mild,
+  colour-neutral darkening (unlike the caliper, whose detail texel is 45/255 and kills any colour).
+  So no alpha change is needed: the alpha blocks are copied byte for byte from the original on every level.
+  The pink is chosen so that it lands on target AFTER the x0.886: NUT_TEX = NUT / max(NUT) * 255, which
+  shows in game as NUT_TEX * 0.886 = (226, 128, 151) on a fully lit face. car_paint_rims.dds is not touched.
+
+Rim blur (rim_blur.dds)
+  rimblur is ksPerPixelMultiMap_AT with useDetail=0 (no multiply). Same layout as rim_d, but the face is a
+  blurred bake; the nuts are not separate geometry there - they are the 5 dark blurred blobs around the
+  bore (uv radius ~40-110 px, mapped onto the hub of RIM_BLUR_xx/Plane.016 at the nuts' radius). Each blob
+  is read as a mix of the radially symmetric hub background bg(r) (angular median) and the grey nut:
+  coverage c = (bg - B) / (bg - N_REF), N_REF = grey of the blob cores. The grey nut is swapped for the
+  pink nut at the same scale as on the static rim: there a nut grey that shows as g in game becomes
+  NUT_TEX * g / L_REF (the 0.886 cancels), and rimblur has no detail multiply, so
+      new = bg * (1 - c) + c * N_REF * NUT_TEX / L_REF
+  only inside the nut annulus; the bore rings, the hub and everything else stay as they were.
+
+DDS: original 128-byte headers (DXT5, 1024x1024, 11 mips). The stock mips are not a box filter of level 0,
+so they are kept wherever nothing changed. rim_d: mip texels whose footprint lies in the nut zone are rebuilt
+from the new level 0 (box filter), mixed texels of the deep mips get original + box-filtered change.
+rim_blur: mips 0-4 are recoloured level by level with the same coverage model (re-filtering level 0 would
+leave the stock mips' sharper grey cores inside pink halos), deeper mips get the box-filtered change.
+Only 4x4 blocks whose colour changed are re-encoded (Pillow BC3), and only where the result is closer to
+the target than the stock block; all other blocks are byte-identical to the original, and the alpha half
+of every block is the original one on every level.
+
+Usage: python3 make_bolts.py [--out DIR] [--skins A,B] [--debug DIR]
+"""
+import argparse
+import colorsys
+import io
+import os
+import struct
+import sys
+
+import numpy as np
+from PIL import Image, ImageDraw
+from scipy import ndimage
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+TOOLS = "/home/user/dramatron/livery/tools"
+sys.path.insert(0, TOOLS)
+import kn5  # noqa: E402
+import render_rs3  # noqa: E402
+
+KN5 = render_rs3.DEFAULT_KN5
+SKINS = ("Pozdnyakov_23", "Konopelko_00")
+RIM, BLUR, DETAIL = "rim_d.dds", "rim_blur.dds", "car_paint_rims.dds"
+
+# palette (butcher_chrome/make_skin.py): PIG (242,158,178) is the body's flesh pink
+PIG = (242, 158, 178)
+SAT_GAIN = 1.25                        # anodised metal: same hue as PIG, saturation 0.35 -> 0.43
+_h, _s, _v = colorsys.rgb_to_hsv(*(c / 255.0 for c in PIG))
+NUT = np.array(colorsys.hsv_to_rgb(_h, min(1.0, _s * SAT_GAIN), _v), np.float32) * 255   # wanted in-game pink
+NUT_TEX = NUT / NUT.max() * 255.0      # texel colour of a fully lit face (in game: x detail 0.886)
+
+PAD = 6                                # texels of padding around the nut islands (filtering / mips)
+KEEP_OFF = 3                           # padding never comes closer than this to another island
+HOLE_MAX = 800                         # unused holes inside nut islands up to this size (texels) are filled
+NUT_R_MAX = 0.07                       # nut parts: every vertex within 7 cm of the wheel axis ...
+NUT_AREA_MAX = 20.0                    # ... and island area below 20 cm2 (the hub face itself is 229 cm2)
+BLOB_R = (36.0, 120.0)                 # rim_blur: nut annulus around the texture centre (uv px)
+BLOB_FEATHER = 8.0                     # soft edge of that annulus (px)
+BLOB_NOISE = 2.0                       # darkening below this (grey levels) is bake / DXT noise, left alone
+BLUR_LEVELS = 5                        # rim_blur mips 0..4 (hub >= 7 px) are recoloured level by level
+
+
+def rgb3(c):
+    return tuple(int(round(float(v))) for v in c)
+
+
+# ---------------------------------------------------------------- source
+def load_textures():
+    m = kn5.load(KN5, keep_tex=True)
+    tex = dict(m["textures"])
+    mats = {x["name"]: x for x in m["materials"]}
+    return tex, mats
+
+
+def decode_levels(data):
+    """Every mip level of a DXT5 DDS as uint8 RGBA arrays (Pillow reads the top level only -> re-wrap each)."""
+    hh = struct.unpack_from("<31I", data, 4)
+    H, W, mips = hh[2], hh[3], max(1, hh[6])
+    off, levels = 128, []
+    for lv in range(mips):
+        w, h = max(1, W >> lv), max(1, H >> lv)
+        n = max(1, (w + 3) // 4) * max(1, (h + 3) // 4) * 16
+        hdr = bytearray(data[:128])
+        struct.pack_into("<I", hdr, 12, max(4, h))
+        struct.pack_into("<I", hdr, 16, max(4, w))
+        struct.pack_into("<I", hdr, 20, n)
+        struct.pack_into("<I", hdr, 28, 1)
+        im = Image.open(io.BytesIO(bytes(hdr) + data[off:off + n])).convert("RGBA")
+        levels.append(np.asarray(im)[:h, :w].copy())
+        off += n
+    assert off == len(data), (off, len(data))
+    return levels
+
+
+# ---------------------------------------------------------------- geometry -> UV islands
+def wheel_meshes():
+    _, _, meshes = render_rs3.load_scene(KN5, interior=False)
+    rims = [x for x in meshes if x["mat"] == "rim"]
+    blurs = [x for x in meshes if x["mat"] == "rimblur"]
+    assert len(rims) == 4, [x["name"] for x in rims]
+    for x in rims[1:]:
+        assert np.allclose(x["uv"], rims[0]["uv"]) and np.array_equal(x["idx"], rims[0]["idx"]), x["name"]
+    return rims, blurs
+
+
+def uv_islands(mesh):
+    """Triangle -> island id; vertices are welded when position AND uv match (UV seams split islands)."""
+    P, T, UV = mesh["pos"], mesh["idx"], mesh["uv"]
+    key = np.c_[np.round(P * 1e5), np.round(UV * 1e5)].astype(np.int64)
+    _, vid = np.unique(key, axis=0, return_inverse=True)
+    TT = vid.ravel()[T]
+    n = TT.max() + 1
+    r = np.r_[TT[:, 0], TT[:, 1]]
+    c = np.r_[TT[:, 1], TT[:, 2]]
+    _, lab = connected_components(coo_matrix((np.ones(len(r)), (r, c)), shape=(n, n)), directed=False)
+    return np.unique(lab[TT[:, 0]], return_inverse=True)[1].ravel()
+
+
+def nut_islands(mesh):
+    """Classify the rim's UV islands; returns (tri_is_nut bool array, report rows)."""
+    P, T, UV = mesh["pos"], mesh["idx"], mesh["uv"]
+    lo, hi = P.min(0), P.max(0)
+    cy, cz = (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2           # wheel axis (along x)
+    rad = np.hypot(P[:, 1] - cy, P[:, 2] - cz)
+    a, b, c = P[T[:, 0]], P[T[:, 1]], P[T[:, 2]]
+    area = np.linalg.norm(np.cross(b - a, c - a), axis=1) / 2 * 1e4     # cm2
+    isl = uv_islands(mesh)
+    nut = np.zeros(isl.max() + 1, bool)
+    rows = []
+    for k in range(isl.max() + 1):
+        s = isl == k
+        vv = np.unique(T[s].ravel())
+        ar = area[s].sum()
+        nut[k] = rad[vv].max() < NUT_R_MAX and ar < NUT_AREA_MAX
+        uv = np.mod(UV[vv], 1) * 1024
+        kind = ("other" if not nut[k] else "sliver" if ar < 0.1 else "hex body" if s.sum() < 70
+                else "flange" if s.sum() < 100 else "cap")
+        rows.append((k, int(s.sum()), ar, rad[vv].min(), rad[vv].max(), np.abs(P[vv, 0]).min(),
+                     np.abs(P[vv, 0]).max(), uv[:, 0].min(), uv[:, 0].max(), uv[:, 1].min(), uv[:, 1].max(), kind))
+    return nut[isl], rows
+
+
+def raster(mesh, tri_sel, size, ss=4):
+    """Texel coverage of the selected triangles: (any sub-sample covered, texel centre covered)."""
+    S = size * ss
+    im = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(im)
+    UV = mesh["uv"]
+    for t in np.nonzero(tri_sel)[0]:
+        pts = [(float(np.mod(u, 1) * S), float(np.mod(v, 1) * S)) for u, v in UV[mesh["idx"][t]]]
+        d.polygon(pts, fill=255, outline=255)
+    a = np.asarray(im) > 0
+    anyc = a.reshape(size, ss, size, ss).any((1, 3))
+    cen = a[ss // 2::ss, ss // 2::ss]
+    return anyc, cen
+
+
+# ---------------------------------------------------------------- rim_d recolour
+def box(a, f):
+    """Box-filter an (H, W, C) array by an integer factor f (power of two)."""
+    H, W = a.shape[:2]
+    h, w = max(1, H // f), max(1, W // f)
+    return a.reshape(h, H // h, w, W // w, -1).mean((1, 3))
+
+
+def recolour_rim(lv0, nut_any, nut_cen, other_any):
+    """Returns (new float RGB level 0, changed texels, nut zone, stats)."""
+    rgb = lv0[..., :3].astype(np.float32)
+    L = rgb @ np.array([0.25, 0.5, 0.25], np.float32)               # grey bake: R=B (5 bit), G (6 bit)
+    keep_off = ndimage.binary_dilation(other_any, iterations=KEEP_OFF)
+    assert not (nut_any & ndimage.binary_dilation(other_any, iterations=2)).any(), "nut texels shared"
+    vals = L[nut_cen]
+    l_ref = float(np.percentile(vals, 99))
+    # texels whose centre lies on a nut keep their own grey; edge / padding texels take the nearest centre's
+    _, (iy, ix) = ndimage.distance_transform_edt(~nut_cen, return_indices=True)
+    Lf = np.where(nut_cen, L, L[iy, ix])
+    # nut zone: texels whose nearest used texel (of any island) is a nut texel, off the other islands
+    used = nut_any | other_any
+    dist, (jy, jx) = ndimage.distance_transform_edt(~used, return_indices=True)
+    zone = nut_any[jy, jx] & ~keep_off
+    # padding + the small unused hole inside the hex body island (its centre, under the cap); the flange's big
+    # hex-shaped hole stays as it is apart from the padding
+    holes, nh = ndimage.label(ndimage.binary_fill_holes(nut_any) & ~nut_any)
+    small = np.isin(holes, [i + 1 for i, n in enumerate(ndimage.sum(holes > 0, holes, range(1, nh + 1)))
+                            if n <= HOLE_MAX])
+    region = (nut_any | small | (dist <= PAD)) & zone
+    s = np.clip(Lf / l_ref, 0.0, 1.0)
+    new = rgb.copy()
+    new[region] = NUT_TEX[None, :] * s[region][:, None]
+    st = dict(l_ref=l_ref, l_min=float(vals.min()), l_med=float(np.median(vals)), n_cen=int(nut_cen.sum()),
+              n_any=int(nut_any.sum()), n_region=int(region.sum()))
+    return new, region, zone, st
+
+
+def rim_levels(orig_lv, new0, region, zone):
+    """Float RGB of every mip level. Level k texels whose footprint touches the changed texels: rebuilt from
+    the new level 0 (box filter) when the whole footprint lies in the nut zone, otherwise (deep mips, where a
+    texel also covers the rim) original + box-filtered change. Everything else: the original mip."""
+    o0 = orig_lv[0][..., :3].astype(np.float32)
+    delta = new0 - o0
+    out = [new0]
+    reg, zon = region[..., None].astype(np.float32), zone[..., None].astype(np.float32)
+    for k in range(1, len(orig_lv)):
+        f = 1 << k
+        ok = orig_lv[k][..., :3].astype(np.float32)
+        touch = box(reg, f)[..., 0] > 0
+        inside = box(zon, f)[..., 0] > 0.9999
+        nk = ok.copy()
+        rb, dl = touch & inside, touch & ~inside
+        nk[rb] = box(new0, f)[rb]
+        nk[dl] = ok[dl] + box(delta, f)[dl]
+        out.append(nk)
+    return out
+
+
+# ---------------------------------------------------------------- rim_blur recolour
+def blur_used(blurs, size):
+    """Texels of rim_blur.dds used by the rimblur meshes (front left wheel; all 4 share the UVs)."""
+    lf = [x for x in blurs if "_LF/" in x["name"]]
+    cov = np.zeros((size, size), bool)
+    for x in lf:
+        cov |= raster(x, np.ones(len(x["idx"]), bool), size)[0]
+    return cov
+
+
+def blur_coverage(B, scale):
+    """Nut coverage of one level of the blurred hub: (darkness below the radial background, background,
+    annulus weight, annulus mask). scale = level size / 1024."""
+    H, W = B.shape
+    yy, xx = np.mgrid[0:H, 0:W]
+    cx = cy = (W - 1) / 2.0                     # the bore is centred on the texture (uv 0.5, 0.5)
+    r = np.hypot(xx - cx, yy - cy)
+    r0, r1, fe = BLOB_R[0] * scale, BLOB_R[1] * scale, max(0.75, BLOB_FEATHER * scale)
+    ann = (r > r0 - fe) & (r < r1 + fe)
+    # radially symmetric hub background: per 1 px ring the 90th percentile over the angle (the blobs cover up
+    # to ~60 % of a ring, so a median would sit inside them), smoothed over a few rings
+    rb = np.round(r).astype(np.int64)
+    ks = np.arange(max(0, int(r0 - fe) - 4), int(r1 + fe) + 5)
+    prof = np.array([np.percentile(B[rb == k], 90) if (rb == k).any() else np.nan for k in ks])
+    ok = ~np.isnan(prof)
+    ks, prof = ks[ok], prof[ok]
+    sw = 3 if scale >= 0.5 else 1
+    prof = np.convolve(np.pad(prof, sw, mode="edge"), np.ones(2 * sw + 1) / (2 * sw + 1), mode="valid")
+    bg = np.interp(r, ks, prof).astype(np.float32)
+    w_ann = np.clip(np.minimum(r - r0, r1 - r) / fe + 1.0, 0, 1)
+    dark = np.where(ann, np.clip(bg - B, 0, None), 0)
+    return dark, bg, w_ann, ann
+
+
+def blur_levels(orig_lv, used0, l_ref):
+    """Float RGB of every mip level of rim_blur + the changed texels of level 0 + stats.
+    Each original level 0..BLUR_LEVELS-1 is recoloured on its own (the stock mips are sharper than a box
+    filter of level 0, so re-filtering would leave grey cores in pink halos); deeper levels get the
+    box-filtered change of the last recoloured level."""
+    B0 = orig_lv[0][..., :3].astype(np.float32).mean(-1)
+    dark0, bg0, _, ann0 = blur_coverage(B0, 1.0)
+    core = dark0 > 0.5 * dark0.max()
+    n_ref = float(np.percentile(B0[core & ann0], 5))          # grey of the blob cores (full nut coverage)
+    # grey -> pink at the static rim's scale. Static rim in game: 0.886 * NUT_TEX * L/L_REF, its grey was
+    # 0.886 * L, so in-game grey g -> NUT_TEX * g / L_REF (the 0.886 cancels); rimblur has no detail multiply,
+    # so its texel grey is already the in-game grey.
+    pink = NUT_TEX * (n_ref / l_ref)
+    out, m0 = [], None
+    usedf = used0[..., None].astype(np.float32)
+    for k, lv in enumerate(orig_lv):
+        rgb = lv[..., :3].astype(np.float32)
+        if k < BLUR_LEVELS:
+            dark, bg, w_ann, _ = blur_coverage(rgb.mean(-1), rgb.shape[0] / orig_lv[0].shape[0])
+            c = np.clip((dark - BLOB_NOISE) / np.maximum(bg - n_ref - BLOB_NOISE, 1.0), 0, 1) * w_ann
+            m = (c > 1e-3) & (box(usedf, 1 << k)[..., 0] > 0)
+            new = rgb.copy()
+            new[m] = rgb[m] + c[m][:, None] * (pink[None, :] - n_ref)   # = bg(1-c) + pink c  for B = bg(1-c) + n_ref c
+            if k == 0:
+                m0 = m
+            last, last_d = k, new - rgb
+        else:
+            new = rgb + box(last_d, 1 << (k - last))
+        out.append(new)
+    st = dict(n_ref=n_ref, pink=pink, n_changed=int(m0.sum()), bg_at_blobs=float(np.median(bg0[core & ann0])))
+    return out, m0, st
+
+
+# ---------------------------------------------------------------- DDS out (changed blocks only)
+def encode_level(rgba):
+    h, w = rgba.shape[:2]
+    if w < 4 or h < 4:
+        rgba = np.pad(rgba, ((0, max(0, 4 - h)), (0, max(0, 4 - w)), (0, 0)), mode="edge")
+    bio = io.BytesIO()
+    Image.fromarray(rgba, "RGBA").save(bio, format="DDS", pixel_format="DXT5")
+    raw = bio.getvalue()
+    assert raw[84:88] == b"DXT5"
+    return np.frombuffer(raw[128:], np.uint8).reshape(-1, 16)
+
+
+def decode_level(header, w, h, blocks):
+    hdr = bytearray(header)
+    struct.pack_into("<I", hdr, 12, max(4, h))
+    struct.pack_into("<I", hdr, 16, max(4, w))
+    struct.pack_into("<I", hdr, 20, len(blocks))
+    struct.pack_into("<I", hdr, 28, 1)
+    return np.asarray(Image.open(io.BytesIO(bytes(hdr) + blocks)).convert("RGBA"))[:h, :w]
+
+
+def block_err(a, tgt, bw, bh):
+    """Mean |a - tgt| per 4x4 block (flattened like the DXT block order)."""
+    h, w = tgt.shape[:2]
+    e = np.abs(a - tgt.astype(np.float32)).mean(-1)
+    e = np.pad(e, ((0, bh * 4 - h), (0, bw * 4 - w)))
+    n = np.pad(np.ones((h, w)), ((0, bh * 4 - h), (0, bw * 4 - w)))
+    return (e.reshape(bh, 4, bw, 4).sum((1, 3)) / n.reshape(bh, 4, bw, 4).sum((1, 3))).ravel()
+
+
+def write_levels(path, orig, levels):
+    """orig: original DDS bytes; levels: float RGB per mip level. 4x4 blocks without any colour change keep
+    their original 16 bytes; changed blocks get Pillow's BC3 colour half and the ORIGINAL alpha half (only if
+    that lands closer to the target than the stock block)."""
+    hh = struct.unpack_from("<31I", orig, 4)
+    mips = max(1, hh[6])
+    lv = decode_levels(orig)
+    assert len(levels) == len(lv) == mips
+    out = bytearray(orig[:128])
+    off, n_blocks = 128, []
+    for k in range(mips):
+        h, w = lv[k].shape[:2]
+        tgt = np.clip(levels[k] + 0.5, 0, 255).astype(np.uint8)
+        chg = np.any(tgt != lv[k][..., :3], -1)
+        bw, bh = max(1, (w + 3) // 4), max(1, (h + 3) // 4)
+        nb = bw * bh
+        ob = np.frombuffer(orig[off:off + nb * 16], np.uint8).reshape(-1, 16).copy()
+        if chg.any():
+            enc = encode_level(np.dstack([tgt, lv[k][..., 3]]))
+            cp = np.pad(chg, ((0, bh * 4 - h), (0, bw * 4 - w))).reshape(bh, 4, bw, 4).any((1, 3)).ravel()
+            cand = ob.copy()
+            cand[cp, 8:] = enc[cp, 8:]
+            # keep a re-encoded block only where it is closer to the target than the stock block (on the
+            # tiniest mips the change is a fraction of a grey level and BC3 re-encoding error would dominate)
+            dec = decode_level(orig[:128], w, h, cand.tobytes())[..., :3].astype(np.float32)
+            e_new = block_err(dec, tgt, bw, bh)
+            e_old = block_err(lv[k][..., :3].astype(np.float32), tgt, bw, bh)
+            use = cp & (e_new < e_old)
+            ob[use, 8:] = enc[use, 8:]
+            n_blocks.append(int(use.sum()))
+        else:
+            n_blocks.append(0)
+        out += ob.tobytes()
+        off += nb * 16
+    assert off == len(orig) and len(out) == len(orig)
+    with open(path + ".tmp", "wb") as fh:
+        fh.write(out)
+    os.replace(path + ".tmp", path)
+    return n_blocks
+
+
+def verify(path, orig, levels):
+    data = open(path, "rb").read()
+    a, b = decode_levels(data), decode_levels(orig)
+    same_alpha = all(np.array_equal(data[o:o + 8], orig[o:o + 8]) for o in range(128, len(data), 16))
+    tgt0 = np.clip(levels[0] + 0.5, 0, 255).astype(np.uint8)
+    chg = np.any(tgt0 != b[0][..., :3], -1)
+    h, w = chg.shape
+    blk = chg.reshape(h // 4, 4, w // 4, 4).any((1, 3))                # 4x4 blocks holding changed texels
+    outside = ~np.repeat(np.repeat(blk, 4, 0), 4, 1)
+    err = np.abs(a[0][..., :3][chg].astype(np.float32) - levels[0][chg]).mean() if chg.any() else 0.0
+    hh = struct.unpack_from("<31I", data, 4)
+    return dict(bytes=len(data), size=f"{hh[3]}x{hh[2]}", fourcc=data[84:88].decode(), mips=len(a),
+                same_header=data[:128] == orig[:128], alpha_blocks_identical=same_alpha,
+                alpha_minmax=(int(a[0][..., 3].min()), int(a[0][..., 3].max())),
+                rest_of_level0_identical=bool(np.array_equal(a[0][outside], b[0][outside])),
+                mean_dxt_err_changed=round(float(err), 2))
+
+
+# ---------------------------------------------------------------- main
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=os.path.join(HERE, "out"), help="writes <out>/<skin>/rim_d.dds, rim_blur.dds")
+    ap.add_argument("--skins", default=",".join(SKINS))
+    ap.add_argument("--debug", default=None, help="also save masks / level-0 PNGs into this folder")
+    ap.add_argument("--no-blur", action="store_true", help="skip rim_blur.dds")
+    a = ap.parse_args()
+
+    tex, mats = load_textures()
+    rim_m = mats["rim"]
+    p = rim_m["props"]
+    det = np.asarray(Image.open(io.BytesIO(tex[DETAIL])).convert("RGBA"))
+    print(f"material rim ({rim_m['shader']}): useDetail={p.get('useDetail')} "
+          f"detailUVMultiplier={p.get('detailUVMultiplier')} samplers={rim_m['samplers']}")
+    print(f"  {DETAIL}: {det.shape[1]}x{det.shape[0]}, texel {tuple(int(v) for v in det[0, 0])} "
+          f"(constant: {bool((det == det[0, 0]).all())}) -> diffuse x {det[0, 0, 0] / 255:.3f} where rim_d alpha is 0")
+    bm = mats["rimblur"]
+    print(f"material rimblur ({bm['shader']}): useDetail={bm['props'].get('useDetail')} samplers={bm['samplers']}")
+    print(f"pink: PIG {PIG} -> anodised (sat x{SAT_GAIN}) {rgb3(NUT)}, texel {rgb3(NUT_TEX)} -> in game "
+          f"x{det[0, 0, 0] / 255:.3f} = {rgb3(NUT_TEX * det[0, 0, 0] / 255)}")
+
+    rims, blurs = wheel_meshes()
+    lf = [x for x in rims if "_LF/" in x["name"]][0]
+    tri_nut, rows = nut_islands(lf)
+    print(f"{lf['name']}: {len(lf['idx'])} tris, {len(rows)} UV islands (4 rims share UVs)")
+    for k, nt, ar, r0, r1, x0, x1, u0, u1, v0, v1, kind in sorted(rows, key=lambda r: (r[-1] == "other", r[7], r[9])):
+        if kind != "other" or ar > 100:
+            print(f"  island {k:2d} {kind:8s} {nt:4d} tris {ar:8.2f} cm2  r {r0:.3f}-{r1:.3f} m  |x| {x0:.3f}-{x1:.3f}"
+                  f"  uv x {u0:6.1f}-{u1:6.1f} y {v0:6.1f}-{v1:6.1f}")
+    kinds = {}
+    for r in rows:
+        kinds[r[-1]] = kinds.get(r[-1], 0) + 1
+    print("  nut islands:", {k: v for k, v in kinds.items() if k != "other"}, f"; other islands: {kinds.get('other', 0)}")
+
+    rim_bytes = tex[RIM]
+    rim_lv = decode_levels(rim_bytes)
+    size = rim_lv[0].shape[0]
+    nut_any, nut_cen = raster(lf, tri_nut, size)
+    other_any, _ = raster(lf, ~tri_nut, size)
+    shared = nut_any & other_any
+    gap = ndimage.distance_transform_edt(~other_any)[nut_any].min()
+    print(f"  nut texels: {nut_any.sum()} (centre-covered {nut_cen.sum()}), shared with other parts: {shared.sum()}, "
+          f"closest other-part texel: {gap:.1f} texels; nut bbox x {nut_any.any(0).nonzero()[0][[0, -1]].tolist()} "
+          f"y {nut_any.any(1).nonzero()[0][[0, -1]].tolist()}")
+    assert shared.sum() == 0
+    new_rim, region, zone, st = recolour_rim(rim_lv[0], nut_any, nut_cen, other_any)
+    print(f"  rim_d nut grey: min {st['l_min']:.0f} median {st['l_med']:.0f} L_REF (p99) {st['l_ref']:.1f}; "
+          f"texels recoloured incl. padding: {st['n_region']} (other texels of level 0 untouched)")
+    jobs = [(RIM, rim_bytes, rim_levels(rim_lv, new_rim, region, zone))]
+
+    if not a.no_blur:
+        blur_bytes = tex[BLUR]
+        used = blur_used(blurs, size)
+        blur_lv, bmask, bst = blur_levels(decode_levels(blur_bytes), used, st["l_ref"])
+        print(f"rim_blur: blob core grey {bst['n_ref']:.0f} on hub {bst['bg_at_blobs']:.0f} -> nut pink "
+              f"{rgb3(bst['pink'])}; level-0 texels changed {bst['n_changed']} (inside the hub used by the "
+              f"rimblur meshes: {bool((bmask <= used).all())})")
+        jobs.append((BLUR, blur_bytes, blur_lv))
+
+    if a.debug:
+        os.makedirs(a.debug, exist_ok=True)
+        for name, _, levels in jobs:
+            Image.fromarray(np.clip(levels[0] + 0.5, 0, 255).astype(np.uint8)).save(
+                os.path.join(a.debug, name.replace(".dds", "_new.png")))
+        dbg = np.zeros((size, size, 3), np.uint8)
+        dbg[zone] = (40, 20, 30)
+        dbg[other_any] = (90, 90, 90)
+        dbg[region] = (120, 40, 70)
+        dbg[nut_any] = (255, 140, 170)
+        dbg[shared] = (255, 255, 0)
+        Image.fromarray(dbg).save(os.path.join(a.debug, "rim_d_islands.png"))
+
+    for skin in [s for s in a.skins.split(",") if s]:
+        d = os.path.join(a.out, skin)
+        os.makedirs(d, exist_ok=True)
+        for name, orig, levels in jobs:
+            pth = os.path.join(d, name)
+            nb = write_levels(pth, orig, levels)
+            print(f"wrote {pth}: re-encoded 4x4 blocks per level {nb}; {verify(pth, orig, levels)}")
+
+
+if __name__ == "__main__":
+    main()

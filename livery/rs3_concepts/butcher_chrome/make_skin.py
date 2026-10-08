@@ -575,11 +575,22 @@ SHADE = np.clip(0.55 + 0.45 * np.clip(mx / 76.0, 0, 1.12), 0.42, 1.06)
 POS, NRM, PART, COV = posmap4k.load()
 PART_NAMES = json.load(open(os.path.join(ZONES, "zones.json")))["part_names"]
 PID = {n: i for i, n in enumerate(PART_NAMES)}
-# paint where the source has body colour, plus the seam padding of skin islands (mip-map bleed); the Audi rings box
-# is painted too (its strokes come back as ink in paint_audi_rings)
-PAINT = BODY_COL | (~COV & (PART >= 0))
+# Paint coverage comes from the part map, not from the source colour: every texel of a body part's skin islands is
+# painted (plus the seam padding of the islands, for mip-map bleed). The source-colour test (BODY_COL) used to leave
+# out texels that are dark in the source - deep ambient occlusion on the inner faces of the rear flares and bumper
+# returns, the door-handle recesses and undersides, the trunk-lid lip under the rings, the mirror bases, arch lips -
+# so the source navy / black showed through as jagged dark patches. Left as in the source: the parts that are black
+# plastic in the design (front splitter, rear diffuser band), the 'hidden' part, and the floor (the down-facing
+# underside of the sill). The Audi rings box is painted too (its strokes come back as ink in paint_audi_rings).
+PAINT_EXCL = ("hidden", "front_splitter", "rear_diffuser_band")
+FLOOR = (PART == PID["sill"]) & (NRM[..., 2] < -0.7)
+PAINT = BODY_COL | ((PART >= 0) & ~np.isin(PART, [PID[n] for n in PAINT_EXCL]) & ~FLOOR)
+# baked shading of the newly covered texels: their own source shading (keeps the AO gradient of a recess) but never
+# brighter than the nearest body-colour texel and never below SHADE_MIN - deep AO reads as dark pink, not black
+SHADE_MIN = 0.55
 _, (sy, sx) = ndimage.distance_transform_edt(~(COV & BODY_COL), return_indices=True)
-SHADE = np.where(COV & BODY_COL, SHADE, SHADE[sy, sx])
+SHADE = np.where(COV & BODY_COL, SHADE,
+                 np.where(COV, np.maximum(np.minimum(SHADE, SHADE[sy, sx]), SHADE_MIN), SHADE[sy, sx]))
 del sy, sx, iy, ix
 POSF = POS.reshape(-1, 3)
 NRMF = NRM.reshape(-1, 3)
@@ -935,7 +946,197 @@ def belly_connector(side, a_pts, shoulder_C, y3=1.34):
     sweep(side, (py, pz), t0, s0, (y3, z3), (1.0, slope), s3, h0=0.12, h3=0.16, clip=shoulder_C)
 
 
-A_FRONT = (-1.45, 0.836)       # first point of the shoulder line's control polygon (front fender top)
+# -------- the shoulder cut line's path: the Audi «tornado» crease, extracted from the mesh (not drawn by eye)
+# Vertical sections of the skin mesh every 1 cm from the headlight to the tail light, on each side: the outer profile
+# (outermost |x| per z, 0.5 mm), its surface elevation and the convex curvature d(elevation)/d(arc) (deg per mm of
+# surface). The crease is the ridge with the sharpest turn of the normal:
+#   doors + rear quarter (y >= -0.83): the tornado line - the sharp edge on top of the shadowed under-cut band
+#     (~5-8 deg/mm), rising from z 0.848 at the front door to 0.908 over the rear quarter and into the tail lamp;
+#   front fender (y <= -0.885): the wide-body flare's top edge (vertical side face -> up-facing flare top, ~7-9
+#     deg/mm), the edge the side views show running from the headlight back to the door (z 0.79-0.81).
+# Each ridge is followed station to station (nearest height, short gaps such as the fuel flap edges bridged), smoothed
+# (Gaussian, sigma 4 cm). Across the fender / door shut line the two edges are 5 cm apart in height and 12 cm apart in
+# depth (the bolt-on flare is wider than the door) below z ~0.82, no surface ridge in between: the path blends from
+# one to the other with one smooth S (smootherstep over CREASE_BLEND). The blend is finished just behind the shut
+# line, so the line crosses it at z ~0.845, where the fender's rear end is flush with the door (no 12 cm step under
+# a dash). On the front fender the crease runs on forward and down in front of the flare into the bumper's feature
+# edge under the headlight - the front cut line follows that edge (eyeliner_curve).
+CREASE_STEP = 0.01
+CREASE_Y = (-1.60, 1.90)
+CREASE_FENDER_END = -0.885     # last fender station (its rear edge at the door shut line, y ~ -0.86)
+CREASE_DOOR_START = -0.83      # first front-door station
+CREASE_BLEND = (-1.08, -0.80)  # S-blend fender flare edge -> door crease, done behind the shut line
+SHOULDER_OFF = 0.0             # line centre -> crease (m, along the surface, + up): the centre line sits ON the crease
+SH_REAR_AIR = 0.031            # centre line of the shoulder line's last dash end -> tail lamp (cap air >= 2 cm)
+CREASE = {}                    # per side: the extracted path + raw ridge heights (report)
+_MESH = {}
+
+
+def _mesh():
+    if not _MESH:
+        D = np.load(os.path.join(ZONES, "_analysis.npz"))
+        pt = np.load(os.path.join(ZONES, "part_tri.npy"))
+        _MESH.update(P=D["P"].astype(float), N=D["N"].astype(float),
+                     ok=~np.isin(pt, [PID[n] for n in ("hidden", "hood_underside", "mirror", "door_handle")]))
+    return _MESH
+
+
+def crease_section(y0, sg, zlo=0.70, zhi=0.98, dz=0.0005):
+    """Vertical section of the outer skin at y0 (sg +1 left / -1 right): outermost |x| per z, whether there is surface,
+    and the convex curvature d(elevation)/d(arc) in deg per mm (elevation = angle of the normal above horizontal,
+    smoothed over ~1.5 mm of profile)."""
+    m = _mesh()
+    P, Nt = m["P"], m["N"]
+    v = P[:, :, 1] - y0
+    sv = np.sign(v)
+    cross = (sv.min(1) < 0) & (sv.max(1) > 0) & m["ok"] & (P[:, :, 0].mean(1) * sg > 0.45) & (Nt[:, 0] * sg > 0.02)
+    zs = np.arange(zlo, zhi, dz)
+    X = np.full(len(zs), -9.0)
+    T = np.full(len(zs), -1)
+    for t in np.flatnonzero(cross):
+        pts = []
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            if v[t, a] * v[t, b] < 0:
+                u = v[t, a] / (v[t, a] - v[t, b])
+                pts.append(P[t, a] + (P[t, b] - P[t, a]) * u)
+        if len(pts) != 2:
+            continue
+        a, b = pts
+        if a[2] > b[2]:
+            a, b = b, a
+        if b[2] - a[2] < 1e-6:
+            continue
+        k = np.flatnonzero((zs >= a[2]) & (zs <= b[2]))
+        x = (a[0] + (b[0] - a[0]) * (zs[k] - a[2]) / (b[2] - a[2])) * sg
+        w = x > X[k]
+        X[k[w]] = x[w]
+        T[k[w]] = t
+    ok = T >= 0
+    n = Nt[np.maximum(T, 0)]
+    el = np.degrees(np.arctan2(n[:, 2], np.abs(n[:, 0])))
+    arc = np.concatenate([[0], np.cumsum(np.hypot(dz, np.where(ok[1:] & ok[:-1], np.diff(X), 0.0)))])
+    w = ndimage.gaussian_filter1d(ok.astype(float), 3)
+    el_s = ndimage.gaussian_filter1d(np.where(ok, el, 0.0), 3) / np.maximum(w, 1e-6)
+    return zs, X, ok, np.gradient(el_s, arc) / 1000.0
+
+
+def crease_peaks(y0, sg):
+    """(z, |x|, deg/mm) of every convex ridge of the section (local maxima of the curvature > 1 deg/mm)"""
+    zs, X, ok, de = crease_section(y0, sg)
+    return [(float(zs[k]), float(X[k]), float(de[k])) for k in range(4, len(zs) - 4)
+            if ok[k - 4:k + 5].all() and de[k] > 1.0 and de[k] == de[k - 4:k + 5].max()]
+
+
+def _crease_track(ys, peaks, start_y, zwin, xwin, min_k, step_tol=0.008, max_gap=6):
+    """Follow one ridge: the sharpest peak inside the window at start_y, then station by station forward and backward
+    the peak nearest the previous height (< step_tol); up to max_gap stations without one are bridged linearly."""
+    i0 = int(np.argmin(np.abs(ys - start_y)))
+    good = lambda p: zwin[0] < p[0] < zwin[1] and xwin[0] < p[1] < xwin[1] and p[2] > min_k
+    z = np.full(len(ys), np.nan)
+    z[i0] = max([p for p in peaks[i0] if good(p)], key=lambda p: p[2])[0]
+    for rng in (range(i0 + 1, len(ys)), range(i0 - 1, -1, -1)):
+        prev, miss = z[i0], 0
+        for i in rng:
+            c = [p for p in peaks[i] if good(p) and abs(p[0] - prev) < step_tol]
+            if not c:
+                miss += 1
+                if miss > max_gap:
+                    break
+                continue
+            miss = 0
+            z[i] = prev = min(c, key=lambda p: abs(p[0] - prev))[0]
+    f = np.isfinite(z)
+    i = np.arange(len(z))
+    inn = ~f & (i > i[f].min()) & (i < i[f].max())
+    z[inn] = np.interp(i[inn], i[f], z[f])
+    return z
+
+
+def crease_path(side, sigma=0.04):
+    """Smoothed crease height z(y) on one side (1 cm stations, CREASE_Y), see above. Returns (ys, z) and keeps the raw
+    ridge heights in CREASE[side]."""
+    if side in CREASE:
+        return CREASE[side]["y"], CREASE[side]["z"]
+    sg = 1 if side == "L" else -1
+    ys = np.round(np.arange(CREASE_Y[0], CREASE_Y[1] + 1e-9, CREASE_STEP), 3)
+    peaks = [crease_peaks(y, sg) for y in ys]
+    fz = _crease_track(ys, peaks, -1.20, (0.70, 0.83), (0.88, 1.0), 3.0)       # front fender: flare top edge
+    dz = _crease_track(ys, peaks, 0.0, (0.83, 0.93), (0.70, 0.87), 3.0)         # doors / rear quarter: tornado line
+    fz[ys > CREASE_FENDER_END] = np.nan
+    dz[ys < CREASE_DOOR_START] = np.nan
+
+    def smooth(a):
+        out = np.full_like(a, np.nan)
+        i = np.flatnonzero(np.isfinite(a))
+        out[i[0]:i[-1] + 1] = ndimage.gaussian_filter1d(a[i[0]:i[-1] + 1], sigma / CREASE_STEP, mode="nearest")
+        return out
+    fs, ds = smooth(fz), smooth(dz)
+    # straight continuations into the blend (fender: its last 12 cm; door: the 12 cm behind its rounded leading edge)
+    mf = (ys > CREASE_FENDER_END - 0.12) & (ys <= CREASE_FENDER_END) & np.isfinite(fs)
+    md = (ys >= -0.78) & (ys <= -0.66) & np.isfinite(ds)
+    zf = np.where(ys <= CREASE_FENDER_END, fs, np.polyval(np.polyfit(ys[mf], fs[mf], 1), ys))
+    zd = np.where(ys >= -0.78, ds, np.polyval(np.polyfit(ys[md], ds[md], 1), ys))
+    t = np.clip((ys - CREASE_BLEND[0]) / (CREASE_BLEND[1] - CREASE_BLEND[0]), 0, 1)
+    w = t * t * t * (t * (t * 6 - 15) + 10)
+    z = (1 - w) * zf + w * zd
+    ok = np.isfinite(z)
+    CREASE[side] = dict(y=ys[ok], z=z[ok], raw=np.where(ys <= CREASE_FENDER_END, fz, dz)[ok])
+    return CREASE[side]["y"], CREASE[side]["z"]
+
+
+def crease_z(side, y):
+    ys, z = crease_path(side)
+    return np.interp(y, ys, z)
+
+
+SH_FRONT_Y = -1.45              # first control station of the shoulder line (it is painted from the eyeliner branch on)
+TL_CACHE = os.path.join(SCRATCH, "bc", "taillamp_pts_v1.npz")
+
+
+def taillamp_points():
+    """Points on the tail-lamp meshes (lights / lights_glass / reflector at the rear corners), posmap frame, from the
+    kn5 (3 mm sampling of their triangles). Both sides. Geometry only -> cached."""
+    if os.path.exists(TL_CACHE):
+        return np.load(TL_CACHE)["P"]
+    sys.path.insert(0, os.path.join(LIV, "tools"))
+    import render_rs3
+    _, _, meshes = render_rs3.load_scene(render_rs3.DEFAULT_KN5, True)
+    out = []
+    for m in meshes:
+        if m["mat"] not in ("lights", "lights_glass", "reflector"):
+            continue
+        P = np.stack([m["pos"][:, 0], -m["pos"][:, 2], m["pos"][:, 1] + 0.07237756], 1)
+        for t in m["idx"].reshape(-1, 3):
+            a, b, c = P[t]
+            if min(a[1], b[1], c[1]) < 1.6 or max(abs(a[0]), abs(b[0]), abs(c[0])) < 0.25:
+                continue
+            n = int(max(2, math.ceil(max(np.linalg.norm(b - a), np.linalg.norm(c - a), np.linalg.norm(c - b)) / 0.003)))
+            u, v = np.meshgrid(np.linspace(0, 1, n + 1), np.linspace(0, 1, n + 1))
+            k = (u + v) <= 1
+            out.append(a + np.outer(u[k], b - a) + np.outer(v[k], c - a))
+    P = np.concatenate(out).astype(np.float32)
+    os.makedirs(os.path.dirname(TL_CACHE), exist_ok=True)
+    np.savez_compressed(TL_CACHE, P=P)
+    return P
+
+
+def shoulder_ctrl(side):
+    """Control points (y, z) of the shoulder cut line on one side: the extracted crease (crease_z) every 4 cm from
+    SH_FRONT_Y back to the station where the line's centre comes SH_REAR_AIR from the tail lamp."""
+    sg = 1 if side == "L" else -1
+    ys = np.arange(SH_FRONT_Y, CREASE_Y[1] - 0.005, 0.005)
+    z = crease_z(side, ys)
+    C = snap(list(zip(ys[ys > 1.5], z[ys > 1.5])), "side", SIDE_PARTS, side)
+    tl = taillamp_points()
+    tl = tl[tl[:, 0] * sg > 0]
+    dl = cKDTree(tl).query(C)[0]
+    k = np.flatnonzero(dl < SH_REAR_AIR)
+    y_end = float(C[k[0] - 1, 1]) if len(k) else float(ys[-1])
+    yc = list(np.arange(SH_FRONT_Y, y_end - 0.02, 0.04)) + [y_end]
+    CREASE.setdefault(side, {})["y_end"] = y_end
+    return [(float(y), float(crease_z(side, y))) for y in yc]
+
+
 
 
 def front_arch_y():
@@ -1042,6 +1243,135 @@ def headlight_rims():
     os.makedirs(os.path.dirname(HL_CACHE), exist_ok=True)
     np.savez_compressed(HL_CACHE, **out)
     return out
+
+
+class _OuterSurf:
+    """Outer (renderer-visible) skin of EYE_PARTS on one side, for gluing 3D curve points onto the mesh."""
+    def __init__(self, side):
+        idx = cand(EYE_PARTS, side)
+        self.idx = idx[OUTER[idx] & (POSF[idx, 1] < -1.25)]
+        self.P = POSF[self.idx]
+        self.N = NRMF[self.idx]
+        self.tree = cKDTree(self.P)
+
+    def snap(self, pts, k=6):
+        out = np.atleast_2d(np.asarray(pts, float)).copy()
+        for _ in range(3):
+            _, j = self.tree.query(out, k=k)
+            q = self.P[j].mean(1)
+            n = self.N[j].mean(1)
+            n /= np.linalg.norm(n, axis=1, keepdims=True)
+            out = out - ((out - q) * n).sum(1, keepdims=True) * n
+        return out
+
+
+# -------- nose: the front cut line goes on past the headlight around the TOP of the grille (Singleframe) and joins
+# the other side's line on the centreline. Its outline is taken from the kn5 like the lamp's: close-ups of the left
+# half of the nose in the front and front 3/4 views (renderer cameras and z-buffer), every pixel labelled skin / lamp /
+# grille (frame, honeycomb, rings: the plastic / chrome parts in front of the bumper inside |x| < 0.47) / other part.
+NOSE_CACHE = os.path.join(SCRATCH, "bc", "nose_rims_v1.npz")
+NOSE_BOX = (-0.10, 0.25, 1.75, 0.95, 0.95, 2.25)     # renderer world (x, y up, z front) - left half of the nose
+NOSE_VIEWS = ("front", "front34_left")
+NOSE_PARTS = ["hood", "nose"]
+GRILLE_GAP = 0.035     # line centre -> grille outline (m): 2.4 cm of clear paint to the grille edge
+GRILLE_C = (0.0, 0.50)  # (x, z) centre of the grille in the front plane (orders the grille contour by angle)
+
+
+def nose_rims():
+    """3D points (posmap frame) of skin pixels touching the grille (rim_gr), the lamp (rim_hl) or any other part
+    (rim_ot) in close-ups of the left half of the nose, plus per view the lamp / grille masks and the camera (for the
+    visible-air report). Geometry only, cached in the scratchpad; the right side is the mirror image."""
+    if os.path.exists(NOSE_CACHE):
+        d = np.load(NOSE_CACHE, allow_pickle=True)
+        return {k: d[k] for k in d.files}
+    sys.path.insert(0, os.path.join(LIV, "tools"))
+    import render_rs3 as R
+    sc = R.Scene(R.DEFAULT_KN5, SRC, interior=False)
+    to_pm = lambda p: np.stack([p[..., 0], -p[..., 2], p[..., 1] + 0.07237756], -1)
+    V = to_pm(sc.P[sc.T])
+    c = V.mean(1)
+    mat = np.array(sc.mat_names)[sc.TM]
+    front = (c[:, 1] < -1.45) & (c[:, 1] > -2.2) & (c[:, 2] > 0.5) & (c[:, 2] < 0.9) & (np.abs(c[:, 0]) > 0.3)
+    core = np.isin(mat, ["lights", "reflector"]) & front
+    lo, hi = V[core].reshape(-1, 3).min(0), V[core].reshape(-1, 3).max(0)
+    ax = np.abs(V[..., 0])
+    xl, xh = np.abs(V[core][..., 0]).min(), np.abs(V[core][..., 0]).max()
+    inb = (ax >= xl - 0.01) & (ax <= xh + 0.01) & (V[..., 1] >= lo[1] - 0.01) & (V[..., 1] <= hi[1] + 0.035) & \
+          (V[..., 2] >= lo[2] - 0.008) & (V[..., 2] <= hi[2] + 0.008)
+    is_hl = core | (np.isin(mat, ["black", "ext_plastic"]) & inb.all(1))          # (as in headlight_rims)
+    is_gr = np.isin(mat, ["ext_plastic", "reshotka", "chrome", "black"]) & (c[:, 1] < -2.04) & \
+        (np.abs(c[:, 0]) < 0.47) & (c[:, 2] > 0.29) & (c[:, 2] < 0.74) & ~is_hl
+    skin_mid = sc.mat_names.index("skin")
+    W, H = 1600, 900
+    out = dict(gr_tris=np.array(int(is_gr.sum())))
+    acc = {"hl": [], "gr": [], "ot": []}
+    for v in NOSE_VIEWS:
+        eye, f, rgt, up = R.view_camera(v)
+        rel = sc.P - eye
+        Dv = rel @ f
+        cx_, cy_ = rel @ rgt / Dv, rel @ up / Dv
+        blo, bhi = np.array(NOSE_BOX[:3]), np.array(NOSE_BOX[3:])
+        corners = np.array([[(blo, bhi)[i][0], (blo, bhi)[j][1], (blo, bhi)[k][2]]
+                            for i in (0, 1) for j in (0, 1) for k in (0, 1)])
+        rc = corners - eye
+        dc = rc @ f
+        ux, uy = rc @ rgt / dc, rc @ up / dc
+        fpx = min(W * 0.86 / (ux.max() - ux.min()), H * 0.86 / (uy.max() - uy.min()))
+        mx, my = (ux.min() + ux.max()) / 2, (uy.min() + uy.max()) / 2
+        X = (cx_ - mx) * fpx + W / 2
+        Y = -(cy_ - my) * fpx + H / 2
+        opaque = ~sc.is_glass[sc.TM] & sc.tri_ok
+        gid = np.nonzero(opaque)[0]
+        zb, tid, B1, B2 = R.rasterize(X, Y, Dv, sc.T[opaque], sc.bias[sc.TM][opaque], W, H, None)
+        tid = np.where(tid >= 0, gid[np.maximum(tid, 0)], -1)
+        hit = tid >= 0
+        t_ = np.maximum(tid, 0)
+        lab = np.zeros(W * H, np.int8)               # 0 none, 1 skin, 2 lamp, 3 grille, 4 any other part
+        lab[hit] = 4
+        lab[hit & (sc.TM[t_] == skin_mid)] = 1
+        lab[hit & is_hl[t_]] = 2
+        lab[hit & is_gr[t_]] = 3
+        tri = sc.T[t_]
+        p = sc.P[tri[:, 0]] * (1 - B1 - B2)[:, None] + sc.P[tri[:, 1]] * B1[:, None] + sc.P[tri[:, 2]] * B2[:, None]
+        pm = to_pm(p).reshape(H, W, 3).astype(np.float32)
+        lab = lab.reshape(H, W)
+        sk = lab == 1
+        for k_, nm in ((2, "hl"), (3, "gr"), (4, "ot")):
+            nb = ndimage.binary_dilation(lab == k_, iterations=2) & sk
+            acc[nm].append(pm[nb])
+        out["lamp_" + v] = np.packbits(lab == 2)
+        out["grille_" + v] = np.packbits(lab == 3)
+        out["cam_" + v] = np.array([*to_pm(eye[None])[0], *to_pm(f[None])[0] - np.array([0, 0, 0.07237756]),
+                                    *(to_pm(rgt[None])[0] - np.array([0, 0, 0.07237756])),
+                                    *(to_pm(up[None])[0] - np.array([0, 0, 0.07237756])), mx, my, fpx, W, H])
+    for k_ in acc:
+        out["rim_" + k_] = np.concatenate(acc[k_])
+    os.makedirs(os.path.dirname(NOSE_CACHE), exist_ok=True)
+    np.savez_compressed(NOSE_CACHE, **out)
+    return out
+
+
+class _EyeSurf:
+    """Outer (renderer-visible) skin of the front cut line's panels on one side, centreline strip included (|x| up
+    to 4 mm past the centre), for gluing 3D curve points onto the mesh."""
+    def __init__(self, side):
+        sg = 1 if side == "L" else -1
+        idx = np.flatnonzero(np.isin(PARTF, [PID[p] for p in EYE_PARTS + NOSE_PARTS]) & PAINTF)
+        P = POSF[idx]
+        self.idx = idx[OUTER[idx] & (P[:, 1] < -1.25) & (P[:, 0] * sg > -0.004)]
+        self.P = POSF[self.idx]
+        self.N = NRMF[self.idx]
+        self.tree = cKDTree(self.P)
+
+    def snap(self, pts, k=6):
+        out = np.atleast_2d(np.asarray(pts, float)).copy()
+        for _ in range(3):
+            _, j = self.tree.query(out, k=k)
+            q = self.P[j].mean(1)
+            n = self.N[j].mean(1)
+            n /= np.linalg.norm(n, axis=1, keepdims=True)
+            out = out - ((out - q) * n).sum(1, keepdims=True) * n
+        return out
 
 
 class _OuterSurf:
@@ -1904,11 +2234,10 @@ def paint_body():
     print(f"   hood cut line meets the shoulder line at x=+-{xj:.3f} y={yj:.3f} (z {Ch[-1, 2]:.3f} vs shoulder "
           f"{float(np.interp(s_j, SL, CL[:, 2])):.3f}); {nper + 1} dashes, stretch {(nper * DPER + DASH[0]) / Lh:.4f}; "
           f"R shoulder there x={float(np.interp(s_j, arclen(shoulder['R']), shoulder['R'][:, 0])):.3f}")
+    # roof cut lines: dashed burgundy only - no white keyline beside them on the roof (client)
     for yl in (-0.24, 1.10):
         rl = snap([(x, yl) for x in np.linspace(-0.60, 0.60, 17)], "top", ["roof", "roof_rail"])
         curve_line(rl, ["roof", "roof_rail"], None, 0.011, INK, dash=(0.075, 0.045), resnap_mode="top")
-        kl = snap([(x, yl + (0.024 if yl < 0 else -0.024)) for x in np.linspace(-0.60, 0.60, 17)], "top", ["roof", "roof_rail"])
-        curve_line(kl, ["roof", "roof_rail"], None, 0.0036, (250, 248, 255), resnap_mode="top")
 
 
 def pill(art, padx, pady, fill, line=(255, 214, 232), lw=None):
@@ -2029,13 +2358,47 @@ def raf_badge(D):
     return disc.resize((D, D), Image.LANCZOS)
 
 
+def raf_pill(D):
+    """РАФ for the sill row on the BR ENGINEERING treatment: deep-ink pill of height D (px) with the pink hairline,
+    the emblem in white in its left end (scaled uniformly so its smallest enclosing circle sits concentric with the
+    rounded end, 4 % of D clear of the hairline - the raf_badge disc), followed by «РАФ» in white Unbounded Black at
+    the cap height of the ENGINEERING letters (70 % of the BR logo's height D - 1 cm, measured on
+    br_engineering_black.png), centred on the pill. On its own the round badge read as a dot next to the 15-43 cm
+    plates; with the word it has the same letter height as its neighbour."""
+    S = 4
+    lw = max(2, D // 26)                       # (pill(): hairline = height // 26)
+    k, ox, oy = raf_circle()
+    eh = int((D - 2 * lw - 2 * 0.04 * D) / k)
+    em = asset_mono("raf_black.png", eh * S, WHITE)
+    cap = 0.70 * (D - px(0.010))
+    f = F_NUM(int(cap * S * 1.4))
+    bb_p = f.getbbox("Р")
+    kc = cap * S / (bb_p[3] - bb_p[1])         # uniform scale: Р (cap height) -> cap
+    word = text_mask("РАФ", f, track=0.06)
+    word = word.resize((max(1, round(word.width * kc)), max(1, round(word.height * kc))), Image.LANCZOS)
+    wb = word.getbbox()
+    word = word.crop(wb)
+    bb_w = f.getbbox("РАФ")
+    top_cap = (bb_p[1] - bb_w[1]) * kc         # Ф reaches above / below the caps: centre the cap band, not the ink
+    Ds, gap, padr = D * S, int(0.22 * D * S), int(px(0.012) * S)
+    W = Ds + gap + word.width + padr
+    out = Image.new("RGBA", (W, Ds), (0, 0, 0, 0))
+    d = ImageDraw.Draw(out)
+    d.rounded_rectangle([0, 0, W - 1, Ds - 1], radius=Ds // 2, fill=(255, 214, 232, 255))
+    d.rounded_rectangle([lw * S, lw * S, W - 1 - lw * S, Ds - 1 - lw * S], radius=Ds // 2 - lw * S, fill=INK_D + (255,))
+    out.alpha_composite(em, (int(round(Ds / 2 - em.width / 2 - ox * em.height)),
+                             int(round(Ds / 2 - em.height / 2 - oy * em.height))))
+    out.alpha_composite(solid(word, WHITE), (Ds + gap, int(round(Ds / 2 - cap * S / 2 - top_cap))))
+    return out.resize((round(W / S), D), Image.LANCZOS)
+
+
 PEARL_PAD = (250, 244, 250)
 
 
 def sill_art(kind, H):
     """Sill-row logo on its backer, scaled uniformly to the common outer height H (m)."""
-    if kind == "raf":                # round deep-ink badge, diameter = H (the emblem is round, see raf_badge)
-        a = raf_badge(px(H))
+    if kind == "raf":                # deep-ink pill: emblem + «РАФ» at the BR ENGINEERING cap height (raf_pill)
+        a = raf_pill(px(H))
     elif kind == "breng":            # white on a deep-ink pill (unchanged treatment)
         a = pill(asset_mono("br_engineering_black.png", px(H - 0.010), WHITE), px(0.012), px(0.005), INK_D)
     elif kind == "driveoil":         # the brand's own orange plate (as behind the rear wheel)
@@ -2537,6 +2900,76 @@ def centre_in_glass(vis, box, w, h, r, rot):
     return best[1], best[2], best[0]
 
 
+EP_CACHE = os.path.join(SCRATCH, "bc", "endplate_faces_v1.npz")
+EP_MARGIN = 10.0        # px of glass_sticker (570 px/m on the wing): ~1.8 cm clear around the KARTING64 pad
+_EP_POS = {}
+
+
+def endplate_faces():
+    """Outer faces of the two rear-wing endplates in glass_sticker.dds px (1024), from the kn5: the sticker
+    triangles of the endplate mesh (Plane.033, wing sticker material) rasterised at 4x and reduced to the texels that lie fully inside.
+    One face per endplate (normal +-x, outward); texture x runs along world -z (left plate) / +z (right plate) and
+    texture y along world -y, i.e. both read un-mirrored from outside. Geometry only -> cached."""
+    if os.path.exists(EP_CACHE):
+        d = np.load(EP_CACHE)
+        return {k: d[k] for k in ("L", "R")}
+    sys.path.insert(0, os.path.join(LIV, "tools"))
+    import render_rs3
+    _, _, meshes = render_rs3.load_scene(render_rs3.DEFAULT_KN5, True)
+    S = 4
+    out = {}
+    for nm in ("L", "R"):
+        mk = Image.new("L", (1024 * S, 1024 * S), 0)
+        dr = ImageDraw.Draw(mk)
+        for m in meshes:
+            if m["mat"] not in ("glass_sticker", "ext_sticker") or not m["name"].endswith("Plane.033"):
+                continue
+            I = m["idx"].reshape(-1, 3)
+            tx, ty = (m["uv"][:, 0] % 1) * 1024, (m["uv"][:, 1] % 1) * 1024
+            for t in I:
+                if ty[t].min() < 745 or ty[t].max() > 870 or tx[t].max() > 545:
+                    continue
+                if (m["pos"][t, 0].mean() > 0) != (nm == "L"):
+                    continue
+                dr.polygon([(tx[i] * S, ty[i] * S) for i in t], fill=255)
+        a = np.asarray(mk) > 0
+        out[nm] = a.reshape(1024, S, 1024, S).all(axis=(1, 3))
+    os.makedirs(os.path.dirname(EP_CACHE), exist_ok=True)
+    np.savez_compressed(EP_CACHE, **out)
+    return out
+
+
+def endplate_layout():
+    """KARTING64 pad on the endplates: one common pad height for both plates (the largest that keeps >= EP_MARGIN
+    px from the edge of BOTH visible faces and from the holo bands along their long edges), each centred where its
+    smallest clearance is largest. Returns {side: (pad height px, cx, cy, clearance px, face bbox)}."""
+    faces = endplate_faces()
+    S = 4
+    p40 = k64_pad(40 * S)
+    asp = p40.width / p40.height
+    free, box = {}, {}
+    for nm in ("L", "R"):
+        f = faces[nm].copy()
+        f[:766] = False                        # holo band + white line along the top edge
+        f[850:] = False                        # ... and along the bottom edge
+        ys_, xs_ = np.nonzero(faces[nm])
+        free[nm], box[nm] = f, [int(xs_.min()), int(ys_.min()), int(xs_.max()), int(ys_.max())]
+    hp0 = math.floor(min(850 - 766 - 2 * EP_MARGIN, min((b[2] - b[0] - 2 * EP_MARGIN) / asp for b in box.values())))
+    for hp in np.arange(float(hp0), 20.0, -1.0):
+        pad_ = k64_pad(hp * S)
+        w_, h_ = pad_.width / S, pad_.height / S
+        res = {nm: centre_in_glass(free[nm], box[nm], w_, h_, h_ / 2, 0.0) for nm in ("L", "R")}
+        if min(r[2] for r in res.values()) >= EP_MARGIN:
+            break
+    return {nm: (float(hp), r[0], r[1], r[2], box[nm]) for nm, r in res.items()}
+
+
+def k64_pad(h):
+    """KARTING64 artwork (kart, pilot, RU-flag stripes; no lettering) on the pearl pad of the sill row, pad height h px
+    (same proportions as the sill pad: art 75 % of the pad height, 21 % / 12.5 % padding)."""
+    return pill(asset_karting64(int(h * 0.75)), int(h * 0.208), int(h * 0.125), PEARL_PAD, line=INK_D)
+
+
 NAME_SCALE = 0.85       # side-window name plate: 15 % smaller than the 386 x 82 px strip (same aspect ratio)
 _NAME_POS = {}
 
@@ -2642,7 +3075,14 @@ def glass_sticker(driver, num):
     gplace(G, "wing_arka", asset_arka(66 * S, taimcafe=False), k([300, 893, 745, 978]), rot=180, edge=0)
     for cx in (175, 870):
         gplace(G, "wing_sparkle", sparkle(17 * S), k([cx - 42, 894, cx + 42, 977]), rot=180, edge=0)
-    # endplates: burgundy, Saratov flag + «64», holo band along both long edges
+    # endplates: burgundy, holo band along both long edges, and ONLY the KARTING64 logo (kart artwork, no lettering)
+    # on its pearl pad (the sill treatment), as large as the visible outer face allows (client: the Saratov flag + «64»
+    # are gone). Both faces are mapped un-mirrored seen from outside (texture x = toward the rear on the left plate,
+    # toward the front on the right one, texture y = down; see endplate_faces), so the art goes on as drawn, not
+    # flipped, on both. Size and centre: the largest pad whose outline keeps >= EP_MARGIN px (~1.8 cm) from the edge
+    # of the visible face (the face's chamfered / rounded corners from the kn5 UVs) and from the holo bands.
+    if not _EP_POS:
+        _EP_POS.update(endplate_layout())
     for nm, (ex0, ex1) in (("R", (110, 305)), ("L", (326, 521))):
         d.rectangle(k([ex0, 757, ex1, 859]), fill=INK + (255,))
         hb = holo_rgb((ex1 - ex0) * S, 7 * S, 1.6).convert("RGBA")
@@ -2650,8 +3090,16 @@ def glass_sticker(driver, num):
         G.alpha_composite(hb, (ex0 * S, 852 * S))
         d.rectangle(k([ex0, 764, ex1, 765]), fill=(250, 248, 255, 255))
         d.rectangle(k([ex0, 850, ex1, 851]), fill=(250, 248, 255, 255))
-        bl = row([saratov_flag(66 * S, 44 * S), chrome_text("64", F_NUM(44 * S), 3 * S)], 10 * S)
-        gplace(G, f"endplate_{nm}", fit_box(bl, 150 * S, 64 * S), k([ex0 + 5, 768, ex1 - 5, 849]), edge=0)
+        hp, cx, cy, clr, box = _EP_POS[nm]
+        pad_ = k64_pad(hp * S)
+        gplace(G, f"endplate_k64_{nm}", pad_, k(box), cx=cx * S, cy=cy * S, edge=0)
+        mm_px = 1000.0 / 570.0
+        GCHECKS[-1].update(size_px=[round(pad_.width / S), round(pad_.height / S)],
+                           size_cm=[round(pad_.width / S * mm_px / 10, 1), round(pad_.height / S * mm_px / 10, 1)],
+                           centre_px=[round(cx), round(cy)], visible_face_clear_px=round(clr, 1),
+                           visible_face_clear_mm=round(clr * mm_px))
+        if clr < EP_MARGIN:
+            GCHECKS[-1]["status"] = "FAIL: KARTING64 pad too close to the endplate edge / bands"
     out = G.resize((1024, 1024), Image.LANCZOS)
     # side-window zones (only the name plates there): the transparent texels around the plate take the colour of the
     # nearest plate texel. The downsample leaves random colours in near-zero-alpha texels, and the DXT5 colour
