@@ -636,14 +636,15 @@ def smoothstep_aa(d, half_w, aa=0.0013):
 
 
 # -------- belly line B(y): top of the holographic lower band (follows door crease + wide-body flare)
-# Along the sill and over the rear door as before (the swoosh crests at y ~1.04). From there the band WRAPS ROUND THE
-# REAR WHEEL ARCH: its edge follows the arch lip - extracted from the mesh (rear_arch_lip) - at a constant BAND_LIP
-# (perpendicular, in the side plane) all the way over the wheel and down its rear side, so a holo strip hugs the lip;
-# behind the wheel it runs on along the wide-body flare's upper part (the flare's lower / rear area below it is
-# holo), turns down at the flare's trailing edge in one smooth S and flows into the strip at the bottom of the rear
-# bumper (under the black lower-trim fin) at 0.45. One continuous band: its chrome keyline and the dashed cut line
-# 2.2 cm above it run all the way round.
-BAND_LIP = 0.035
+# Along the sill and over the rear door the band edge is as before: the swoosh crests at y ~1.04 and dives into the
+# rear wheel arch's front lip (the dashed line above it sweeps up into the shoulder line there, belly_connector).
+# Behind the wheel the band carries on round the arch (client): its edge comes back out of the opening at the arch's
+# rear-upper lip (BAND_EMERGE_Z, found on the lip profile extracted from the mesh), leaves it in a smooth curve, runs
+# back along the wide-body flare's side face - the flare's lower / rear area below it is holo - kept clear of the
+# flare's up-facing top (an iso-height line would smear across it), turns down the flare's trailing edge and flows
+# into the strip at the bottom of the rear bumper at 0.45, where its keyline runs along the black lower-trim fin
+# (band_edge). The dashed cut line 2.2 cm above it comes out of the arch lip with it.
+BAND_EMERGE_Z = 0.718      # height on the arch's rear lip where the band edge comes back out of the opening
 
 
 def rear_arch_lip(y0=0.96, y1=1.79, step=0.01):
@@ -664,18 +665,17 @@ def rear_arch_lip(y0=0.96, y1=1.79, step=0.01):
 
 def _band_pts():
     ys, zl = rear_arch_lip()
-    t = np.stack([np.gradient(ys), np.gradient(zl)], 1)
-    t /= np.linalg.norm(t, axis=1, keepdims=True)
-    n = np.stack([-t[:, 1], t[:, 0]], 1)               # left normal of a curve run front -> rear = up / out
-    off = np.stack([ys, zl], 1) + BAND_LIP * n
-    off = off[(off[:, 0] > 1.05) & (off[:, 0] < 1.66) & (off[:, 1] > 0.757)]
+    top = int(np.argmax(zl))
+    rear = np.flatnonzero((np.arange(len(ys)) > top) & (zl <= BAND_EMERGE_Z))
+    ye = float(ys[rear[0]])                       # (y ~1.56) the band edge leaves the rear lip here
     front = [(-2.40, 0.315), (-1.72, 0.315), (-1.06, 0.40), (0.30, 0.40), (0.42, 0.418), (0.52, 0.442), (0.62, 0.478),
-             (0.72, 0.528), (0.82, 0.598), (0.92, 0.676), (0.985, 0.728), (1.035, 0.740)]
-    over = [tuple(p) for p in off[::3]]
-    rear = [(1.72, 0.690), (1.80, 0.672), (1.88, 0.652), (1.935, 0.605), (1.97, 0.53), (2.00, 0.472), (2.06, 0.452),
-            (2.15, 0.45), (2.50, 0.45)]
-    pts = front + over + [p for p in rear if p[0] > over[-1][0] + 0.03]
-    return pts
+             (0.72, 0.528), (0.82, 0.598), (0.92, 0.676), (0.985, 0.728), (1.035, 0.740), (1.085, 0.728),
+             (1.13, 0.700), (1.20, 0.620)]
+    inside = [(1.35, 0.60), (ye - 0.11, 0.65), (ye - 0.04, BAND_EMERGE_Z - 0.018)]     # (in the wheel opening)
+    flare = [(ye, BAND_EMERGE_Z), (ye + 0.04, BAND_EMERGE_Z - 0.010), (ye + 0.09, BAND_EMERGE_Z - 0.028),
+             (ye + 0.16, BAND_EMERGE_Z - 0.053), (ye + 0.24, BAND_EMERGE_Z - 0.070), (ye + 0.32, BAND_EMERGE_Z - 0.085)]
+    drop = [(1.925, 0.612), (1.95, 0.57), (1.97, 0.49), (1.985, 0.455), (2.00, 0.45), (2.50, 0.45)]
+    return front + inside + [p for p in flare if p[0] < 1.90] + drop
 
 
 B_PTS = _band_pts()
@@ -738,6 +738,7 @@ def band_edge(P):
                 SLOT_LOG[side] = None
                 continue
             zb, _ = b_curve(ys)
+            ok &= zb - np.where(ok, bot, 9.0) < 0.03          # (only where the band edge runs along the slot)
             want = np.where(ok, np.minimum(zb, np.where(ok, bot, 9.0) - SLOT_GAP - 0.0075), zb)
             dip = ndimage.gaussian_filter1d(zb - want, 3.0, mode="nearest")      # (smooth in / out, ~1.5 cm)
             SLOT_LOG[side] = dict(y=ys, dip=dip, y_range=[round(float(ys[ok].min()), 3), round(float(ys[ok].max()), 3)],
@@ -756,6 +757,9 @@ def paint_belly():
     k = np.sqrt(1 + dz ** 2)
     ze, _ = band_edge(P)
     dist_e = (P[:, 2] - ze) / k                     # signed distance to the band edge / keyline (+ above)
+    dout = np.stack([P[:, 0], P[:, 1] - np.clip(P[:, 1], -1.7, 1.7), np.zeros(len(P))], 1)
+    dout /= np.maximum(np.linalg.norm(dout, axis=1, keepdims=True), 1e-6)
+    outward = (NRMF[idx] * dout).sum(1) > -0.2
     dist = (P[:, 2] - z) / k                        # signed perpendicular distance to B (+ above)
     # holo band below B: iridescent field from world position, slightly brighter toward the top edge
     # ~2.5 full spectrum cycles along one side
@@ -769,11 +773,12 @@ def paint_belly():
     # lines stop where B dives steeply into the rear wheel arch (the band edge meets the arch lip there)
     # (the keyline follows B down the rear-arch dive so it runs into the arch lip instead of stopping short)
     flat = (np.abs(dz) < 2.5).astype(np.float32)
-    blend(idx, INK_D, smoothstep_aa(np.abs(dist_e + 0.0003), 0.0092), obstacle=True)
+    blend(idx[outward], INK_D, smoothstep_aa(np.abs(dist_e[outward] + 0.0003), 0.0092), obstacle=True)
     # 15 mm graded chrome: bright white edge -> grey core -> white edge
     u = np.clip(np.abs(dist_e) / 0.0075, 0, 1)
     chrome = np.interp(u, [0, 0.35, 0.7, 1.0], [150, 205, 250, 238])[:, None] * np.array((1.0, 0.98, 1.04), np.float32)
-    blend(idx, np.clip(chrome, 0, 255), smoothstep_aa(np.abs(dist_e), 0.0075), obstacle=True)
+    blend(idx[outward], np.clip(chrome[outward], 0, 255), smoothstep_aa(np.abs(dist_e[outward]), 0.0075),
+          obstacle=True)
     # dashed butcher line 2.2 cm above the band edge, rounded dash ends, continuous around the car
     # arc-length parameter: along the side it is the arc of B(y); around the nose / tail corners the lateral
     # term continues it (sign follows the direction of travel, so dashes keep their length when the
@@ -781,10 +786,10 @@ def paint_belly():
     global REAR_K
     REAR_K = rear_k_centred(P, dist)
     s = belly_s(P)
-    # the dashed line rides 2.2 cm above the band edge all the way: over the rear door, round the rear wheel arch with
-    # the band, along the flare and down into the bumper strip (no sweep up into the shoulder line any more - the band
-    # no longer dives into the arch, so the line never ends in mid-panel)
-    keep = flat > 0
+    # over the rear door the dashed line leaves B and sweeps up into the shoulder line (belly_connector), so it never
+    # ends in mid-panel; behind the arch it comes back out of the lip with the band edge. Keyline and dashes only on
+    # skin that faces out of the car (not on the inner faces of the flares / arch returns, which share the height)
+    keep = (flat > 0) & ~((P[:, 1] > BELLY_SPLIT) & (P[:, 1] < 1.45) & (P[:, 2] > 0.46)) & outward
     # at the nose the dashed line does not run on along the bumper corner ahead of the front wheel (toward the air
     # intakes): it ends in the front wheel opening; the front of the chart is closed by the cut line along the
     # headlight (eyeliner_curve)
@@ -803,7 +808,8 @@ def paint_belly():
     # (1) truncated: the dash body is checked in three strips across its width (lower / centre / upper 6 mm);
     #     each strip must run the full 7.5 cm with no hole > 1.2 cm (door shut lines are < 0.6 cm). A strip that
     #     is missing (the trim notch takes the lower half of a dash) or broken counts as a cut dash; so does a dash
-    #     that runs over a step of the body (see below).
+    #     that runs over a step of the body (see below). Dashes at the hand-over to the rear-door connector are cut
+    #     there on purpose (the connector carries them on): exempt.
     off = dist - 0.022
     body = keep & covf & (d_c < 0.009) & (loc < DASH[0])
     bi = np.flatnonzero(body)
@@ -816,6 +822,8 @@ def paint_belly():
         if not len(g):
             continue
         ys = P[bi[g], 1]
+        if (ys.max() > BELLY_SPLIT - 0.10) and (ys.min() < BELLY_SPLIT + 0.10):
+            continue                   # (cut at the hand-over to the connector on purpose: it carries them on)
         if ys.min() > 2.0 and np.abs(P[bi[g], 0]).min() < 0.005:
             continue                   # the tail centre dash: its two mirrored halves each run 0 .. on/2
         worst = 0.0
@@ -879,6 +887,7 @@ OUTER = None        # texels visible in at least one standard view
 FRONT_ARCH_Y = -1.32           # middle of the front wheel opening at belly height (set by front_arch_y)
 
 
+BELLY_SPLIT = 0.86
 REAR_K = 1.0                   # lateral stretch of the dash coordinate around the tail (set in paint_belly)
 
 
@@ -993,6 +1002,52 @@ DPER = DASH[0] + DASH[1]
 def _wrap(v):
     """wrap a dash-phase difference into [-DPER/2, DPER/2)"""
     return (v + DPER / 2) % DPER - DPER / 2
+
+
+def sweep(side, P0, t0, s_start, P3, t3, s_end, h0=0.10, h3=0.09, clip=None, extra=None, ymin=None):
+    """Dashed cubic sweep in the side (y,z) plane from P0 (tangent t0, dash coordinate s_start) to P3 (tangent t3).
+    The dash coordinate is stretched by a few percent so it arrives at P3 exactly in phase with s_end: where the
+    sweep merges into another dashed line, the dashes coincide instead of doubling into a blob.
+    `clip` = (n,3) centre-line of the line it merges into; sweep paint closer than 1.6 cm to it is dropped."""
+    t0 = np.asarray(t0, float) / np.linalg.norm(t0)
+    t3 = np.asarray(t3, float) / np.linalg.norm(t3)
+    P0, P3 = np.asarray(P0, float), np.asarray(P3, float)
+    ctrl = [P0, P0 + t0 * h0] + ([np.asarray(e, float) for e in extra] if extra else []) + [P3 - t3 * h3, P3]
+    if extra:
+        pts2 = catmull3([tuple(c) for c in [P0] + [np.asarray(e, float) for e in extra] + [P3]], 30)
+    else:
+        tt = np.linspace(0, 1, 60)[:, None]
+        q0, q1, q2, q3 = ctrl
+        pts2 = ((1 - tt) ** 3) * q0 + 3 * ((1 - tt) ** 2) * tt * q1 + 3 * (1 - tt) * tt ** 2 * q2 + tt ** 3 * q3
+    c3 = snap([tuple(q) for q in pts2], "side", SIDE_PARTS, side)
+    C = catmull3(c3, 60)
+    C = snap([(p[1], p[2]) for p in C], "side", SIDE_PARTS, side, exact=True)
+    C[:, 0] = ndimage.uniform_filter1d(C[:, 0], 9, mode="nearest")
+    L = float(np.sum(np.linalg.norm(np.diff(C, axis=0), axis=1)))
+    delta = L + _wrap(s_end - s_start - L)
+    curve_line(c3, SIDE_PARTS, side, 0.011, INK, dash=DASH, phase=s_start, resnap_mode="side",
+               scale=delta / L, clip=clip, ymin=ymin)
+    return C
+
+
+def belly_connector(side, a_pts, shoulder_C, phase=0.0, y3=1.34):
+    """Dashed sweep that carries the belly cut line from the rear-door flare up into the shoulder line
+    (tangent-continuous at the start, merges into the shoulder line tangentially well behind the rear-door gap),
+    dash phase continuous at both ends."""
+    y0 = BELLY_SPLIT
+    z0, dz0 = b_curve(np.array([y0]))
+    k0 = math.sqrt(1 + dz0[0] ** 2)
+    # point on the dashed centre line (2.2 cm perpendicular above B) and its tangent
+    py, pz = y0 - 0.022 * dz0[0] / k0, z0[0] + 0.022 / k0
+    t0 = np.array([1.0, dz0[0]])
+    ay, az = np.array(a_pts).T
+    z3 = float(np.interp(y3, ay, az))
+    slope = (np.interp(y3 + 0.02, ay, az) - np.interp(y3 - 0.02, ay, az)) / 0.04
+    x0 = snap([(py, pz)], "side", SIDE_PARTS, side)[0, 0]
+    s0 = float(belly_s(np.array([[x0, py, pz]]))[0])
+    S = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(shoulder_C, axis=0), axis=1))])
+    s3 = float(np.interp(y3, shoulder_C[:, 1], S)) + phase
+    return sweep(side, (py, pz), t0, s0, (y3, z3), (1.0, slope), s3, h0=0.12, h3=0.16, clip=shoulder_C)
 
 
 # -------- the shoulder cut line's path: the Audi «tornado» crease, extracted from the mesh (not drawn by eye)
@@ -2703,6 +2758,7 @@ def paint_body():
         C = curve_line(c3[s], SIDE_PARTS, s, 0.011, INK, dash=DASH, phase=phase, resnap_mode="side", trim=(-1.0, S_B))
         shoulder[s] = C
         SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
+        belly_connector(s, A_PTS[s], C, phase)
         Se = arclen(eye)
         k1, k2, s_n, s_e = eyeliner_dash(float(Se[-1]), E["a_neck"], S_B + phase)
         sd = np.where(Se <= E["a_neck"], S_B + phase - k1 * Se, s_n - k2 * (Se - E["a_neck"]))
