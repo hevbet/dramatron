@@ -1,38 +1,38 @@
-OK     number_door_L              [42.0, 28.3]   cov=1.000 edge=  5.6cm tilt= 10.5° level=-0.03°(side) in_mask=1.0 mask_clear=5.9cm lines=6.5cm
-OK     simkart_door_L             [42.0, 17.3]   cov=1.000 edge=  2.3cm tilt=  2.5° level=-0.0°(side) in_mask=1.0 mask_clear=2.5cm lines=10.4cm
+OK     number_door_L              [42.0, 28.3]   cov=1.000 edge=  5.6cm tilt= 10.6° level=-0.03°(side) in_mask=1.0 mask_clear=5.9cm lines=6.0cm
+OK     simkart_door_L             [40.0, 16.5]   cov=1.000 edge=  2.4cm tilt=  2.5° level=-0.0°(side) in_mask=1.0 mask_clear=2.5cm lines=10.9cm
 OK     arka_door_L                [37.0, 27.5]   cov=1.000 edge=  5.0cm tilt=  8.7° level=-0.08°(side) in_mask=1.0 mask_clear=5.2cm lines=5.1cm
-OK     label_koreika_L            [20.6, 5.2]    cov=1.000 edge=  1.2cm tilt=  5.3° level=-0.28°(side) in_mask=1.0 mask_clear=2.3cm lines=5.1cm
+OK     label_koreika_L            [20.6, 5.2]    cov=1.000 edge=  2.2cm tilt= 10.0° level=-0.03°(side) in_mask=1.0 mask_clear=2.3cm lines=6.8cm
 OK     label_grudinka_L           [46.7, 6.0]    cov=1.000 edge=  1.9cm tilt=  0.0° level=0.0°(side) in_mask=1.0 mask_clear=1.9cm lines=5.5cm
 OK     label_okorok_L             [42.5, 6.4]    cov=1.000 edge=  2.1cm tilt=  5.3° level=-0.01°(side) in_mask=1.0 mask_clear=2.2cm lines=3.0cm
 OK     smp_low_L                  [26.6, 7.4]    cov=1.000 edge=  2.2cm tilt= 10.1° level=0.15°(side) in_mask=1.0 mask_clear=2.3cm lines=3.1cm
-OK     driveoil_L                 [20.9, 5.8]    cov=1.000 edge=  1.4cm tilt=  4.0° level=-0.01°(side) in_mask=1.0 mask_clear=1.4cm lines=10.2cm
-OK     sill_raf_L                 [4.8, 4.8]     cov=1.000 edge=  1.2cm tilt=  3.9° level=-0.81°(side) in_mask=1.0 mask_clear=2.6cm lines=14.7cm decals=4.5cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
-OK     sill_breng_L               [42.8, 4.8]    cov=1.000 edge=  1.4cm tilt=  8.8° level=-0.12°(side) in_mask=1.0 mask_clear=2.9cm lines=14.5cm decals=4.1cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
-OK     sill_driveoil_L            [17.2, 4.8]    cov=1.000 edge=  2.7cm tilt=  8.0° level=0.11°(side) in_mask=1.0 mask_clear=3.6cm lines=14.8cm decals=6.1cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
+OK     k64_driveoil_flare_L       [20.0, 14.5]   cov=1.000 edge=  1.8cm tilt=  3.4° level=-0.01°(side) in_mask=1.0 mask_clear=2.6cm lines=1.8cm decals=90.1cm hidden={'side_left': 0.0, 'rear34_left': 0.0}
+OK     sill_raf_L                 [18.2, 4.8]    cov=1.000 edge=  1.2cm tilt=  6.4° level=0.4°(side) in_mask=1.0 mask_clear=2.6cm lines=14.6cm decals=4.2cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
+OK     sill_breng_L               [42.8, 4.8]    cov=1.000 edge=  1.6cm tilt=  8.6° level=0.23°(side) in_mask=1.0 mask_clear=3.0cm lines=14.4cm decals=4.1cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
+OK     sill_driveoil_L            [17.2, 4.8]    cov=1.000 edge=  2.8cm tilt=  8.3° level=-0.19°(side) in_mask=1.0 mask_clear=3.6cm lines=15.5cm decals=6.0cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
 OK     sill_karting64_L           [15.0, 4.8]    cov=1.000 edge=  2.8cm tilt=  1.5° level=-0.01°(side) in_mask=1.0 mask_clear=1.3cm lines=30.5cm decals=10.4cm hidden={'side_left': 0.0, 'front34_left': 0.0, 'rear34_left': 0.0}
-OK     number_door_R              [42.0, 28.3]   cov=1.000 edge=  5.6cm tilt= 10.5° level=-0.03°(side) in_mask=1.0 mask_clear=5.8cm lines=6.6cm
+OK     number_door_R              [42.0, 28.3]   cov=1.000 edge=  5.6cm tilt= 10.5° level=-0.03°(side) in_mask=1.0 mask_clear=5.8cm lines=5.9cm
 OK     simkart_door_R             [42.0, 17.3]   cov=1.000 edge=  2.5cm tilt=  2.5° level=0.0°(side) in_mask=1.0 mask_clear=2.8cm lines=10.4cm
 OK     arka_door_R                [37.0, 27.5]   cov=1.000 edge=  5.3cm tilt=  8.7° level=-0.08°(side) in_mask=1.0 mask_clear=5.4cm lines=5.0cm
-OK     label_koreika_R            [18.4, 4.9]    cov=1.000 edge=  1.3cm tilt=  5.4° level=-0.28°(side) in_mask=1.0 mask_clear=2.6cm lines=5.3cm
+OK     label_koreika_R            [18.4, 4.9]    cov=1.000 edge=  2.5cm tilt=  5.4° level=-0.28°(side) in_mask=1.0 mask_clear=2.6cm lines=7.6cm
 OK     label_grudinka_R           [46.7, 6.0]    cov=1.000 edge=  1.6cm tilt=  0.0° level=0.0°(side) in_mask=1.0 mask_clear=1.8cm lines=5.5cm
 OK     label_okorok_R             [42.5, 6.4]    cov=1.000 edge=  2.4cm tilt=  5.3° level=-0.06°(side) in_mask=1.0 mask_clear=2.5cm lines=2.8cm
 OK     smp_low_R                  [26.6, 7.4]    cov=1.000 edge=  2.4cm tilt= 10.0° level=0.01°(side) in_mask=1.0 mask_clear=2.2cm lines=3.2cm
-OK     driveoil_R                 [20.9, 5.8]    cov=1.000 edge=  1.4cm tilt=  4.0° level=-0.0°(side) in_mask=1.0 mask_clear=1.4cm lines=10.2cm
-OK     sill_raf_R                 [4.8, 4.8]     cov=1.000 edge=  1.2cm tilt=  3.9° level=-0.83°(side) in_mask=1.0 mask_clear=2.6cm lines=14.7cm decals=4.5cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
-OK     sill_breng_R               [42.8, 4.8]    cov=1.000 edge=  1.6cm tilt=  8.8° level=-0.14°(side) in_mask=1.0 mask_clear=3.0cm lines=14.5cm decals=4.2cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
-OK     sill_driveoil_R            [17.2, 4.8]    cov=1.000 edge=  2.7cm tilt=  8.0° level=0.11°(side) in_mask=1.0 mask_clear=3.6cm lines=14.8cm decals=6.0cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
+OK     k64_driveoil_flare_R       [20.0, 14.5]   cov=1.000 edge=  1.8cm tilt=  3.4° level=-0.01°(side) in_mask=1.0 mask_clear=2.6cm lines=1.8cm decals=91.2cm hidden={'side_right': 0.0, 'rear34_right': 0.0}
+OK     sill_raf_R                 [18.2, 4.8]    cov=1.000 edge=  1.2cm tilt=  6.4° level=0.23°(side) in_mask=1.0 mask_clear=2.6cm lines=14.6cm decals=4.3cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
+OK     sill_breng_R               [42.8, 4.8]    cov=1.000 edge=  1.6cm tilt=  8.8° level=-0.12°(side) in_mask=1.0 mask_clear=3.0cm lines=14.4cm decals=4.2cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
+OK     sill_driveoil_R            [17.2, 4.8]    cov=1.000 edge=  2.8cm tilt=  8.3° level=-0.18°(side) in_mask=1.0 mask_clear=3.6cm lines=15.5cm decals=6.0cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
 OK     sill_karting64_R           [15.0, 4.8]    cov=1.000 edge=  2.5cm tilt=  1.5° level=0.03°(side) in_mask=1.0 mask_clear=1.3cm lines=30.5cm decals=11.4cm hidden={'side_right': 0.0, 'front34_right': 0.0, 'rear34_right': 0.0}
 OK     simkart_hood               [61.3, 27.0]   cov=1.000 edge= 11.1cm tilt=  3.3° level=0.01°(top) in_mask=1.0 mask_clear=2.6cm lines=2.1cm
 OK     label_sheika_hood          [32.0, 10.5]   cov=1.000 edge=  1.4cm tilt=  1.8° level=-0.01°(top) in_mask=1.0 mask_clear=1.5cm lines=2.5cm
-OK     label_lopatka_L            [22.6, 4.3]    cov=1.000 edge=  1.3cm tilt=  0.0° level=-0.01°(side) in_mask=1.0 mask_clear=1.5cm lines=12.0cm
-OK     label_lopatka_R            [22.6, 4.3]    cov=1.000 edge=  1.2cm tilt=  0.0° level=0.01°(side) in_mask=1.0 mask_clear=1.5cm lines=12.1cm
-OK     number_roof                [74.0, 51.8]   cov=1.000 edge= 12.5cm tilt=  5.7° level=0.01°(top) in_mask=1.0 mask_clear=17.0cm lines=35.6cm
-OK     stamp_vyrezka_roof         [32.0, 19.2]   cov=1.000 edge= 14.1cm tilt= 11.9° level=0.01°(top) in_mask=1.0 mask_clear=16.6cm lines=4.7cm
-OK     saratov_roof               [68.1, 20.0]   cov=1.000 edge=  9.9cm tilt=  9.5° level=0.0°(top) in_mask=1.0 mask_clear=19.8cm lines=6.3cm
-OK     tail_trunk                 [31.0, 10.6]   cov=1.000 edge=  1.8cm tilt=  5.8° level=0.01°(top) in_mask=1.0 mask_clear=7.2cm lines=55.7cm decals=88.5cm hidden={'rear': 0.0, 'rear34_left': 0.0, 'rear34_right': 0.0, 'top': 0.0}
+OK     label_lopatka_L            [22.6, 4.3]    cov=1.000 edge=  1.4cm tilt=  0.0° level=0.02°(side) in_mask=1.0 mask_clear=1.3cm lines=1.9cm
+OK     label_lopatka_R            [22.6, 4.3]    cov=1.000 edge=  1.4cm tilt=  0.0° level=0.02°(side) in_mask=1.0 mask_clear=1.3cm lines=1.9cm
+OK     number_roof                [74.0, 51.8]   cov=1.000 edge= 12.5cm tilt=  5.7° level=0.01°(top) in_mask=1.0 mask_clear=17.0cm lines=37.4cm
+OK     stamp_vyrezka_roof         [32.0, 19.2]   cov=1.000 edge= 14.1cm tilt= 11.9° level=0.01°(top) in_mask=1.0 mask_clear=16.6cm lines=6.5cm
+OK     saratov_roof               [68.1, 20.0]   cov=1.000 edge=  9.9cm tilt=  9.5° level=0.0°(top) in_mask=1.0 mask_clear=19.8cm lines=8.1cm
+OK     tail_trunk                 [31.0, 10.6]   cov=1.000 edge=  1.8cm tilt=  5.8° level=0.01°(top) in_mask=1.0 mask_clear=7.2cm lines=55.7cm decals=92.8cm hidden={'rear': 0.0, 'rear34_left': 0.0, 'rear34_right': 0.0, 'top': 0.0}
 OK     team_edm_rear              [39.7, 14.0]   cov=1.000 edge=  4.8cm tilt=  5.6° level=0.0°(rear) in_mask=1.0 mask_clear=4.4cm lines=24.9cm
 OK     url_rear                   [70.5, 5.2]    cov=1.000 edge=  4.1cm tilt= 11.9° level=0.0°(rear) in_mask=1.0 mask_clear=3.1cm lines=4.3cm decals=16.7cm hidden={'rear': 0.0, 'rear34_left': 0.0, 'rear34_right': 0.0}
-OK     label_pyatachok            [25.0, 3.2]    cov=1.000 edge=  1.0cm tilt=  2.7° level=0.05°(top) in_mask=1.0 mask_clear=1.2cm lines=41.3cm
+OK     label_pyatachok            [25.0, 3.2]    cov=1.000 edge=  1.0cm tilt=  2.7° level=0.05°(top) in_mask=1.0 mask_clear=1.2cm lines=5.1cm
 OK     glass:ws_smp               box=[600, 88, 1504, 512] art=[624, 198, 1480, 403] clear=24px
 OK     glass:ws_arka              box=[1568, 56, 2560, 528] art=[1710, 113, 2406, 491] clear=37px
 OK     glass:ws_br_raf            box=[2624, 88, 3504, 512] art=[2756, 172, 3372, 428] clear=84px
@@ -45,24 +45,45 @@ OK     glass:name_R               box=[456, 2072, 2048, 2964] art=[583, 2582, 19
 OK     glass:wing_arka            box=[1200, 3572, 2980, 3912] art=[1813, 3582, 2376, 3886] clear=10px
 OK     glass:wing_sparkle         box=[532, 3576, 868, 3908] art=[623, 3642, 777, 3841] clear=66px
 OK     glass:wing_sparkle         box=[3312, 3576, 3648, 3908] art=[3403, 3642, 3557, 3841] clear=66px
-OK     glass:endplate_R           box=[460, 3072, 1200, 3396] art=[530, 3150, 1130, 3319] clear=70px
-OK     glass:endplate_L           box=[1324, 3072, 2064, 3396] art=[1394, 3150, 1994, 3319] clear=70px
+OK     glass:endplate_k64_R       box=[464, 3068, 1192, 3412] art=[532, 3108, 1152, 3308] clear=40px
+OK     glass:endplate_k64_L       box=[1324, 3052, 2056, 3396] art=[1360, 3100, 1980, 3300] clear=36px
 OK     glass:ws_number@Konopelko_00 box=[2360, 1232, 3380, 2128] art=[2547, 1422, 3193, 1938] clear=187px
 OK     glass:rw_number@Konopelko_00 box=[2344, 2188, 3512, 3272] art=[2399, 2271, 2977, 2753] clear=55px
 OK     glass:name_L@Konopelko_00  box=[460, 1088, 2052, 1984] art=[599, 1598, 1921, 1897] clear=87px size=[328, 69]px centre=[315, 437] rot=-0.54deg visible_glass_clear=19.0px/34mm
 OK     glass:name_R@Konopelko_00  box=[456, 2072, 2048, 2964] art=[583, 2582, 1905, 2881] clear=83px size=[328, 69]px centre=[311, 683] rot=0.54deg visible_glass_clear=18.4px/33mm
-OK     line:headlight_L              10 whole dashes, stretch 1.0217, 109.3 cm; air to the lamp outline on the paint (narrowest per 6 cm): 2.9-5.2 cm; visible air along the lamp in the close-ups (narrowest per 6 cm, cm): side_left 2.0-3.6, front 3.2-4.5, front34_left 3.3-4.5; other parts >= 2.4 cm; labels ЛОПАТКА 21.0, ПЯТАЧОК 41.4, ШЕЙКА 72.2, Симкарт hood tag 57.2 cm
-OK     line:headlight_R              10 whole dashes, stretch 1.0232, 109.2 cm; air to the lamp outline on the paint (narrowest per 6 cm): 3.0-5.1 cm; visible air along the lamp in the close-ups (narrowest per 6 cm, cm): side_left 2.1-3.6, front 3.3-4.5, front34_left 3.4-5.9; other parts >= 2.6 cm; labels ЛОПАТКА 21.6, ПЯТАЧОК 41.5, ШЕЙКА 72.3, Симкарт hood tag 57.3 cm
-INFO   line:belly dash 41R   left out whole (truncated) at x=-0.767 y=+2.061
-INFO   line:belly dash 41L   left out whole (truncated) at x=+0.767 y=+2.061
-INFO   line:belly dash 42R   left out whole (truncated) at x=-0.713 y=+2.125
-INFO   line:belly dash 42L   left out whole (truncated) at x=+0.712 y=+2.126
-INFO   line:belly dash 44R   left out whole (hidden in rear) at x=-0.544 y=+2.220
-INFO   line:belly dash 45R   left out whole (hidden in rear,rear34_right) at x=-0.446 y=+2.247
-INFO   line:tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 0.9693)
-INFO   line:hood cut line meets the shoulder line at x=+-0.840 y=-0.943 on the middle of a shoulder dash; 16 whole dashes, stretch 0.9799
-INFO   sill row L: height 4.8 cm, centre z 0.222, y -0.750 .. +0.990, equal gaps 31.4 cm: raf 4.8 cm @ y -0.726, breng 42.8 cm @ y -0.174, driveoil 17.2 cm @ y +0.440, karting64 15.0 cm @ y +0.915
-INFO   sill row R: height 4.8 cm, centre z 0.222, y -0.750 .. +0.990, equal gaps 31.4 cm: raf 4.8 cm @ y -0.726, breng 42.8 cm @ y -0.174, driveoil 17.2 cm @ y +0.440, karting64 15.0 cm @ y +0.915
+FAIL   line:front_L                  13 whole dashes, 161.3 cm to the centreline, stretch 1.0007 / 1.0166, smallest turn radius 4.3 cm, neck between lamp and grille 3.4 cm wide (middle of a gap on it), dashes left out [-9]; air of the paint to the lamp 0.9 cm, grille 0.4 cm, other parts 0.0 cm; guide deviation (lamp gap / crease / grille gap) {1: 0.65, 2: 0.46, 3: 0.3} cm; labels ЛОПАТКА 33.1, ПЯТАЧОК 7.1, ШЕЙКА 84.6, Симкарт hood tag 50.7 cm; truncated [] hidden [(-8, 'front34_right')]
+FAIL   line:front_R                  13 whole dashes, 161.2 cm to the centreline, stretch 0.9999 / 1.0184, smallest turn radius 4.3 cm, neck between lamp and grille 3.4 cm wide (middle of a gap on it), dashes left out [-9]; air of the paint to the lamp 1.0 cm, grille 0.4 cm, other parts 0.0 cm; guide deviation (lamp gap / crease / grille gap) {1: 0.65, 2: 0.46, 3: 0.3} cm; labels ЛОПАТКА 33.1, ПЯТАЧОК 7.1, ШЕЙКА 84.6, Симкарт hood tag 50.7 cm; truncated [] hidden [(-8, 'front34_left')]
+INFO   line:shoulder_L on the extracted crease (doors / rear quarter: tornado edge, front fender: flare top edge, S-blend -1.08..-0.8); centre line -> crease median 0.01 cm, max 0.37 cm; rear end y 1.855 (3.1 cm from the tail lamp), dash phase 0.0667
+INFO   line:shoulder_R on the extracted crease (doors / rear quarter: tornado edge, front fender: flare top edge, S-blend -1.08..-0.8); centre line -> crease median 0.01 cm, max 0.37 cm; rear end y 1.855 (3.1 cm from the tail lamp), dash phase 0.0658
+INFO   line:A-pillar_L 144.4 cm from the roof centreline to the shoulder line at [0.849, -0.696, 0.853], stretch 0.9806, centreline on a gap middle, dashes left out (behind trims / frames) [1, 6, 7], air to frames / glass of the painted dashes >= 0.5 cm, smallest turn radius of the painted dashes 14.6 cm
+INFO   line:A-pillar_R 144.7 cm from the roof centreline to the shoulder line at [-0.849, -0.693, 0.853], stretch 0.9806, centreline on a gap middle, dashes left out (behind trims / frames) [1, 6, 7], air to frames / glass of the painted dashes >= 0.5 cm, smallest turn radius of the painted dashes 14.9 cm
+INFO   line:C-pillar_L 126.3 cm from the roof centreline to the shoulder line at [0.796, 1.58, 0.908], stretch 0.9798, centreline on a dash middle, dashes left out (behind trims / frames) [5, 6], air to frames / glass of the painted dashes >= 3.1 cm, smallest turn radius of the painted dashes 9.8 cm
+INFO   line:C-pillar_R 126.3 cm from the roof centreline to the shoulder line at [-0.796, 1.58, 0.908], stretch 0.9798, centreline on a dash middle, dashes left out (behind trims / frames) [5, 6], air to frames / glass of the painted dashes >= 3.1 cm, smallest turn radius of the painted dashes 9.8 cm
+INFO   keyline:L 495.0 cm of cut line, keyline pieces (m along it from the nose centreline) [(0.0, 0.379), (0.525, 2.114), (2.754, 4.622), (4.704, 4.95)]; air to any other cut line >= 2.0 cm, to lamps / grille >= 1.5 cm; every end tapered + faded over 5 cm
+INFO   keyline:R 495.0 cm of cut line, keyline pieces (m along it from the nose centreline) [(0.0, 0.38), (0.523, 2.113), (2.751, 4.621), (4.704, 4.95)]; air to any other cut line >= 2.0 cm, to lamps / grille >= 1.5 cm; every end tapered + faded over 5 cm
+INFO   keyline:band_L runs 0.4 cm under the black lower-trim fin's slot, y 1.98..2.2 (dips 4.76 cm)
+INFO   keyline:band_R runs 0.4 cm under the black lower-trim fin's slot, y 1.98..2.2 (dips 4.77 cm)
+INFO   line:belly dash 13R   left out whole (truncated) at x=-0.877 y=-0.859
+INFO   line:belly dash 13L   left out whole (truncated) at x=+0.877 y=-0.859
+INFO   line:belly dash 34R   left out whole (truncated) at x=-0.886 y=+1.428
+INFO   line:belly dash 34L   left out whole (truncated) at x=+0.886 y=+1.427
+INFO   line:belly dash 37R   left out whole (truncated) at x=-0.939 y=+1.807
+INFO   line:belly dash 37L   left out whole (truncated) at x=+0.939 y=+1.807
+INFO   line:belly dash 38R   left out whole (truncated) at x=-0.919 y=+1.879
+INFO   line:belly dash 38L   left out whole (truncated) at x=+0.919 y=+1.880
+INFO   line:belly dash 40R   left out whole (truncated) at x=-0.766 y=+1.962
+INFO   line:belly dash 40L   left out whole (truncated) at x=+0.766 y=+1.962
+INFO   line:belly dash 42R   left out whole (truncated) at x=-0.742 y=+2.096
+INFO   line:belly dash 42L   left out whole (truncated) at x=+0.742 y=+2.096
+INFO   line:belly dash 43R   left out whole (truncated) at x=-0.696 y=+2.140
+INFO   line:belly dash 43L   left out whole (truncated) at x=+0.695 y=+2.141
+INFO   line:belly dash 44R   left out whole (hidden in side_right) at x=-0.579 y=+2.208
+INFO   line:belly dash 44L   left out whole (hidden in side_left) at x=+0.579 y=+2.207
+INFO   line:belly dash 45R   left out whole (hidden in rear,rear34_left,rear34_right) at x=-0.515 y=+2.229
+INFO   line:tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 1.0389)
+INFO   line:hood cut line meets the shoulder line at x=+-0.902 y=-0.906 on the middle of a shoulder dash; 18 whole dashes, stretch 1.0237
+INFO   sill row L: height 4.8 cm, centre z 0.222, y -0.750 .. +0.990, equal gaps 26.9 cm: raf 18.2 cm @ y -0.659, breng 42.8 cm @ y -0.084, driveoil 17.2 cm @ y +0.485, karting64 15.0 cm @ y +0.915
+INFO   sill row R: height 4.8 cm, centre z 0.222, y -0.750 .. +0.990, equal gaps 26.9 cm: raf 18.2 cm @ y -0.659, breng 42.8 cm @ y -0.084, driveoil 17.2 cm @ y +0.485, karting64 15.0 cm @ y +0.915
 INFO   url:rear bumper: one line, 5.2 cm type
 INFO   number Pozdnyakov_23 «23» number_door_L plate 42.0 x 28.3 cm: digits 29.7 x 14.8 cm at the «00» scale (0.6731), air to the plate L 4.2 R 4.8 T 5.0 B 5.2 cm («00»: digits 32.5 x 14.8, air L 2.8 R 3.4 T 5.0 B 5.2)
 INFO   number Pozdnyakov_23 «23» number_door_R plate 42.0 x 28.3 cm: digits 29.7 x 14.8 cm at the «00» scale (0.6731), air to the plate L 4.2 R 4.8 T 5.0 B 5.2 cm («00»: digits 32.5 x 14.8, air L 2.8 R 3.4 T 5.0 B 5.2)

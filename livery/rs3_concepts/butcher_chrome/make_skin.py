@@ -802,8 +802,8 @@ def paint_belly():
     kspan = int(key.max()) - kmin + 1
     # (1) truncated: the dash body is checked in three strips across its width (lower / centre / upper 6 mm);
     #     each strip must run the full 7.5 cm with no hole > 1.2 cm (door shut lines are < 0.6 cm). A strip that
-    #     is missing (the trim notch takes the lower half of a dash) or broken counts as a cut dash. Dashes at the
-    #     hand-over to the rear-door connector are cut there on purpose (the connector carries them on): exempt.
+    #     is missing (the trim notch takes the lower half of a dash) or broken counts as a cut dash; so does a dash
+    #     that runs over a step of the body (see below).
     off = dist - 0.022
     body = keep & covf & (d_c < 0.009) & (loc < DASH[0])
     bi = np.flatnonzero(body)
@@ -876,7 +876,6 @@ VISD = {}           # renderer visibility of the 9 standard views (filled in pai
 OUTER = None        # texels visible in at least one standard view
 
 
-BELLY_SPLIT = 0.86
 FRONT_ARCH_Y = -1.32           # middle of the front wheel opening at belly height (set by front_arch_y)
 
 
@@ -994,52 +993,6 @@ DPER = DASH[0] + DASH[1]
 def _wrap(v):
     """wrap a dash-phase difference into [-DPER/2, DPER/2)"""
     return (v + DPER / 2) % DPER - DPER / 2
-
-
-def sweep(side, P0, t0, s_start, P3, t3, s_end, h0=0.10, h3=0.09, clip=None, extra=None, ymin=None):
-    """Dashed cubic sweep in the side (y,z) plane from P0 (tangent t0, dash coordinate s_start) to P3 (tangent t3).
-    The dash coordinate is stretched by a few percent so it arrives at P3 exactly in phase with s_end: where the
-    sweep merges into another dashed line, the dashes coincide instead of doubling into a blob.
-    `clip` = (n,3) centre-line of the line it merges into; sweep paint closer than 1.6 cm to it is dropped."""
-    t0 = np.asarray(t0, float) / np.linalg.norm(t0)
-    t3 = np.asarray(t3, float) / np.linalg.norm(t3)
-    P0, P3 = np.asarray(P0, float), np.asarray(P3, float)
-    ctrl = [P0, P0 + t0 * h0] + ([np.asarray(e, float) for e in extra] if extra else []) + [P3 - t3 * h3, P3]
-    if extra:
-        pts2 = catmull3([tuple(c) for c in [P0] + [np.asarray(e, float) for e in extra] + [P3]], 30)
-    else:
-        tt = np.linspace(0, 1, 60)[:, None]
-        q0, q1, q2, q3 = ctrl
-        pts2 = ((1 - tt) ** 3) * q0 + 3 * ((1 - tt) ** 2) * tt * q1 + 3 * (1 - tt) * tt ** 2 * q2 + tt ** 3 * q3
-    c3 = snap([tuple(q) for q in pts2], "side", SIDE_PARTS, side)
-    C = catmull3(c3, 60)
-    C = snap([(p[1], p[2]) for p in C], "side", SIDE_PARTS, side, exact=True)
-    C[:, 0] = ndimage.uniform_filter1d(C[:, 0], 9, mode="nearest")
-    L = float(np.sum(np.linalg.norm(np.diff(C, axis=0), axis=1)))
-    delta = L + _wrap(s_end - s_start - L)
-    curve_line(c3, SIDE_PARTS, side, 0.011, INK, dash=DASH, phase=s_start, resnap_mode="side",
-               scale=delta / L, clip=clip, ymin=ymin)
-    return C
-
-
-def belly_connector(side, a_pts, shoulder_C, phase=0.0, y3=1.34):
-    """Dashed sweep that carries the belly cut line from the rear-door flare up into the shoulder line
-    (tangent-continuous at the start, merges into the shoulder line tangentially well behind the rear-door gap),
-    dash phase continuous at both ends."""
-    y0 = BELLY_SPLIT
-    z0, dz0 = b_curve(np.array([y0]))
-    k0 = math.sqrt(1 + dz0[0] ** 2)
-    # point on the dashed centre line (2.2 cm perpendicular above B) and its tangent
-    py, pz = y0 - 0.022 * dz0[0] / k0, z0[0] + 0.022 / k0
-    t0 = np.array([1.0, dz0[0]])
-    ay, az = np.array(a_pts).T
-    z3 = float(np.interp(y3, ay, az))
-    slope = (np.interp(y3 + 0.02, ay, az) - np.interp(y3 - 0.02, ay, az)) / 0.04
-    x0 = snap([(py, pz)], "side", SIDE_PARTS, side)[0, 0]
-    s0 = float(belly_s(np.array([[x0, py, pz]]))[0])
-    S = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(shoulder_C, axis=0), axis=1))])
-    s3 = float(np.interp(y3, shoulder_C[:, 1], S)) + phase
-    return sweep(side, (py, pz), t0, s0, (y3, z3), (1.0, slope), s3, h0=0.12, h3=0.16, clip=shoulder_C)
 
 
 # -------- the shoulder cut line's path: the Audi «tornado» crease, extracted from the mesh (not drawn by eye)
@@ -2141,7 +2094,7 @@ def pillar_half(kind, side, shoulder_C, phase):
         near[-1] = False
         w2[near] *= 0.7
     dev = float(cKDTree(Ch).query(G[1:-1])[0].max())
-    return dict(C=Ch, J=J, s_j=s_j, r_min_cm=round(r_min * 100, 1), dev_cm=round(dev * 100, 2), iters=it + 1,
+    return dict(C=Ch, J=J, s_j=s_j, r_min_cm=round(r_min * 100, 1), dev_cm=round(dev * 100, 2), iters=it + 1, kg=kg,
                 air_min_cm=round(float(to.query(Ch)[0].min() - 0.011) * 100, 1))
 
 
@@ -2189,9 +2142,13 @@ def paint_hoop(kind, halves):
         keep = ~np.isin(np.floor(sv / DPER).astype(int), drop)
         dash_line(idx[keep], sv[keep], d[keep], 0.011, DASH[0], DASH[1], INK)
         air = dd[painted & ~np.isin(dn, drop)]
+        kg = h["kg"] if len(h["kg"]) == len(C) else np.interp(S / S[-1], np.linspace(0, 1, len(h["kg"])), h["kg"])
+        pk = painted & ~np.isin(dn, drop)
+        pk[:8] = pk[-8:] = False
+        r_paint = 1.0 / max(float(kg[pk].max()), 1e-6) if pk.any() else 9.9
         PILLAR_LOG.append(dict(kind=kind, side=s, length_cm=round(float(S[-1]) * 100, 1), stretch=round(k, 4),
                                centre="dash middle" if tgt < DASH[0] else "gap middle",
-                               junction=[round(float(v), 3) for v in C[-1]], r_min_cm=h["r_min_cm"],
+                               junction=[round(float(v), 3) for v in C[-1]], r_min_cm=round(r_paint * 100, 1),
                                guide_dev_cm=h["dev_cm"], dashes_left_out=drop,
                                air_frames_cm=round(float(air.min() + 0.0) * 100, 1) if len(air) else None))
         print(f"   {kind}-pillar line {s}: {PILLAR_LOG[-1]}", flush=True)
@@ -3837,14 +3794,34 @@ def main():
                      f" visible_glass_clear={r['visible_glass_clear_px']}px/{r['visible_glass_clear_mm']}mm")
         rep.append(f"{r['status']:<6} glass:{r['name']:<20} box={r['box']} art={r['art_bbox']} clear={r['clear_px']}px"
                    + extra)
-    for r in LINE_CHECKS:        # front cut line along the headlight
-        va = ", ".join(f"{v} {a[0]}-{a[1]}" for v, a in r["visible_air_cm"].items())
-        a3 = f"{r['air_3d_cm'][0]}-{r['air_3d_cm'][1]}"
-        rep.append(f"{r['status']:<6} line:headlight_{r['side']:<14} {r['dashes']} whole dashes, stretch {r['stretch']}, "
-                   f"{r['length_cm']} cm; air to the lamp outline on the paint (narrowest per 6 cm): {a3} cm; visible air along the "
-                   f"lamp in the close-ups (narrowest per 6 cm, cm): {va}; other parts >= {r['air_other_cm']} cm; labels "
-                   + ", ".join(f"{k} {v}" for k, v in r["label_air_cm"].items()) + " cm"
+    for r in LINE_CHECKS:        # front cut line along the headlight and across the nose
+        rep.append(f"{r['status']:<6} line:front_{r['side']:<18} {r['dashes']} whole dashes, {r['length_cm']} cm to the "
+                   f"centreline, stretch {r['stretch'][0]} / {r['stretch'][1]}, smallest turn radius {r['r_min_cm']} cm, "
+                   f"neck between lamp and grille {r['neck_cm']} cm wide (middle of a gap on it), dashes left out "
+                   f"{r['dropped']}; air of the paint to the lamp {r['air_lamp_cm']} cm, grille {r['air_grille_cm']} cm, "
+                   f"other parts {r['air_other_cm']} cm; guide deviation (lamp gap / crease / grille gap) "
+                   f"{r['guide_dev_cm']} cm; labels " + ", ".join(f"{k} {v}" for k, v in r["label_air_cm"].items()) + " cm"
                    + ("" if r["status"] == "OK" else f"; truncated {r['truncated']} hidden {r['hidden']}"))
+    for s_ in ("L", "R"):
+        c = CREASE.get(s_, {})
+        if "off_cm" in c:
+            rep.append(f"INFO   line:shoulder_{s_} on the extracted crease (doors / rear quarter: tornado edge, front fender: "
+                       f"flare top edge, S-blend {CREASE_BLEND[0]}..{CREASE_BLEND[1]}); centre line -> crease median "
+                       f"{c['off_cm'][0]} cm, max {c['off_cm'][1]} cm; rear end y {c.get('y_end', 0):.3f} "
+                       f"({SH_REAR_AIR * 100:.1f} cm from the tail lamp), dash phase {SH_PHASE.get(s_, 0):.4f}")
+    for r in PILLAR_LOG:
+        rep.append(f"INFO   line:{r['kind']}-pillar_{r['side']} {r['length_cm']} cm from the roof centreline to the "
+                   f"shoulder line at {r['junction']}, stretch {r['stretch']}, centreline on a {r['centre']}, "
+                   f"dashes left out (behind trims / frames) {r['dashes_left_out']}, air to frames / glass of the painted "
+                   f"dashes >= {r['air_frames_cm']} cm, smallest turn radius of the painted dashes {r['r_min_cm']} cm")
+    for r in KEY_LOG:
+        rep.append(f"INFO   keyline:{r['side']} {r['length_cm']} cm of cut line, keyline pieces (m along it from the nose "
+                   f"centreline) {r['pieces_m']}; air to any other cut line >= {r['air_line_min_cm']} cm, to lamps / "
+                   f"grille >= {r['air_part_min_cm']} cm; every end tapered + faded over {KEY_FADE * 100:.0f} cm")
+    for s_, r in SLOT_LOG.items():
+        if r:
+            rep.append(f"INFO   keyline:band_{s_} runs {SLOT_GAP * 100:.1f} cm under the black lower-trim fin's slot, "
+                       f"y {r['y_range'][0]}..{r['y_range'][1]} (dips {r['max_dip_cm']} cm)")
     for r in BELLY_DROPPED:      # belly cut-line dashes left out whole instead of showing as stubs
         rep.append(f"INFO   line:belly dash {r['dash']}{r['side']:<3} left out whole ({r['why']}) at x={r['x']:+.3f} "
                    f"y={r['y']:+.3f}")
@@ -3868,7 +3845,11 @@ def main():
     with open(os.path.join(HERE, "check_report.txt"), "w") as fh:
         fh.write(txt + "\n")
     json.dump(dict(skin=CHECKS, glass=GCHECKS, belly_dropped=BELLY_DROPPED, line_notes=LINE_NOTES, sill_row=SILL_LOG,
-                   url_notes=URL_NOTES, front_cut_line=LINE_CHECKS, numbers=NUM_NOTES), open(os.path.join(HERE, "check_report.json"), "w"),
+                   url_notes=URL_NOTES, front_cut_line=LINE_CHECKS, pillar_lines=PILLAR_LOG, keylines=KEY_LOG,
+                   shoulder_crease={k: dict(off_cm=v.get("off_cm"), y_end=v.get("y_end")) for k, v in CREASE.items()},
+                   band_slot={k: (None if v is None else dict(y_range=v["y_range"], max_dip_cm=v["max_dip_cm"]))
+                              for k, v in SLOT_LOG.items()},
+                   numbers=NUM_NOTES), open(os.path.join(HERE, "check_report.json"), "w"),
               ensure_ascii=False, indent=1, default=str)
 
     print("done")

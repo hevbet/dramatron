@@ -13,7 +13,7 @@
    ],
    "coverage": 1.0,
    "edge_clear_cm": 5.6,
-   "max_tilt_deg": 10.5,
+   "max_tilt_deg": 10.6,
    "level_deg": -0.03,
    "level_rows_deg": [
     0.02,
@@ -23,7 +23,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 5.9,
-   "line_clear_cm": 6.5,
+   "line_clear_cm": 6.0,
    "decal_clear_cm": 99.0,
    "status": "OK"
   },
@@ -35,23 +35,23 @@
    ],
    "side": "L",
    "size_cm": [
-    42.0,
-    17.3
+    40.0,
+    16.5
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.3,
+   "edge_clear_cm": 2.4,
    "max_tilt_deg": 2.5,
    "level_deg": -0.0,
    "level_rows_deg": [
     -0.0,
     -0.0,
-    -0.0
+    0.0
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.5,
-   "line_clear_cm": 10.4,
-   "decal_clear_cm": 9.0,
+   "line_clear_cm": 10.9,
+   "decal_clear_cm": 9.1,
    "status": "OK"
   },
   {
@@ -93,18 +93,18 @@
     5.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.2,
-   "max_tilt_deg": 5.3,
-   "level_deg": -0.28,
+   "edge_clear_cm": 2.2,
+   "max_tilt_deg": 10.0,
+   "level_deg": -0.03,
    "level_rows_deg": [
-    -0.26,
-    -0.24,
-    -0.28
+    0.01,
+    -0.03,
+    0.02
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.3,
-   "line_clear_cm": 5.1,
+   "line_clear_cm": 6.8,
    "decal_clear_cm": 2.7,
    "status": "OK"
   },
@@ -190,30 +190,35 @@
    "status": "OK"
   },
   {
-   "name": "driveoil_L",
+   "name": "k64_driveoil_flare_L",
    "kind": "logo",
    "parts": [
     "rear_fender"
    ],
    "side": "L",
    "size_cm": [
-    20.9,
-    5.8
+    20.0,
+    14.5
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.4,
-   "max_tilt_deg": 4.0,
+   "edge_clear_cm": 1.8,
+   "max_tilt_deg": 3.4,
    "level_deg": -0.01,
    "level_rows_deg": [
-    0.0,
     -0.01,
-    -0.01
+    0.01,
+    0.01
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.4,
-   "line_clear_cm": 10.2,
-   "decal_clear_cm": 86.8,
+   "mask_clear_cm": 2.6,
+   "line_clear_cm": 1.8,
+   "decal_clear_cm": 90.1,
+   "hidden_frac": {
+    "side_left": 0.0,
+    "rear34_left": 0.0
+   },
+   "occl_ok": true,
    "status": "OK"
   },
   {
@@ -224,23 +229,23 @@
    ],
    "side": "L",
    "size_cm": [
-    4.8,
+    18.2,
     4.8
    ],
    "coverage": 1.0,
    "edge_clear_cm": 1.2,
-   "max_tilt_deg": 3.9,
-   "level_deg": -0.81,
+   "max_tilt_deg": 6.4,
+   "level_deg": 0.4,
    "level_rows_deg": [
-    0.36,
-    -0.81,
-    0.38
+    0.4,
+    0.19,
+    0.2
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
-   "line_clear_cm": 14.7,
-   "decal_clear_cm": 4.5,
+   "line_clear_cm": 14.6,
+   "decal_clear_cm": 4.2,
    "hidden_frac": {
     "side_left": 0.0,
     "front34_left": 0.0,
@@ -261,18 +266,18 @@
     4.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.4,
-   "max_tilt_deg": 8.8,
-   "level_deg": -0.12,
+   "edge_clear_cm": 1.6,
+   "max_tilt_deg": 8.6,
+   "level_deg": 0.23,
    "level_rows_deg": [
-    -0.09,
-    -0.12,
-    -0.12
+    0.23,
+    0.18,
+    0.17
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.9,
-   "line_clear_cm": 14.5,
+   "mask_clear_cm": 3.0,
+   "line_clear_cm": 14.4,
    "decal_clear_cm": 4.1,
    "hidden_frac": {
     "side_left": 0.0,
@@ -294,19 +299,19 @@
     4.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.7,
-   "max_tilt_deg": 8.0,
-   "level_deg": 0.11,
+   "edge_clear_cm": 2.8,
+   "max_tilt_deg": 8.3,
+   "level_deg": -0.19,
    "level_rows_deg": [
-    0.04,
-    0.11,
-    0.05
+    -0.18,
+    -0.19,
+    -0.17
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.6,
-   "line_clear_cm": 14.8,
-   "decal_clear_cm": 6.1,
+   "line_clear_cm": 15.5,
+   "decal_clear_cm": 6.0,
    "hidden_frac": {
     "side_left": 0.0,
     "front34_left": 0.0,
@@ -371,7 +376,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 5.8,
-   "line_clear_cm": 6.6,
+   "line_clear_cm": 5.9,
    "decal_clear_cm": 99.0,
    "status": "OK"
   },
@@ -441,7 +446,7 @@
     4.9
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.3,
+   "edge_clear_cm": 2.5,
    "max_tilt_deg": 5.4,
    "level_deg": -0.28,
    "level_rows_deg": [
@@ -452,7 +457,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
-   "line_clear_cm": 5.3,
+   "line_clear_cm": 7.6,
    "decal_clear_cm": 3.6,
    "status": "OK"
   },
@@ -538,30 +543,35 @@
    "status": "OK"
   },
   {
-   "name": "driveoil_R",
+   "name": "k64_driveoil_flare_R",
    "kind": "logo",
    "parts": [
     "rear_fender"
    ],
    "side": "R",
    "size_cm": [
-    20.9,
-    5.8
+    20.0,
+    14.5
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.4,
-   "max_tilt_deg": 4.0,
-   "level_deg": -0.0,
+   "edge_clear_cm": 1.8,
+   "max_tilt_deg": 3.4,
+   "level_deg": -0.01,
    "level_rows_deg": [
-    -0.0,
-    0.0,
-    -0.0
+    -0.01,
+    0.01,
+    0.0
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.4,
-   "line_clear_cm": 10.2,
-   "decal_clear_cm": 88.0,
+   "mask_clear_cm": 2.6,
+   "line_clear_cm": 1.8,
+   "decal_clear_cm": 91.2,
+   "hidden_frac": {
+    "side_right": 0.0,
+    "rear34_right": 0.0
+   },
+   "occl_ok": true,
    "status": "OK"
   },
   {
@@ -572,23 +582,23 @@
    ],
    "side": "R",
    "size_cm": [
-    4.8,
+    18.2,
     4.8
    ],
    "coverage": 1.0,
    "edge_clear_cm": 1.2,
-   "max_tilt_deg": 3.9,
-   "level_deg": -0.83,
+   "max_tilt_deg": 6.4,
+   "level_deg": 0.23,
    "level_rows_deg": [
-    -0.81,
-    -0.26,
-    -0.83
+    0.2,
+    0.22,
+    0.23
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
-   "line_clear_cm": 14.7,
-   "decal_clear_cm": 4.5,
+   "line_clear_cm": 14.6,
+   "decal_clear_cm": 4.3,
    "hidden_frac": {
     "side_right": 0.0,
     "front34_right": 0.0,
@@ -611,16 +621,16 @@
    "coverage": 1.0,
    "edge_clear_cm": 1.6,
    "max_tilt_deg": 8.8,
-   "level_deg": -0.14,
+   "level_deg": -0.12,
    "level_rows_deg": [
-    -0.08,
+    -0.09,
     -0.1,
-    -0.14
+    -0.12
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.0,
-   "line_clear_cm": 14.5,
+   "line_clear_cm": 14.4,
    "decal_clear_cm": 4.2,
    "hidden_frac": {
     "side_right": 0.0,
@@ -642,18 +652,18 @@
     4.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.7,
-   "max_tilt_deg": 8.0,
-   "level_deg": 0.11,
+   "edge_clear_cm": 2.8,
+   "max_tilt_deg": 8.3,
+   "level_deg": -0.18,
    "level_rows_deg": [
-    0.11,
-    0.07,
-    0.07
+    -0.18,
+    -0.17,
+    -0.16
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.6,
-   "line_clear_cm": 14.8,
+   "line_clear_cm": 15.5,
    "decal_clear_cm": 6.0,
    "hidden_frac": {
     "side_right": 0.0,
@@ -762,19 +772,19 @@
     4.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.3,
+   "edge_clear_cm": 1.4,
    "max_tilt_deg": 0.0,
-   "level_deg": -0.01,
+   "level_deg": 0.02,
    "level_rows_deg": [
     0.0,
-    -0.01,
-    0.01
+    0.0,
+    0.02
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.5,
-   "line_clear_cm": 12.0,
-   "decal_clear_cm": 18.8,
+   "mask_clear_cm": 1.3,
+   "line_clear_cm": 1.9,
+   "decal_clear_cm": 19.6,
    "status": "OK"
   },
   {
@@ -789,19 +799,19 @@
     4.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.2,
+   "edge_clear_cm": 1.4,
    "max_tilt_deg": 0.0,
-   "level_deg": 0.01,
+   "level_deg": 0.02,
    "level_rows_deg": [
-    0.0,
     0.01,
-    0.01
+    -0.0,
+    0.02
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.5,
-   "line_clear_cm": 12.1,
-   "decal_clear_cm": 18.8,
+   "mask_clear_cm": 1.3,
+   "line_clear_cm": 1.9,
+   "decal_clear_cm": 17.9,
    "status": "OK"
   },
   {
@@ -827,8 +837,8 @@
    "level_view": "top",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 17.0,
-   "line_clear_cm": 35.6,
-   "decal_clear_cm": 78.4,
+   "line_clear_cm": 37.4,
+   "decal_clear_cm": 78.5,
    "status": "OK"
   },
   {
@@ -854,7 +864,7 @@
    "level_view": "top",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 16.6,
-   "line_clear_cm": 4.7,
+   "line_clear_cm": 6.5,
    "decal_clear_cm": 13.5,
    "status": "OK"
   },
@@ -881,7 +891,7 @@
    "level_view": "top",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 19.8,
-   "line_clear_cm": 6.3,
+   "line_clear_cm": 8.1,
    "decal_clear_cm": 15.3,
    "status": "OK"
   },
@@ -909,7 +919,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 7.2,
    "line_clear_cm": 55.7,
-   "decal_clear_cm": 88.5,
+   "decal_clear_cm": 92.8,
    "keepout_ok": true,
    "hidden_frac": {
     "rear": 0.0,
@@ -1003,7 +1013,7 @@
    "level_view": "top",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.2,
-   "line_clear_cm": 41.3,
+   "line_clear_cm": 5.1,
    "decal_clear_cm": 41.3,
    "status": "OK"
   }
@@ -1236,38 +1246,66 @@
    "status": "OK"
   },
   {
-   "name": "endplate_R",
+   "name": "endplate_k64_R",
    "box": [
-    460,
-    3072,
-    1200,
-    3396
+    464,
+    3068,
+    1192,
+    3412
    ],
    "art_bbox": [
-    530,
-    3150,
-    1130,
-    3319
+    532,
+    3108,
+    1152,
+    3308
    ],
-   "clear_px": 70,
-   "status": "OK"
+   "clear_px": 40,
+   "status": "OK",
+   "size_px": [
+    155,
+    50
+   ],
+   "size_cm": [
+    27.2,
+    8.8
+   ],
+   "centre_px": [
+    210,
+    802
+   ],
+   "visible_face_clear_px": 11.0,
+   "visible_face_clear_mm": 19
   },
   {
-   "name": "endplate_L",
+   "name": "endplate_k64_L",
    "box": [
     1324,
-    3072,
-    2064,
+    3052,
+    2056,
     3396
    ],
    "art_bbox": [
-    1394,
-    3150,
-    1994,
-    3319
+    1360,
+    3100,
+    1980,
+    3300
    ],
-   "clear_px": 70,
-   "status": "OK"
+   "clear_px": 36,
+   "status": "OK",
+   "size_px": [
+    155,
+    50
+   ],
+   "size_cm": [
+    27.2,
+    8.8
+   ],
+   "centre_px": [
+    418,
+    800
+   ],
+   "visible_face_clear_px": 10.0,
+   "visible_face_clear_mm": 18
   },
   {
    "name": "ws_number@Konopelko_00",
@@ -1362,51 +1400,128 @@
  ],
  "belly_dropped": [
   {
-   "dash": 41,
+   "dash": 13,
    "side": "R",
    "why": "truncated",
-   "y": 2.061,
-   "x": -0.767
+   "y": -0.859,
+   "x": -0.877
   },
   {
-   "dash": 41,
+   "dash": 13,
    "side": "L",
    "why": "truncated",
-   "y": 2.061,
-   "x": 0.767
+   "y": -0.859,
+   "x": 0.877
+  },
+  {
+   "dash": 34,
+   "side": "R",
+   "why": "truncated",
+   "y": 1.428,
+   "x": -0.886
+  },
+  {
+   "dash": 34,
+   "side": "L",
+   "why": "truncated",
+   "y": 1.427,
+   "x": 0.886
+  },
+  {
+   "dash": 37,
+   "side": "R",
+   "why": "truncated",
+   "y": 1.807,
+   "x": -0.939
+  },
+  {
+   "dash": 37,
+   "side": "L",
+   "why": "truncated",
+   "y": 1.807,
+   "x": 0.939
+  },
+  {
+   "dash": 38,
+   "side": "R",
+   "why": "truncated",
+   "y": 1.879,
+   "x": -0.919
+  },
+  {
+   "dash": 38,
+   "side": "L",
+   "why": "truncated",
+   "y": 1.88,
+   "x": 0.919
+  },
+  {
+   "dash": 40,
+   "side": "R",
+   "why": "truncated",
+   "y": 1.962,
+   "x": -0.766
+  },
+  {
+   "dash": 40,
+   "side": "L",
+   "why": "truncated",
+   "y": 1.962,
+   "x": 0.766
   },
   {
    "dash": 42,
    "side": "R",
    "why": "truncated",
-   "y": 2.125,
-   "x": -0.713
+   "y": 2.096,
+   "x": -0.742
   },
   {
    "dash": 42,
    "side": "L",
    "why": "truncated",
-   "y": 2.126,
-   "x": 0.712
+   "y": 2.096,
+   "x": 0.742
+  },
+  {
+   "dash": 43,
+   "side": "R",
+   "why": "truncated",
+   "y": 2.14,
+   "x": -0.696
+  },
+  {
+   "dash": 43,
+   "side": "L",
+   "why": "truncated",
+   "y": 2.141,
+   "x": 0.695
   },
   {
    "dash": 44,
    "side": "R",
-   "why": "hidden in rear",
-   "y": 2.22,
-   "x": -0.544
+   "why": "hidden in side_right",
+   "y": 2.208,
+   "x": -0.579
+  },
+  {
+   "dash": 44,
+   "side": "L",
+   "why": "hidden in side_left",
+   "y": 2.207,
+   "x": 0.579
   },
   {
    "dash": 45,
    "side": "R",
-   "why": "hidden in rear,rear34_right",
-   "y": 2.247,
-   "x": -0.446
+   "why": "hidden in rear,rear34_left,rear34_right",
+   "y": 2.229,
+   "x": -0.515
   }
  ],
  "line_notes": [
-  "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 0.9693)",
-  "hood cut line meets the shoulder line at x=+-0.840 y=-0.943 on the middle of a shoulder dash; 16 whole dashes, stretch 0.9799"
+  "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 1.0389)",
+  "hood cut line meets the shoulder line at x=+-0.902 y=-0.906 on the middle of a shoulder dash; 18 whole dashes, stretch 1.0237"
  ],
  "sill_row": [
   {
@@ -1415,21 +1530,21 @@
    "z_centre": 0.222,
    "y_front": -0.75,
    "y_rear": 0.99,
-   "gap_cm": 31.4,
+   "gap_cm": 26.9,
    "logos": [
     {
      "kind": "raf",
-     "y": -0.726,
-     "width_cm": 4.8
+     "y": -0.659,
+     "width_cm": 18.2
     },
     {
      "kind": "breng",
-     "y": -0.174,
+     "y": -0.084,
      "width_cm": 42.8
     },
     {
      "kind": "driveoil",
-     "y": 0.44,
+     "y": 0.485,
      "width_cm": 17.2
     },
     {
@@ -1445,21 +1560,21 @@
    "z_centre": 0.222,
    "y_front": -0.75,
    "y_rear": 0.99,
-   "gap_cm": 31.4,
+   "gap_cm": 26.9,
    "logos": [
     {
      "kind": "raf",
-     "y": -0.726,
-     "width_cm": 4.8
+     "y": -0.659,
+     "width_cm": 18.2
     },
     {
      "kind": "breng",
-     "y": -0.174,
+     "y": -0.084,
      "width_cm": 42.8
     },
     {
      "kind": "driveoil",
-     "y": 0.44,
+     "y": 0.485,
      "width_cm": 17.2
     },
     {
@@ -1476,73 +1591,239 @@
  "front_cut_line": [
   {
    "side": "L",
-   "dashes": 10,
-   "stretch": 1.0217,
-   "length_cm": 109.3,
+   "dashes": 13,
+   "length_cm": 161.3,
    "truncated": [],
-   "hidden": [],
-   "air_3d_cm": [
-    2.9,
-    5.2
-   ],
-   "air_other_cm": 2.4,
-   "visible_air_cm": {
-    "side_left": [
-     2.0,
-     3.6
-    ],
-    "front": [
-     3.2,
-     4.5
-    ],
-    "front34_left": [
-     3.3,
-     4.5
+   "hidden": [
+    [
+     -8,
+     "front34_right"
     ]
+   ],
+   "air_lamp_cm": 0.9,
+   "air_grille_cm": 0.4,
+   "air_other_cm": 0.0,
+   "status": "FAIL",
+   "stretch": [
+    1.0007,
+    1.0166
+   ],
+   "neck_cm": 3.4,
+   "r_min_cm": 4.3,
+   "guide_dev_cm": {
+    "1": 0.65,
+    "2": 0.46,
+    "3": 0.3
    },
-   "status": "OK",
+   "dropped": [
+    -9
+   ],
    "label_air_cm": {
-    "ЛОПАТКА": 21.0,
-    "ПЯТАЧОК": 41.4,
-    "ШЕЙКА": 72.2,
-    "Симкарт hood tag": 57.2
+    "ЛОПАТКА": 33.1,
+    "ПЯТАЧОК": 7.1,
+    "ШЕЙКА": 84.6,
+    "Симкарт hood tag": 50.7
    }
   },
   {
    "side": "R",
-   "dashes": 10,
-   "stretch": 1.0232,
-   "length_cm": 109.2,
+   "dashes": 13,
+   "length_cm": 161.2,
    "truncated": [],
-   "hidden": [],
-   "air_3d_cm": [
-    3.0,
-    5.1
-   ],
-   "air_other_cm": 2.6,
-   "visible_air_cm": {
-    "side_left": [
-     2.1,
-     3.6
-    ],
-    "front": [
-     3.3,
-     4.5
-    ],
-    "front34_left": [
-     3.4,
-     5.9
+   "hidden": [
+    [
+     -8,
+     "front34_left"
     ]
+   ],
+   "air_lamp_cm": 1.0,
+   "air_grille_cm": 0.4,
+   "air_other_cm": 0.0,
+   "status": "FAIL",
+   "stretch": [
+    0.9999,
+    1.0184
+   ],
+   "neck_cm": 3.4,
+   "r_min_cm": 4.3,
+   "guide_dev_cm": {
+    "1": 0.65,
+    "2": 0.46,
+    "3": 0.3
    },
-   "status": "OK",
+   "dropped": [
+    -9
+   ],
    "label_air_cm": {
-    "ЛОПАТКА": 21.6,
-    "ПЯТАЧОК": 41.5,
-    "ШЕЙКА": 72.3,
-    "Симкарт hood tag": 57.3
+    "ЛОПАТКА": 33.1,
+    "ПЯТАЧОК": 7.1,
+    "ШЕЙКА": 84.6,
+    "Симкарт hood tag": 50.7
    }
   }
  ],
+ "pillar_lines": [
+  {
+   "kind": "A",
+   "side": "L",
+   "length_cm": 144.4,
+   "stretch": 0.9806,
+   "centre": "gap middle",
+   "junction": [
+    0.849,
+    -0.696,
+    0.853
+   ],
+   "r_min_cm": 14.6,
+   "guide_dev_cm": 2.92,
+   "dashes_left_out": [
+    1,
+    6,
+    7
+   ],
+   "air_frames_cm": 0.5
+  },
+  {
+   "kind": "A",
+   "side": "R",
+   "length_cm": 144.7,
+   "stretch": 0.9806,
+   "centre": "gap middle",
+   "junction": [
+    -0.849,
+    -0.693,
+    0.853
+   ],
+   "r_min_cm": 14.9,
+   "guide_dev_cm": 2.92,
+   "dashes_left_out": [
+    1,
+    6,
+    7
+   ],
+   "air_frames_cm": 0.5
+  },
+  {
+   "kind": "C",
+   "side": "L",
+   "length_cm": 126.3,
+   "stretch": 0.9798,
+   "centre": "dash middle",
+   "junction": [
+    0.796,
+    1.58,
+    0.908
+   ],
+   "r_min_cm": 9.8,
+   "guide_dev_cm": 5.12,
+   "dashes_left_out": [
+    5,
+    6
+   ],
+   "air_frames_cm": 3.1
+  },
+  {
+   "kind": "C",
+   "side": "R",
+   "length_cm": 126.3,
+   "stretch": 0.9798,
+   "centre": "dash middle",
+   "junction": [
+    -0.796,
+    1.58,
+    0.908
+   ],
+   "r_min_cm": 9.8,
+   "guide_dev_cm": 5.12,
+   "dashes_left_out": [
+    5,
+    6
+   ],
+   "air_frames_cm": 3.1
+  }
+ ],
+ "keylines": [
+  {
+   "side": "L",
+   "length_cm": 495.0,
+   "pieces_m": [
+    [
+     0.0,
+     0.379
+    ],
+    [
+     0.525,
+     2.114
+    ],
+    [
+     2.754,
+     4.622
+    ],
+    [
+     4.704,
+     4.95
+    ]
+   ],
+   "air_line_min_cm": 2.0,
+   "air_part_min_cm": 1.5
+  },
+  {
+   "side": "R",
+   "length_cm": 495.0,
+   "pieces_m": [
+    [
+     0.0,
+     0.38
+    ],
+    [
+     0.523,
+     2.113
+    ],
+    [
+     2.751,
+     4.621
+    ],
+    [
+     4.704,
+     4.95
+    ]
+   ],
+   "air_line_min_cm": 2.0,
+   "air_part_min_cm": 1.5
+  }
+ ],
+ "shoulder_crease": {
+  "L": {
+   "off_cm": [
+    0.01,
+    0.37
+   ],
+   "y_end": 1.8549999999999296
+  },
+  "R": {
+   "off_cm": [
+    0.01,
+    0.37
+   ],
+   "y_end": 1.8549999999999296
+  }
+ },
+ "band_slot": {
+  "L": {
+   "y_range": [
+    1.98,
+    2.2
+   ],
+   "max_dip_cm": 4.76
+  },
+  "R": {
+   "y_range": [
+    1.98,
+    2.2
+   ],
+   "max_dip_cm": 4.77
+  }
+ },
  "numbers": [
   {
    "skin": "Pozdnyakov_23",
