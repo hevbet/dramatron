@@ -698,18 +698,19 @@ def smoothstep_aa(d, half_w, aa=0.0013):
 
 
 # -------- belly line B(y): top of the holographic lower band (its chrome keyline), the dashed cut line 2.2 cm above it
-# Along the sill and the front door the band edge is level at z 0.40 (as approved). From the rear door back it runs
-# EXACTLY on the edge of the bolt-on wide-body rear flare, extracted from the mesh (flare_edge): the convex ridge where
-# the flare's outward (side-facing) face turns into its up-facing top / step - the door-bottom crease that rises across
-# the rear door and runs over the rear wheel at z ~0.81 to the flare's rear end. The keyline sits FLARE_KEY_IN below
+# Client round 3 (A): from just behind the front wheel to the rear flare's end the band edge runs EXACTLY on the real
+# body crease, extracted from the mesh (flare_edge) and faired into one smooth curve: the doors' lower feature line
+# (z 0.34 behind the front wheel, rising gently along both doors), up the wide-body rear flare's leading edge on the
+# rear door into the flare's top edge - the convex ridge where the flare's outward (side-facing) face turns into its
+# up-facing top / step - over the rear wheel at z ~0.81 to the flare's rear end. The keyline sits FLARE_KEY_IN below
 # that edge, on the side-facing face (constant offset), the holo band below it on the flare's outward face - over the
 # wheel it narrows to the face between the arch lip and the edge, it never breaks - and the dashed line 2.2 cm above
-# the keyline, on the flare's step just beyond the edge (the side face over the arch is only ~2.6 cm tall). The level
-# door edge and the rising flare edge are joined by a smooth maximum (no dip). Behind the wheel the keyline turns down
-# the flare's trailing edge, FLARE_TE_IN inside it on the flare face (flare_trailing_edge), and at the bottom it runs
-# rearward at 0.45 into the strip at the bottom of the rear bumper, whose keyline follows the black lower-trim fin
-# (band_edge): the bumper corner behind / under the flare (recessed ~11 cm) gets no second band, keyline or dashes - only
-# the low band continuing from the rear bumper. The dashed line on the flare top ends with the flare top (FLARE_DASH_END).
+# the keyline, on the flare's step just beyond the edge (the side face over the arch is only ~2.6 cm tall). Behind the
+# wheel the band edge turns down the flare's trailing edge (the holo runs out to the panel's edge there), and at the
+# bottom it runs rearward at 0.45 into the strip at the bottom of the rear bumper, whose keyline follows the black
+# lower-trim fin (band_edge): the bumper corner behind / under the flare (recessed ~11 cm) is calm base pink with only
+# the low band continuing from the rear bumper. The dashed line on the flare top ends with the flare top
+# (FLARE_DASH_END) and the keyline ends with it (KEY_FLARE_END), resuming at the bottom (KEY_RESUME_Z).
 FLARE_KEY_IN = 0.0045       # keyline centre below the flare edge (m): its white core sits on the side-facing face
 FLARE_TE_IN = 0.0           # band edge -> the flare's trailing edge (m): the holo runs out to the panel's edge (round 3:
 #                             no keyline down it any more, see KEY_FLARE_END)
@@ -4050,13 +4051,14 @@ def splitter_urls():
     ext_plastic.dds is shared with 14 other meshes (rear wing, lower grille piece, mirrors ...), so it is not
     overridden. The painted lip above the blade (the 'front_splitter' zone and the bumper's lowest strip) is no option
     either: level, it holds no box taller than ~2.5 cm (it slopes ~27 deg down outboard), so the URLs used to be
-    1.4 cm type on the holo there and read as artifacts. The largest level, forward-facing skin area of the front
-    lower bumper is the bumper face right above each outer intake (z ~0.46-0.53, ~25 cm wide between the intake's top
-    edge and the front cut line's keyline): the two URLs go there, mirror-symmetric left and right of the grille,
-    white with a deep-ink outline, projected along the car's forward axis with world z up (so the baseline is level
-    and upright in the front view), as large as passes the gates on both sides (flat, >= 1 cm to the intake edge,
-    >= 1.5 cm to the cut line / keyline, fully seen in front and that side's 3/4 view). simkarting.ru on the car's
-    right (reads first from the front)."""
+    1.4 cm type on the holo there and read as artifacts (with the source skin's navy and a clipped logo restored under
+    them - gone too: the lip is plain holo now). No level, flat (<= 12 deg), forward-facing skin area of the front
+    lower bumper is wider than ~17 cm or, at that width, taller than ~3 cm (searched |x| 0.0-0.93, z 0.2-0.55): the
+    largest is the outer corner face of the bumper beside each outer intake, above the holo band - 17 x 3 cm flat
+    (10 cm tall for 12 cm). The two URLs go there, mirror-symmetric, white with a deep-ink outline on the pink,
+    baseline level in 3D (horizontal projection axis, world z up), as large as passes the gates on both sides (flat
+    <= 12 deg, >= 1 cm to the panel edges, >= 1.5 cm to every cut line / keyline, >= 3 cm to other decals, fully seen
+    in the front and that side's 3/4 view). simkarting.ru on the car's right (reads first from the front)."""
     sp = ["front_bumper", "front_bumper_corner"]
 
     def cands(sg):
@@ -4656,9 +4658,11 @@ def main():
         c = CREASE.get(s_, {})
         if "off_cm" in c:
             rep.append(f"INFO   line:shoulder_{s_} on the extracted crease (doors / rear quarter: tornado edge, front fender: "
-                       f"flare top edge, S-blend {CREASE_BLEND[0]}..{CREASE_BLEND[1]}); centre line -> crease median "
-                       f"{c['off_cm'][0]} cm, max {c['off_cm'][1]} cm; rear end y {c.get('y_end', 0):.3f} "
-                       f"({SH_REAR_AIR * 100:.1f} cm from the tail lamp), dash phase {SH_PHASE.get(s_, 0):.4f}")
+                       f"flare top edge; the S between them laid out in plan over y {SH_S_PLAN[0]}..{SH_S_PLAN[1]}, one "
+                       f"smootherstep in x - it leaves the flare edge there, hence the max offset); centre line -> crease "
+                       f"median {c['off_cm'][0]} cm, max {c['off_cm'][1]} cm; rear end y {c.get('y_end', 0):.3f} "
+                       f"({SH_REAR_AIR * 100:.1f} cm from the tail lamp), dash coordinate {SH_SCALE.get(s_, 1):.4f} x arc + "
+                       f"{SH_PHASE.get(s_, 0):.4f} (a gap centred on the fender / door shut gap at y {SH_SHUT_Y})")
     for r in GH_LOG:
         rep.append(f"INFO   line:greenhouse one dashed line per side, hood centreline -> A-pillar (beside the windscreen, "
                    f"{GH_GAP_WS * 100:.1f} cm; on the upper pillar, 3.1-4.6 cm of paint wide, between the windscreen frame "
@@ -4694,6 +4698,13 @@ def main():
     for r in BELLY_DROPPED:      # belly cut-line dashes left out whole instead of showing as stubs
         rep.append(f"INFO   line:belly dash {r['dash']}{r['side']:<3} left out whole ({r['why']}) at x={r['x']:+.3f} "
                    f"y={r['y']:+.3f}")
+    if FLARE_LOG:
+        rep.append(f"INFO   line:swoosh (holo band edge, its keyline and the dashed cut line 2.2 cm above) on the extracted body "
+                   f"crease from y {FLARE_LOG.get('start', ['?'])[0]} (z {FLARE_LOG.get('start', [0, '?'])[1]}, just behind "
+                   f"the front wheel): the doors' lower feature line rising into the rear flare's top edge (ridge tracked "
+                   f"y {FLARE_LOG.get('ridge_y')}), one fair spline within {FLARE_LOG.get('fair_dev_cm')} cm of the ridge; "
+                   f"keyline {FLARE_KEY_IN * 100:.2f} cm under it; the keyline and dashes end together at the flare's "
+                   f"upper rear corner; recessed bumper corner behind the flare: base pink, holo only in the low band")
     for r in LINE_NOTES:
         rep.append("INFO   line:" + r)
     for r in SILL_LOG:

@@ -58,7 +58,21 @@ hue. Pillow's BC3 encode is tried first, then a small constrained BC1 encoder; f
 stays (the nut texels in it then stay grey on that mip). All other blocks are byte-identical to the
 original, and the alpha half of every block is the original one on every level.
 
-Usage: python3 make_bolts.py [--out DIR] [--skins A,B] [--debug DIR]
+Rim colour (RIM_COLOUR, default graphite)
+  The client liked a preview where car_paint_rims.dds was overridden with (70,72,76): in game that gives
+  rim_d.rgb * (70,72,76)/255, but it darkened the nuts too. Instead car_paint_rims.dds stays at 226 and every
+  NON-nut texel of rim_d is multiplied by RIM_COLOUR / 226 = (0.310, 0.319, 0.336), on every mip level (the
+  stock mips times the factor, so the baked AO / facets are kept): in game the rim is then exactly the
+  graphite preview, while the nut texels (and their padding) stay the pink of above. rim_blur gets the same
+  factor (it has no detail multiply, so the factor is relative to its stock in-game look as well) under the
+  pink blobs: new = f * bg * (1 - c) + pink * c.
+  Encoding: a "graphite base" DDS is made first (every level = stock level * factor, Pillow BC3 colour halves,
+  original alpha halves); the nut recolour above is then written on top of that base exactly as before
+  (base = "stock" for write_levels), so the rim texels around the nuts are protected against the graphite
+  base and no pink can bleed into them, and the nut blocks get the same constrained encode.
+  --rim-colour stock (or 226,226,226) reproduces the old white-rim output.
+
+Usage: python3 make_bolts.py [--out DIR] [--skins A,B] [--debug DIR] [--rim-colour R,G,B|graphite|stock]
 """
 import argparse
 import colorsys
@@ -89,6 +103,9 @@ SAT_GAIN = 1.25                        # anodised metal: same hue as PIG, satura
 _h, _s, _v = colorsys.rgb_to_hsv(*(c / 255.0 for c in PIG))
 NUT = np.array(colorsys.hsv_to_rgb(_h, min(1.0, _s * SAT_GAIN), _v), np.float32) * 255   # wanted in-game pink
 NUT_TEX = NUT / NUT.max() * 255.0      # texel colour of a fully lit face (in game: x detail 0.886)
+
+GRAPHITE = (70, 72, 76)                # client-approved in-game rim colour (as a car_paint_rims.dds texel)
+RIM_COLOUR = GRAPHITE                  # in-game rim tint; the non-nut texels get RIM_COLOUR / detail texel (226)
 
 PAD = 6                                # texels of padding around the nut islands (filtering / mips)
 KEEP_OFF = 3                           # padding never comes closer than this to another island
@@ -236,17 +253,20 @@ def recolour_rim(lv0, nut_any, nut_cen, other_any):
     return new, region, zone, st
 
 
-def rim_levels(orig_lv, new0, region, zone):
+def rim_levels(orig_lv, new0, region, zone, tint=1.0):
     """Float RGB of every mip level. Level k texels whose footprint touches the changed texels: rebuilt from
     the new level 0 (box filter) when the whole footprint lies in the nut zone, otherwise (deep mips, where a
-    texel also covers the rim) original + box-filtered change. Everything else: the original mip."""
-    o0 = orig_lv[0][..., :3].astype(np.float32)
+    texel also covers the rim) tinted original + box-filtered change. Everything else: the original mip times
+    tint (the rim colour factor, per channel; 1 = stock)."""
+    tint = np.broadcast_to(np.asarray(tint, np.float32), (3,))
+    o0 = orig_lv[0][..., :3].astype(np.float32) * tint
+    new0 = np.where(region[..., None], new0, o0)
     delta = new0 - o0
     out = [new0]
     reg, zon = region[..., None].astype(np.float32), zone[..., None].astype(np.float32)
     for k in range(1, len(orig_lv)):
         f = 1 << k
-        ok = orig_lv[k][..., :3].astype(np.float32)
+        ok = orig_lv[k][..., :3].astype(np.float32) * tint
         touch = box(reg, f)[..., 0] > 0
         inside = box(zon, f)[..., 0] > 0.9999
         nk = ok.copy()
@@ -291,7 +311,7 @@ def blur_coverage(B, scale):
     return dark, bg, w_ann, ann
 
 
-def blur_levels(orig_lv, used0, l_ref):
+def blur_levels(orig_lv, used0, l_ref, tint=1.0):
     """Float RGB of every mip level of rim_blur + the changed texels of level 0 + stats.
     Each original level 0..BLUR_LEVELS-1 is recoloured on its own (the stock mips are sharper than a box
     filter of level 0, so re-filtering would leave grey cores in pink halos); deeper levels get the
@@ -304,21 +324,24 @@ def blur_levels(orig_lv, used0, l_ref):
     # 0.886 * L, so in-game grey g -> NUT_TEX * g / L_REF (the 0.886 cancels); rimblur has no detail multiply,
     # so its texel grey is already the in-game grey.
     pink = NUT_TEX * (n_ref / l_ref)
+    tint = np.broadcast_to(np.asarray(tint, np.float32), (3,))
     out, m0 = [], None
     usedf = used0[..., None].astype(np.float32)
     for k, lv in enumerate(orig_lv):
         rgb = lv[..., :3].astype(np.float32)
+        base = rgb * tint                                             # rim colour (graphite) everywhere ...
         if k < BLUR_LEVELS:
             dark, bg, w_ann, _ = blur_coverage(rgb.mean(-1), rgb.shape[0] / orig_lv[0].shape[0])
             c = np.clip((dark - BLOB_NOISE) / np.maximum(bg - n_ref - BLOB_NOISE, 1.0), 0, 1) * w_ann
             m = (c > 1e-3) & (box(usedf, 1 << k)[..., 0] > 0)
-            new = rgb.copy()
-            new[m] = rgb[m] + c[m][:, None] * (pink[None, :] - n_ref)   # = bg(1-c) + pink c  for B = bg(1-c) + n_ref c
+            new = base.copy()
+            # ... and under the blobs  tint bg (1-c) + pink c,  for B = bg(1-c) + n_ref c
+            new[m] = base[m] + c[m][:, None] * (pink[None, :] - tint[None, :] * n_ref)
             if k == 0:
                 m0 = m
-            last, last_d = k, new - rgb
+            last, last_d = k, new - base
         else:
-            new = rgb + box(last_d, 1 << (k - last))
+            new = base + box(last_d, 1 << (k - last))
         out.append(new)
     st = dict(n_ref=n_ref, pink=pink, n_changed=int(m0.sum()), bg_at_blobs=float(np.median(bg0[core & ann0])))
     return out, m0, st
@@ -589,6 +612,64 @@ def write_levels(path, orig, levels, keep):
         fh.write(out)
     os.replace(path + ".tmp", path)
     return stats
+
+
+def tinted_base(orig, tint):
+    """The stock DDS with every level's colour multiplied by tint (per channel): colour halves re-encoded by
+    Pillow's BC3 from (stock level * tint), alpha halves and header byte-identical to the original. With
+    tint 1 the original bytes. Returns (DDS bytes, decoded levels, float tinted levels)."""
+    tint = np.broadcast_to(np.asarray(tint, np.float32), (3,))
+    lv = decode_levels(orig)
+    G = [x[..., :3].astype(np.float32) * tint for x in lv]
+    if np.allclose(tint, 1.0):
+        return orig, lv, G
+    out, off = bytearray(orig[:128]), 128
+    for k, x in enumerate(lv):
+        h, w = x.shape[:2]
+        nb = max(1, (w + 3) // 4) * max(1, (h + 3) // 4)
+        ob = np.frombuffer(orig[off:off + nb * 16], np.uint8).reshape(-1, 16).copy()
+        enc = encode_level(np.dstack([np.clip(G[k] + 0.5, 0, 255).astype(np.uint8), x[..., 3]]))
+        ob[:, 8:] = enc[:, 8:]
+        out += ob.tobytes()
+        off += nb * 16
+    out = bytes(out)
+    return out, decode_levels(out), G
+
+
+def snap_to_base(levels, G, base_lv):
+    """Texels whose target is just the tinted stock colour (no nut change) take the decoded base colour, so
+    write_levels sees them as unchanged and protects them against it (only the nut blocks are re-encoded)."""
+    out = []
+    for F, g, b in zip(levels, G, base_lv):
+        nut = np.abs(F - g).max(-1) > 1e-3
+        out.append(np.where(nut[..., None], F, b[..., :3].astype(np.float32)))
+    return out
+
+
+def parse_colour(s):
+    if s in ("graphite", "default"):
+        return GRAPHITE
+    if s in ("stock", "white", "none"):
+        return None
+    c = tuple(int(v) for v in s.split(","))
+    assert len(c) == 3 and all(0 <= v <= 255 for v in c), s
+    return c
+
+
+def colour_check(path, levels, nut_mask0, rim_mask0):
+    """Level-0 check of the written file: mean / max abs error of the rim texels to the graphite target, their
+    max chroma (pink bleed would show here), and the nut texels' error to the pink target."""
+    a = decode_levels(open(path, "rb").read())[0][..., :3].astype(np.float32)
+    t = levels[0]
+    e = np.abs(a - t).max(-1)
+    chroma = lambda x: x.max(-1) - x.min(-1)
+    r = dict(rim_mean_err=round(float(e[rim_mask0].mean()), 2), rim_max_err=round(float(e[rim_mask0].max()), 1),
+             rim_max_chroma=round(float(chroma(a[rim_mask0]).max()), 1),
+             rim_target_max_chroma=round(float(chroma(t[rim_mask0]).max()), 1))
+    if nut_mask0.any():
+        r.update(nut_mean_err=round(float(e[nut_mask0].mean()), 2), nut_max_err=round(float(e[nut_mask0].max()), 1),
+                 nut_mean_rgb=rgb3(a[nut_mask0].mean(0)))
+    return r
 
 
 def verify(path, orig, levels, keep):
