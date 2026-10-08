@@ -635,50 +635,102 @@ def smoothstep_aa(d, half_w, aa=0.0013):
     return np.clip((half_w - d) / aa + 0.5, 0, 1)
 
 
-# -------- belly line B(y): top of the holographic lower band (follows door crease + wide-body flare)
-# Along the sill and over the rear door the band edge is as before: the swoosh crests at y ~1.04 and dives into the
-# rear wheel arch's front lip (the dashed line above it sweeps up into the shoulder line there, belly_connector).
-# Behind the wheel the band carries on round the arch (client): its edge comes back out of the opening at the arch's
-# rear-upper lip (BAND_EMERGE_Z, found on the lip profile extracted from the mesh), leaves it in a smooth curve, runs
-# back along the wide-body flare's side face - the flare's lower / rear area below it is holo - kept clear of the
-# flare's up-facing top (an iso-height line would smear across it), turns down the flare's trailing edge and flows
-# into the strip at the bottom of the rear bumper at 0.45, where its keyline runs along the black lower-trim fin
-# (band_edge). The dashed cut line 2.2 cm above it comes out of the arch lip with it.
-BAND_EMERGE_Z = 0.718      # height on the arch's rear lip where the band edge comes back out of the opening
+# -------- belly line B(y): top of the holographic lower band (its chrome keyline), the dashed cut line 2.2 cm above it
+# Along the sill and the front door the band edge is level at z 0.40 (as approved). From the rear door back it runs
+# EXACTLY on the edge of the bolt-on wide-body rear flare, extracted from the mesh (flare_edge): the convex ridge where
+# the flare's outward (side-facing) face turns into its up-facing top / step - the door-bottom crease that rises across
+# the rear door and runs over the rear wheel at z ~0.81 to the flare's rear end. The keyline sits FLARE_KEY_IN below
+# that edge, on the side-facing face (constant offset), the holo band below it on the flare's outward face - over the
+# wheel it narrows to the face between the arch lip and the edge, it never breaks - and the dashed line 2.2 cm above
+# the keyline, on the flare's step just beyond the edge (the side face over the arch is only ~2.6 cm tall). The level
+# door edge and the rising flare edge are joined by a smooth maximum (no dip). Behind the wheel the keyline turns down
+# the flare's trailing edge, FLARE_TE_IN inside it on the flare face (flare_trailing_edge), and at the bottom it runs
+# rearward at 0.45 into the strip at the bottom of the rear bumper, whose keyline follows the black lower-trim fin
+# (band_edge): the bumper corner behind / under the flare (recessed ~11 cm) gets no second band, keyline or dashes - only
+# the low band continuing from the rear bumper. The dashed line on the flare top ends with the flare top (FLARE_DASH_END).
+FLARE_KEY_IN = 0.0045       # keyline centre below the flare edge (m): its white core sits on the side-facing face
+FLARE_TE_IN = 0.0105        # keyline centre ahead of the flare's trailing edge (m)
+FLARE_DASH_END = 1.895      # the flare top (its step) ends here: no dashes behind it above the bumper strip
+DOOR_BAND_Z = 0.40          # level band edge along the sill / front door
+FLARE_LOG = {}
 
 
-def rear_arch_lip(y0=0.96, y1=1.79, step=0.01):
-    """(y, z) of the rear wheel arch lip on the left side: per 1 cm station the lowest outward-facing skin above
-    z 0.30 (the wheel opening has no skin), smoothed (Gaussian, 2 cm). Stations outside the opening are dropped."""
-    m = COV.reshape(-1) & (PART.reshape(-1) >= 0)
-    Pp = POS.reshape(-1, 3)
-    m &= (Pp[:, 0] > 0.6) & (NRM.reshape(-1, 3)[:, 0] > 0.3) & (Pp[:, 1] > y0 - 0.01) & (Pp[:, 1] < y1 + 0.01) & \
-        (Pp[:, 2] > 0.30) & (Pp[:, 2] < 0.95)
+def flare_edge(y0=0.0, y1=1.90, step=0.01, sigma=0.03):
+    """(ys, z) of the rear flare's edge on the left side: per 1 cm station the convex ridge (crease_section, > 3 deg/mm,
+    |x| 0.90-0.99) followed from the top of the arch (y 1.30) forward and back, smoothed (Gaussian, sigma 3 cm)."""
+    ys = np.round(np.arange(y0, y1 + 1e-9, step), 3)
+    peaks = []
+    for y in ys:
+        zs, X, ok, de = crease_section(y, 1, zlo=0.30, zhi=0.90)
+        peaks.append([(float(zs[k]), float(X[k]), float(de[k])) for k in range(4, len(zs) - 4)
+                      if ok[k - 4:k + 5].all() and de[k] > 1.0 and de[k] == de[k - 4:k + 5].max()])
+    z = _crease_track(ys, peaks, 1.30, (0.30, 0.86), (0.90, 0.99), 3.0, step_tol=0.02)
+    ok = np.isfinite(z)
+    ys, raw = ys[ok], z[ok]
+    return ys, ndimage.gaussian_filter1d(raw, sigma / step, mode="nearest"), raw
+
+
+def flare_trailing_edge(z0=0.45, z1=0.79, step=0.02):
+    """(z, y) of the rear flare's trailing edge on the left side: per 2 cm of height the rearmost side-facing skin of the
+    rear_fender part (|x| > 0.85), smoothed."""
+    m = COV.reshape(-1) & (PART.reshape(-1) == PID["rear_fender"])
+    Pp, Nn = POS.reshape(-1, 3), NRM.reshape(-1, 3)
+    m &= (Pp[:, 0] > 0.85) & (Nn[:, 0] > 0.6) & (Pp[:, 1] > 1.7)
     P = Pp[m]
-    ys = np.arange(y0, y1, step)
-    zl = np.array([P[np.abs(P[:, 1] - y) < step / 2, 2].min() if (np.abs(P[:, 1] - y) < step / 2).any() else np.nan
-                   for y in ys])
-    k = np.isfinite(zl) & (zl > 0.45)
-    ys, zl = ys[k], ndimage.gaussian_filter1d(zl[k], 2.0, mode="nearest")
-    return ys, zl
+    zs = np.arange(z0, z1 + 1e-9, step)
+    ye = np.array([P[np.abs(P[:, 2] - z) < 0.005, 1].max() for z in zs])
+    return zs, ndimage.gaussian_filter1d(ye, 1.0, mode="nearest")
 
 
 def _band_pts():
-    ys, zl = rear_arch_lip()
-    top = int(np.argmax(zl))
-    rear = np.flatnonzero((np.arange(len(ys)) > top) & (zl <= BAND_EMERGE_Z))
-    ye = float(ys[rear[0]])                       # (y ~1.56) the band edge leaves the rear lip here
-    front = [(-2.40, 0.315), (-1.72, 0.315), (-1.06, 0.40), (0.30, 0.40), (0.42, 0.418), (0.52, 0.442), (0.62, 0.478),
-             (0.72, 0.528), (0.82, 0.598), (0.92, 0.676), (0.985, 0.728), (1.035, 0.740), (1.085, 0.728),
-             (1.13, 0.700), (1.20, 0.620)]
-    inside = [(1.35, 0.60), (ye - 0.11, 0.65), (ye - 0.04, BAND_EMERGE_Z - 0.018)]     # (in the wheel opening)
-    flare = [(ye, BAND_EMERGE_Z), (ye + 0.04, BAND_EMERGE_Z - 0.010), (ye + 0.09, BAND_EMERGE_Z - 0.028),
-             (ye + 0.16, BAND_EMERGE_Z - 0.053), (ye + 0.24, BAND_EMERGE_Z - 0.070), (ye + 0.32, BAND_EMERGE_Z - 0.085)]
-    drop = [(1.925, 0.612), (1.95, 0.57), (1.97, 0.49), (1.985, 0.455), (2.00, 0.45), (2.50, 0.45)]
-    return front + inside + [p for p in flare if p[0] < 1.90] + drop
+    ys, zr, raw = flare_edge()
+    want = zr - FLARE_KEY_IN
+    eps = 0.012                                                    # smooth maximum: level door edge -> flare edge
+    zb = 0.5 * (DOOR_BAND_Z + want + np.sqrt((DOOR_BAND_Z - want) ** 2 + eps ** 2))
+    zt, yt = flare_trailing_edge()
+    yte = yt - FLARE_TE_IN
+    # corner flare top -> trailing edge (which leans back toward the bottom) and trailing edge -> bumper strip at 0.45:
+    # the polyline of the two offset edges, corners rounded by Chaikin subdivision (r ~2-3 cm), then sampled per y
+    top = [(float(y), float(z)) for y, z in zip(ys, zb) if 1.70 <= y <= 1.86]
+    zx = float(np.interp(1.88, ys, zb))
+    yx = float(np.interp(zx, zt, yte))                       # the two offset edges cross here
+    te = [(float(np.interp(z, zt, yte)), float(z)) for z in np.arange(zx - 0.03, 0.4699, -0.03)]
+    yb = float(np.interp(0.45, zt, yte))
+    poly = np.array(top + [(yx, zx)] + te + [(yb, 0.45), (yb + 0.03, 0.45), (yb + 0.06, 0.45)])
+    for _ in range(5):
+        q = poly[:-1] * 0.75 + poly[1:] * 0.25
+        r = poly[:-1] * 0.25 + poly[1:] * 0.75
+        poly = np.vstack([poly[:1], np.stack([q, r], 1).reshape(-1, 2), poly[-1:]])
+    poly = poly[np.concatenate([[True], np.diff(poly[:, 0]) > 1e-4])]          # (y strictly increasing for PCHIP)
+    k = (ys >= 0.10) & (ys < 1.70)
+    mid = [(float(y), float(z)) for y, z in zip(ys[k][::2], zb[k][::2])]
+    rear = [tuple(map(float, v)) for v in poly[::3]] + [(2.50, 0.45)]
+    FLARE_LOG.update(edge_y=[float(ys[0]), float(ys[-1])], edge_z_top=round(float(zr.max()), 3),
+                     smooth_dev_cm=round(float(np.abs(zr - raw).max()) * 100, 2), corner=[round(yx, 3), round(zx, 3)],
+                     te=[(round(float(a), 3), round(float(b), 3)) for a, b in zip(zt, yt)])
+    front = [(-2.40, 0.315), (-1.72, 0.315), (-1.06, DOOR_BAND_Z), (-0.20, DOOR_BAND_Z), (0.0, DOOR_BAND_Z)]
+    return front + mid + rear
 
 
 B_PTS = _band_pts()
+
+
+_CB = {}
+
+
+def band_curve3d():
+    """The band edge B as a 3D curve on the left side's outer skin, y 0.38..1.99, ~1 mm along its arc (it turns down the
+    flare's trailing edge, so it is sampled by arc length, not by y)."""
+    if "C" not in _CB:
+        yy = np.linspace(0.38, 1.99, 20001)
+        zz, _ = b_curve(yy)
+        a = np.concatenate([[0], np.cumsum(np.hypot(np.diff(yy), np.diff(zz)))])
+        t = np.arange(0, a[-1], 0.001)
+        pts = list(zip(np.interp(t, a, yy), np.interp(t, a, zz)))
+        C = snap(pts, "side", SIDE_PARTS, "L", exact=True)
+        C[:, 0] = ndimage.uniform_filter1d(C[:, 0], 9, mode="nearest")
+        _CB["C"] = C
+    return _CB["C"]
 
 
 def b_curve(y):
@@ -755,8 +807,6 @@ def paint_belly():
     P = POSF[idx]
     z, dz = b_curve(P[:, 1])
     k = np.sqrt(1 + dz ** 2)
-    ze, _ = band_edge(P)
-    dist_e = (P[:, 2] - ze) / k                     # signed distance to the band edge / keyline (+ above)
     dout = np.stack([P[:, 0], P[:, 1] - np.clip(P[:, 1], -1.7, 1.7), np.zeros(len(P))], 1)
     dout /= np.maximum(np.linalg.norm(dout, axis=1, keepdims=True), 1e-6)
     facing = (NRMF[idx] * dout).sum(1)
@@ -771,23 +821,43 @@ def paint_belly():
         mxx = np.full((500, 200), -9.0)
         np.maximum.at(mxx, (iy_[m_], iz_[m_]), P[m_, 0] * sg)
         under[m_] = P[m_, 0] * sg < mxx[iy_[m_], iz_[m_]] - 0.02
+    # (a texel under another layer: a side-facing one - the flat step on top of the rear flare spans ~10 cm in x at one
+    #  height and is not hidden)
+    under &= np.abs(NRMF[idx, 2]) < 0.5
     facing = np.where(under, -1.0, facing)
     outward = facing > -0.2        # keyline: not on the inner faces of the flares / arch returns
-    facing_out = facing > 0.5      # dashes: only on skin that faces out of the car - not on inner faces, the flares'
-    #                                up-facing tops or the rear step face of the flare (iso-height lines smear there)
+    facing_out = facing > 0.5      # dashes: only on skin that faces out of the car - not on inner faces or the rear
+    #                                step face of the flare (iso-height lines smear there) ...
+    shelf = (P[:, 1] > 0.45) & (P[:, 1] < FLARE_DASH_END) & (P[:, 2] > 0.40) & (np.abs(P[:, 0]) > 0.80) & \
+        (NRMF[idx, 2] > 0.0) & ~under
+    facing_out |= shelf & (facing > 0.1)    # ... except the rear flare's step just above its edge, where the dashed line
+    #                                          runs (3D distance, so it does not smear across it)
     dist = (P[:, 2] - z) / k                        # signed perpendicular distance to B (+ above)
+    # along the rear flare B is the flare's edge: there the distance is measured in 3D to the band edge as a curve ON the
+    # surface (band_curve3d) - across the flare's step (which turns up and in, ~10 cm deep in x over 4 cm of height) the
+    # dashed line keeps its 2.2 cm offset and width along the surface instead of smearing, and around the flare's rear
+    # corner / down its trailing edge (B steep) the distance is the true one
+    zone = (P[:, 1] > 0.40) & (P[:, 1] < 1.975) & (np.abs(P[:, 0]) > 0.75) & (P[:, 2] > 0.36)
+    if zone.any():
+        CB = band_curve3d()
+        for sg in (1.0, -1.0):
+            zm = zone & (P[:, 0] * sg > 0)
+            d3, _ = cKDTree(CB * np.array([sg, 1.0, 1.0])).query(P[zm])
+            dist[zm] = np.where(dist[zm] >= 0, 1.0, -1.0) * d3
     # holo band below B: iridescent field from world position, slightly brighter toward the top edge
     # ~2.5 full spectrum cycles along one side
     t = 0.58 * P[:, 1] + 0.9 * P[:, 2] + 0.18 * np.abs(P[:, 0]) + 0.08 * np.sin(P[:, 1] * 3.1)
     col = holo_lookup(t + 0.1)
     lift = np.clip(1 + dist * 1.4, 0.82, 1.0)[:, None]          # deeper toward the sill
     col = col * lift + (1 - lift) * np.array([150, 90, 160], np.float32)
+    ze, _ = band_edge(P)
+    dist_e = np.where(zone, dist, (P[:, 2] - ze) / k)    # signed distance to the band edge / keyline (+ above)
     band = np.clip((-dist_e) / 0.0013 + 0.5, 0, 1)
     blend(idx, col, band)
     # chrome keyline straddling the band edge (8 mm), with a dark hairline under it for separation
     # lines stop where B dives steeply into the rear wheel arch (the band edge meets the arch lip there)
     # (the keyline follows B down the rear-arch dive so it runs into the arch lip instead of stopping short)
-    flat = (np.abs(dz) < 2.5).astype(np.float32)
+    flat = np.ones(len(P), np.float32)      # (the keyline follows B everywhere: over the arch, down the trailing edge)
     blend(idx[outward], INK_D, smoothstep_aa(np.abs(dist_e[outward] + 0.0003), 0.0092), obstacle=True)
     # 15 mm graded chrome: bright white edge -> grey core -> white edge
     u = np.clip(np.abs(dist_e) / 0.0075, 0, 1)
@@ -801,10 +871,13 @@ def paint_belly():
     global REAR_K
     REAR_K = rear_k_centred(P, dist)
     s = belly_s(P)
-    # over the rear door the dashed line leaves B and sweeps up into the shoulder line (belly_connector), so it never
-    # ends in mid-panel; behind the arch it comes back out of the lip with the band edge. Keyline and dashes only on
-    # skin that faces out of the car (not on the inner faces of the flares / arch returns, which share the height)
-    keep = (flat > 0) & ~((P[:, 1] > BELLY_SPLIT) & (P[:, 1] < 1.45) & (P[:, 2] > 0.46)) & facing_out
+    # the dashed line runs on along the rear flare's edge over the wheel (no connector up to the shoulder line any more).
+    # Keyline and dashes only on skin that faces out of the car (not on the inner faces of the flares / arch returns,
+    # which share the height)
+    keep = (flat > 0) & facing_out
+    # the dashed line rides on the flare's step: it ends with the flare top; down the trailing edge it would be on the
+    # recessed bumper corner behind the flare (no second line there)
+    keep &= ~((P[:, 1] > FLARE_DASH_END) & (P[:, 1] < 2.0) & (P[:, 2] > 0.50))
     # at the nose the dashed line does not run on along the bumper corner ahead of the front wheel (toward the air
     # intakes): it ends in the front wheel opening; the front of the chart is closed by the cut line along the
     # headlight (eyeliner_curve)
@@ -823,8 +896,7 @@ def paint_belly():
     # (1) truncated: the dash body is checked in three strips across its width (lower / centre / upper 6 mm);
     #     each strip must run the full 7.5 cm with no hole > 1.2 cm (door shut lines are < 0.6 cm). A strip that
     #     is missing (the trim notch takes the lower half of a dash) or broken counts as a cut dash; so does a dash
-    #     that runs over a step of the body (see below). Dashes at the hand-over to the rear-door connector are cut
-    #     there on purpose (the connector carries them on): exempt.
+    #     that runs over a step of the body (see below).
     off = dist - 0.022
     body = keep & covf & (d_c < 0.009) & (loc < DASH[0])
     bi = np.flatnonzero(body)
@@ -837,8 +909,6 @@ def paint_belly():
         if not len(g):
             continue
         ys = P[bi[g], 1]
-        if (ys.max() > BELLY_SPLIT - 0.10) and (ys.min() < BELLY_SPLIT + 0.10):
-            continue                   # (cut at the hand-over to the connector on purpose: it carries them on)
         if ys.min() > 2.0 and np.abs(P[bi[g], 0]).min() < 0.005:
             continue                   # the tail centre dash: its two mirrored halves each run 0 .. on/2
         worst = 0.0
@@ -2060,22 +2130,105 @@ def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mo
     return C
 
 
-# -------- roof cut lines carried down the A- and C-pillars into the shoulder line («hoops»)
-# Each roof cut line and its two pillar lines are ONE dashed line: across the roof, round the roof corner (radius
-# >= EYE_R_MIN), down the pillar and into the shoulder line, where it ends with a whole dash on the middle of a
-# shoulder dash (T-junction). The pillar paths are taken from the mesh: the A-pillar line runs on the middle line of
-# the painted A-pillar between the windscreen's and the side window's frames (equal air to both), round its foot and
-# down the door's front corner, ahead of the mirror arm; the C-pillar line runs at a constant gap PILLAR_GAP_C from
-# the rear edge of the quarter-window frame, down the sail panel to the tornado crease. The frames / glass edges are
-# the renderer's (view_rims). Dashes: from each junction up, whole dashes, stretched (< 3 %) so the two halves meet
-# on the centreline on the middle of a dash or a gap; a dash that would come closer than 5 mm to a frame / the
-# mirror / glass is left out whole. No keyline on the roof or along the pillar lines (client).
-PILLAR_PARTS = ["roof", "roof_rail", "a_pillar", "c_pillar", "front_door", "rear_door", "rear_shoulder", "trunk_lid",
-                "rear_fender", "front_fender_top", "front_fender"]
-PILLAR_GAP_C = 0.045        # C-pillar line centre -> quarter-window frame (m)
-A_LAND_Y = -0.755           # A-pillar line: aimed landing on the shoulder line (door front corner, ahead of the mirror)
-PILLAR_AIR = 0.022           # line centre -> frame / glass edge wanted on the pillars (1.1 cm of pink beside the line)
-PILLAR_LOG = []
+# -------- greenhouse cut lines: hood -> A-pillars -> roof edges -> C-pillars -> trunk lid, plus the two roof cross lines
+# Client routing (overrides the earlier «hoops» into the shoulder line). One dashed line runs round the whole
+# greenhouse on each side, the two sides meeting on the centreline at the hood and at the trunk: across the rear of the
+# hood (the hood cut line, 15 cm ahead of the hood's rear edge, ШЕЙКА between it and the windscreen), round a corner
+# into the A-pillar, up the A-pillar beside the windscreen at a constant gap GH_GAP_WS, along the roof edge beside the
+# side window at a constant gap GH_GAP_SIDE, down the C-pillar beside the rear window and across the trunk lid along the
+# rear window's lower edge at a constant gap GH_GAP_RW. The roof is closed into a loop by the two cross lines: along
+# the windscreen header (GH_GAP_HEAD behind the windscreen's top edge - the windscreen banner sticker reaches that edge)
+# and along the rear window's top edge (GH_GAP_RW); each turns at the roof corner with a radius >= GH_R_MIN and joins
+# the side line in a Y, tangentially, on its dashes (the same dash phase), where the pillar line goes down.
+# Glass edges are taken from the kn5 (greenhouse_clouds: windscreen glass + its frame, rear window, side windows), the
+# line centre is the iso-line of the distance to them on the renderer-visible skin, ordered and joined by one smoothing
+# spline glued to the surface (fair: turns >= GH_R_MIN). No dash is ever dropped: where the paintable strip is narrow
+# (another part closer than half the dash + 0.8 cm) the dash narrows smoothly, down to 1.2 cm. No keyline here.
+GH_GAP_WS = 0.024           # A-pillar line centre -> windscreen glass / frame (m)
+GH_GAP_HEAD = 0.034         # header line centre -> windscreen top edge
+GH_GAP_SIDE = 0.030         # roof side line centre -> side window
+GH_GAP_RW = 0.034           # C-pillar / rear cross / trunk line centre -> rear window
+GH_R_MIN = 0.05             # smallest turn radius of the greenhouse lines (client: >= 5 cm)
+GH_HW = 0.011               # dash half width; narrowed to GH_HW_MIN where the strip is narrow
+GH_HW_MIN = 0.006
+GH_AIR = 0.008              # air kept from the dash paint to any other part when narrowing
+GH_PARTS = ["hood", "front_fender_top", "front_fender", "a_pillar", "roof", "roof_rail", "c_pillar", "rear_shoulder",
+            "trunk_lid", "front_door", "rear_door", "rear_fender"]
+GH_BOX = ((-0.01, -1.35, 0.84), (1.0, 2.25, 1.45))
+HOOD_EDGE = (np.array([0.0, 0.3, 0.5, 0.6, 0.7]), np.array([-1.116, -1.095, -1.048, -1.002, -0.923]))
+HOOD_LINE_OFF = 0.15        # hood cut line: 15 cm ahead of the hood's rear edge
+GH_CACHE = os.path.join(SCRATCH, "bc", "greenhouse_clouds_v3.npz")
+GH = {}
+GH_LOG = []
+
+
+def _tri_sample(T, step):
+    """points every ~step on the triangles T (n, 3, 3) (vectorised barycentric grid per triangle)"""
+    T = np.asarray(T, float)
+    L = np.max(np.stack([np.linalg.norm(T[:, 1] - T[:, 0], axis=1), np.linalg.norm(T[:, 2] - T[:, 0], axis=1),
+                         np.linalg.norm(T[:, 2] - T[:, 1], axis=1)], 1), 1)
+    nn = np.maximum(1, np.ceil(L / step).astype(int))
+    out = []
+    for n in np.unique(nn):
+        k = nn == n
+        u, v = np.meshgrid(np.linspace(0, 1, n + 1), np.linspace(0, 1, n + 1))
+        m = (u + v) <= 1
+        u, v = u[m], v[m]
+        A, B, C = T[k, 0], T[k, 1], T[k, 2]
+        out.append((A[:, None] + u[None, :, None] * (B - A)[:, None] + v[None, :, None] * (C - A)[:, None]).reshape(-1, 3))
+    return np.concatenate(out)
+
+
+def greenhouse_clouds():
+    """Point clouds (posmap frame, both sides) from the kn5: 'ws' windscreen glass (glass / black glass / glass sticker
+    triangles facing forward-up) + its frame (Circle.012), 'rw' rear window, 'sd' side windows (|n_x| >= 0.6), 'all'
+    every exterior non-skin triangle above z 0.75 (frames, seals, mirror, wing stays ...). Geometry only -> cached."""
+    if os.path.exists(GH_CACHE):
+        d = np.load(GH_CACHE)
+        return {k: d[k] for k in d.files}
+    sys.path.insert(0, os.path.join(LIV, "tools"))
+    import render_rs3
+    _, _, meshes = render_rs3.load_scene(render_rs3.DEFAULT_KN5, True)
+    gl, frame, other = [], [], []
+    for m in meshes:
+        if m["interior"]:
+            continue
+        P = np.stack([m["pos"][:, 0], -m["pos"][:, 2], m["pos"][:, 1] + 0.07237756], 1)
+        T = P[m["idx"].reshape(-1, 3)]
+        if m["mat"] != "skin":
+            other.append(T[T.mean(1)[:, 2] > 0.75])
+        if m["mat"] in ("glass", "glassblack", "glass_sticker"):
+            gl.append(T)
+        if m["name"].endswith("/Circle.012"):
+            frame.append(T)
+    G_ = np.concatenate(gl)
+    c = G_.mean(1)
+    n = np.cross(G_[:, 1] - G_[:, 0], G_[:, 2] - G_[:, 0])
+    n /= np.linalg.norm(n, axis=1, keepdims=True) + 1e-12
+    ws = G_[(c[:, 1] < -0.15) & (c[:, 1] > -1.2) & (c[:, 2] > 0.85) & (np.abs(n[:, 0]) < 0.6)]
+    rw = G_[(c[:, 1] > 0.9) & (c[:, 2] > 0.95) & (np.abs(n[:, 0]) < 0.6)]
+    sd = G_[(c[:, 2] > 0.9) & (np.abs(n[:, 0]) >= 0.6)]
+    allp = _tri_sample(np.concatenate(other), 0.006)
+    # parts that stand OUT of the skin (or lie on it, within 3 mm): frames, seals, black frit strips, trims; not the
+    # panels' own inner skins / the structure under them
+    sk = np.flatnonzero(COV.reshape(-1) & (PARTF >= 0) & (POSF[:, 2] > 0.7))[::3]
+    dq, jq = cKDTree(POSF[sk]).query(allp, distance_upper_bound=0.08)
+    ok = np.isfinite(dq)
+    h = np.full(len(allp), -1.0)
+    h[ok] = ((allp[ok] - POSF[sk[jq[ok]]]) * NRMF[sk[jq[ok]]]).sum(1)
+    outp = allp[ok & (h > -0.003)]
+    to = cKDTree(outp)
+    glass = {}
+    for nm, T in (("ws", np.concatenate([ws] + frame)), ("rw", rw), ("sd", sd)):
+        g_ = _tri_sample(T, 0.004)
+        near = to.query(g_, distance_upper_bound=0.03)[0]
+        # each glass edge with the frames / frit / seals attached to it (outside parts within 3 cm of that glass)
+        att = np.isfinite(cKDTree(g_).query(outp, distance_upper_bound=0.03)[0])
+        glass[nm] = np.vstack([g_, outp[att]]).astype(np.float32)
+    out = dict(glass, all=allp.astype(np.float32), out=outp.astype(np.float32))
+    os.makedirs(os.path.dirname(GH_CACHE), exist_ok=True)
+    np.savez_compressed(GH_CACHE, **out)
+    return out
 
 
 class _Surf:
@@ -2097,154 +2250,230 @@ class _Surf:
     snap = _EyeSurf.snap
 
 
-def _land(shoulder_C, phase, y_aim):
-    """the middle of the shoulder dash nearest y_aim: (point, arc length)"""
-    S = arclen(shoulder_C)
-    s_aim = float(np.interp(y_aim, shoulder_C[:, 1], S))
-    s_j = math.floor((s_aim + phase) / DPER) * DPER + DASH[0] / 2 - phase
-    s_j = min((s_j - DPER, s_j, s_j + DPER), key=lambda v: abs(v - s_aim))
-    return np.array([np.interp(s_j, S, shoulder_C[:, k]) for k in range(3)]), s_j
+def _iso_guides(P, d, g, sel, key, bins, w=0.0012):
+    """median points of the iso-line d = g (|d - g| < w) inside sel, binned by key(P)"""
+    k = sel & (np.abs(d - g) < w)
+    Q = P[k]
+    kv = key(Q)
+    out = []
+    for a, b in zip(bins[:-1], bins[1:]):
+        s_ = (kv >= a) & (kv < b)
+        if s_.sum() >= 3:
+            out.append(np.median(Q[s_], 0))
+    return np.array(out)
 
 
-def _fit_path(G, w, surf, step=0.002, s_fac=0.0002):
+def _fair_radius(C, surf, sigma=6.0):
+    """smallest in-surface turn radius of a 2 mm curve, measured on the curve smoothed over ~1.2 cm (the texel noise of
+    the glued points - ~0.3 mm - would otherwise read as tight turns)"""
+    Cs = ndimage.gaussian_filter1d(C, sigma, axis=0, mode="nearest")
+    S = arclen(Cs)
+    T = np.gradient(Cs, S, axis=0)
+    T /= np.linalg.norm(T, axis=1, keepdims=True)
+    K = np.gradient(T, S, axis=0)
+    Nn = ndimage.gaussian_filter1d(surf.N[surf.tree.query(Cs, k=8)[1]].mean(1), 3.0, axis=0, mode="nearest")
+    Nn /= np.linalg.norm(Nn, axis=1, keepdims=True)
+    kg = np.linalg.norm(K - (K * Nn).sum(1, keepdims=True) * Nn, axis=1)
+    e = int(3 * sigma)
+    return 1.0 / max(float(kg[e:-e].max()), 1e-6), S, kg
+
+
+def _fit_curve(G, w, surf, s_fac=0.0002, r_min=GH_R_MIN, keep=None, iters=30):
+    """smoothing spline through the guide points G (weights w), glued to the surface, 2 mm resampled; turns tighter
+    than r_min: the guide points around them lose weight (except `keep`) until it is fair"""
     from scipy.interpolate import splprep, splev
-    tck, _u = splprep(np.asarray(G).T, w=w, s=s_fac * len(G), k=3)
-    C = np.array(splev(np.linspace(0, 1, 6000), tck)).T
-    return _resample(surf.snap(C), step)
-
-
-def pillar_half(kind, side, shoulder_C, phase):
-    """Left-side half of a hoop ('A' front, 'C' rear): dense centre curve from the roof centreline (x = 0) to its
-    junction on the shoulder line. Built on the left skin (the right side is its mirror image)."""
-    lo, hi = (np.array([-0.01, -1.0, 0.82]), np.array([1.0, 0.0, 1.45])) if kind == "A" else \
-        (np.array([-0.01, 0.8, 0.85]), np.array([1.0, 1.9, 1.45]))
-    surf = _Surf(PILLAR_PARTS, "L", lo, hi)
-    yl = -0.24 if kind == "A" else 1.10
-    rims = view_rims("apillar_L", (0.45, 0.75, 0.15, 1.02, 1.40, 1.00), ("side_left", "front34_left", "top")) \
-        if kind == "A" else view_rims("cpillar_L", (0.40, 0.75, -1.95, 1.0, 1.40, -0.95),
-                                      ("side_left", "rear34_left", "top"))
-    obst = np.vstack([rims["rim_gl"], rims["rim_ot"]])
-    to = cKDTree(obst[obst[:, 0] > 0.25])
-    if kind == "A":
-        roof = snap([(x, yl) for x in np.arange(0.0, 0.441, 0.04)], "top", ["roof", "roof_rail"])
-        # the A-pillar's middle line: per 2 cm slice the painted texel with the most air to the frames / glass
-        m = np.isin(PARTF, [PID[p] for p in ("a_pillar", "roof_rail")]) & OUTER & (POSF[:, 0] > 0.55) & \
-            (POSF[:, 1] < -0.30) & (POSF[:, 1] > -0.84) & (POSF[:, 2] > 0.93)
-        P = POSF[m]
-        air = to.query(P)[0]
-        mids = []
-        for y0 in np.arange(-0.34, -0.805, -0.02):
-            k = np.abs(P[:, 1] - y0) < 0.005
-            if k.sum() >= 5:
-                mids.append(P[k][int(np.argmax(air[k]))])
-        mids = np.array(mids)
-        mids = ndimage.gaussian_filter1d(mids, 1.0, axis=0, mode="nearest")
-        pil = surf.snap(mids)
-        J, s_j = _land(shoulder_C, phase, A_LAND_Y)
-        base = pil[-1]
-        door = surf.snap(np.array([base + (J - base) * t for t in (0.35, 0.7)]))
-        G = np.vstack([roof, pil, door, J])
-        w = np.concatenate([np.full(len(roof), 6.0), np.full(len(pil), 8.0), np.full(len(door), 2.0), [60.0]])
-    else:
-        roof = snap([(x, yl) for x in np.arange(0.0, 0.441, 0.04)], "top", ["roof", "roof_rail"])
-        fr = rims["rim_ot"]
-        fr = fr[(fr[:, 0] > 0.3) & (fr[:, 2] > 1.0) & (fr[:, 2] < 1.31) & (fr[:, 1] > 0.9) & (fr[:, 1] < 1.5)]
-        dfr = cKDTree(fr).query(surf.P)[0]
-        dgl = cKDTree(rims["rim_gl"]).query(surf.P)[0]
-        m = (np.abs(dfr - PILLAR_GAP_C) < 0.001) & (surf.P[:, 2] > 1.05) & (surf.P[:, 2] < 1.29) & (dgl > 0.03) & \
-            (surf.P[:, 1] > 1.0)
-        Q = surf.P[m]
-        pil = []
-        for z0 in np.arange(1.27, 1.049, -0.02):
-            k = np.abs(Q[:, 2] - z0) < 0.006
-            if k.sum() >= 3:
-                pil.append(np.median(Q[k], 0))
-        pil = surf.snap(np.array(pil))
-        d_ = pil[-1] - pil[-2]
-        y_aim = float(pil[-1][1] + d_[1] / max(abs(d_[2]), 1e-6) * (pil[-1][2] - float(np.interp(pil[-1][1],
-                                                                            shoulder_C[:, 1], shoulder_C[:, 2]))))
-        J, s_j = _land(shoulder_C, phase, y_aim)
-        base = pil[-1]
-        door = surf.snap(np.array([base + (J - base) * t for t in (0.4, 0.75)]))
-        G = np.vstack([roof, pil, door, J])
-        w = np.concatenate([np.full(len(roof), 6.0), np.full(len(pil), 6.0), np.full(len(door), 3.0), [60.0]])
-    G[0, 0] = 0.0
-    Gm = G[1:4] * np.array([-1.0, 1.0, 1.0])
-    G2 = np.vstack([Gm[::-1], G])
-    w2 = np.concatenate([w[1:4][::-1], w])
-    for it in range(25):
-        C = _fit_path(G2, w2, surf)
-        k0 = int(np.argmin(np.abs(C[:, 0])))
-        Ch = C[k0:]
-        Ch[0, 0] = 0.0
-        Ch[-1] = J
-        r_min, S, kg = _geodesic_radius(Ch, surf)
-        tight = np.flatnonzero(kg[8:-8] > 1.0 / EYE_R_MIN) + 8
+    w = np.asarray(w, float).copy()
+    for it in range(iters):
+        tck, _u = splprep(np.asarray(G).T, w=w, s=s_fac * len(G), k=3)
+        C = np.array(splev(np.linspace(0, 1, 12000), tck)).T
+        C = _resample(surf.snap(C), 0.002)
+        r, S, kg = _fair_radius(C, surf)
+        tight = np.flatnonzero(kg[18:-18] > 1.0 / r_min) + 18
         if not len(tight):
             break
-        near = cKDTree(Ch[tight]).query(G2)[0] < 0.05
-        near[-1] = False
-        w2[near] *= 0.7
-    dev = float(cKDTree(Ch).query(G[1:-1])[0].max())
-    return dict(C=Ch, J=J, s_j=s_j, r_min_cm=round(r_min * 100, 1), dev_cm=round(dev * 100, 2), iters=it + 1, kg=kg,
-                air_min_cm=round(float(to.query(Ch)[0].min() - 0.011) * 100, 1))
+        near = cKDTree(C[tight]).query(G)[0] < 0.06
+        if keep is not None:
+            near &= ~keep
+        w[near] *= 0.7
+    return C, r, it + 1
 
 
-def paint_hoop(kind, halves):
-    """Paint one hoop from its two halves {side: half dict} (curves from the centreline to each junction): whole
-    dashes from each junction up, one stretch for both halves so they meet on the centreline on the middle of a dash
-    or of a gap. Dashes closer than 5 mm to a frame / glass / the mirror are left out whole. Returns {side: curve}."""
-    out = {}
-    Ls = {s: float(arclen(h["C"])[-1]) for s, h in halves.items()}
-    L = 0.5 * (Ls["L"] + Ls["R"])
+def _cut_at_centre(C, end):
+    """trim a curve that crosses x = 0 at its start ('start') or end ('end') to end exactly on the centreline"""
+    if end == "start":
+        k = np.flatnonzero((C[:-1, 0] <= 0) & (C[1:, 0] > 0))
+        i = int(k[0]) if len(k) else 0
+        C = C[i:].copy()
+        if C[0, 0] < 0 < C[1, 0]:
+            C[0] = C[0] + (C[1] - C[0]) * (-C[0, 0] / (C[1, 0] - C[0, 0]))
+        C[0, 0] = 0.0
+    else:
+        k = np.flatnonzero((C[:-1, 0] > 0) & (C[1:, 0] <= 0))
+        i = int(k[-1]) + 1 if len(k) else len(C) - 1
+        C = C[:i + 1].copy()
+        if C[-2, 0] > 0 > C[-1, 0]:
+            C[-1] = C[-2] + (C[-1] - C[-2]) * (C[-2, 0] / (C[-2, 0] - C[-1, 0]))
+        C[-1, 0] = 0.0
+    return C
+
+
+def greenhouse_curves():
+    """Left-side centre curves: 'main' (hood centreline -> ... -> trunk centreline), 'head' and 'rear' (roof cross
+    lines from the roof centreline to their Y on 'main'), plus checks."""
+    if GH:
+        return GH
+    cl = greenhouse_clouds()
+    surf = _Surf(GH_PARTS, "L", *GH_BOX)
+    # (ahead of the A-pillar foot the line runs on the hood / fender top: the side faces of the shut gaps there would
+    #  pull the glued curve down into the gap)
+    k_ = ~((surf.P[:, 1] < -0.84) & (surf.N[:, 2] < 0.6))
+    surf.idx, surf.P, surf.N = surf.idx[k_], surf.P[k_], surf.N[k_]
+    surf.tree = cKDTree(surf.P)
+    P = surf.P
+    dw = cKDTree(cl["ws"]).query(P, distance_upper_bound=0.08)[0]
+    dr = cKDTree(cl["rw"]).query(P, distance_upper_bound=0.08)[0]
+    ds = cKDTree(cl["sd"]).query(P, distance_upper_bound=0.08)[0]
+    L_ = P[:, 0] > -0.004
+    hood = snap([(x, float(np.interp(x, *HOOD_EDGE)) - HOOD_LINE_OFF) for x in np.arange(-0.12, 0.521, 0.04)], "top",
+                ["hood", "front_fender_top"], exact=True)
+    A = _iso_guides(P, dw, GH_GAP_WS, L_ & (P[:, 0] > 0.5) & (P[:, 1] < -0.30) & (P[:, 1] > -0.80), lambda Q: Q[:, 1],
+                    np.arange(-0.80, -0.30, 0.02))
+    # the A-pillar's foot: the windscreen's lower corner is boxed in by a black cowl trim (the hood corner under it is
+    # not visible), so the line comes down onto the fender top outboard of it - the middle of the fender top's strip
+    # between the hood shut line and the fender's outer roll (x 0.77 .. 0.82) - and turns in across the hood from there
+    foot = snap([(0.792, -0.88), (0.795, -0.92), (0.792, -0.96)], "top", ["front_fender_top"], exact=True)
+    S = _iso_guides(P, ds, GH_GAP_SIDE, L_ & (P[:, 0] > 0.45) & (P[:, 1] > -0.24) & (P[:, 1] < 1.08) & (P[:, 2] > 1.2),
+                    lambda Q: Q[:, 1], np.arange(-0.24, 1.08, 0.02))
+    Cp = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 0] > 0.52) & (P[:, 1] > 1.22) & (P[:, 1] < 1.72), lambda Q: Q[:, 1],
+                     np.arange(1.22, 1.72, 0.02))
+    Tr = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 1] > 1.74) & (P[:, 2] < 1.2), lambda Q: -Q[:, 0],
+                     np.arange(-0.58, 0.121, 0.03))
+    Hd = _iso_guides(P, dw, GH_GAP_HEAD, L_ & (P[:, 1] > -0.45) & (P[:, 1] < -0.1) & (P[:, 2] > 1.2), lambda Q: Q[:, 0],
+                     np.arange(-0.12, 0.43, 0.03))
+    Rc = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 1] < 1.26) & (P[:, 2] > 1.25), lambda Q: Q[:, 0],
+                     np.arange(-0.12, 0.34, 0.03))
+    G = np.vstack([hood, foot[::-1], A, S, Cp, Tr])
+    grp = np.concatenate([np.full(len(hood), 0), np.full(len(foot), 1), np.full(len(A), 1), np.full(len(S), 2),
+                          np.full(len(Cp), 3), np.full(len(Tr), 4)])
+    w = np.where(grp == 0, 8.0, 6.0)
+    main, r_main, it_m = _fit_curve(G, w, surf)
+    main = _cut_at_centre(_cut_at_centre(main, "start"), "end")
+    Sm = arclen(main)
+    # roof cross lines: guide points along their glass edge, then on along 'main' past the roof corner (they join it)
+    out = dict(main=main, r_main=r_main)
+    # (the cross lines leave their glass edge before the roof corner - header at |x| 0.43, rear at 0.34 - and join the
+    #  side / C-pillar line 10-15 cm along it: room for a round turn, the glass corners themselves are tighter)
+    for nm, guides, ysel in (("head", Hd, (-0.14, 0.06)), ("rear", Rc, (1.31, 1.50))):
+        on = main[(main[:, 1] > ysel[0]) & (main[:, 1] < ysel[1])][::5]
+        Gb = np.vstack([guides, on])
+        wb = np.concatenate([np.full(len(guides), 6.0), np.full(len(on), 30.0)])
+        keep = np.concatenate([np.zeros(len(guides), bool), np.ones(len(on), bool)])
+        Cb, r_b, it_b = _fit_curve(Gb, wb, surf, keep=keep)
+        Cb = _cut_at_centre(Cb, "start")
+        dmain, jm = cKDTree(main).query(Cb)
+        far = np.flatnonzero(dmain > 0.002)
+        iy = int(far[-1]) + 1 if len(far) else len(Cb) - 1      # first point where it lies on 'main' for good
+        Cb = Cb[:min(iy + 1, len(Cb))]
+        out[nm] = Cb
+        out[nm + "_join"] = int(jm[len(Cb) - 1])
+        out["r_" + nm] = r_b
+        # the radius of the turn into the side line (the part of the cross line off 'main')
+        r_turn, _, _ = _fair_radius(Cb, surf)
+        out["rturn_" + nm] = r_turn
+    out["surf"] = surf
+    GH.update(out)
+    return GH
+
+
+def _gh_width(C, sg):
+    """dash half width along C: GH_HW, narrowed smoothly where a part standing out of the skin (frame, seal, frit,
+    trim) is closer than GH_HW + GH_AIR; and that distance"""
+    cl = greenhouse_clouds()
+    if "_out_tree" not in GH:
+        GH["_out_tree"] = cKDTree(cl["out"])
+    d = np.minimum(GH["_out_tree"].query(C, distance_upper_bound=0.05)[0], 0.05)
+    raw = np.clip(d - GH_AIR, GH_HW_MIN, GH_HW)
+    hw = ndimage.minimum_filter1d(raw, 25, mode="nearest")          # (5 cm either side) ...
+    hw = ndimage.gaussian_filter1d(hw, 8.0, mode="nearest")          # ... and eased in / out
+    return np.minimum(hw, raw + 0.001), d
+
+
+def paint_gh_line(C, sd, side, hw):
+    """dashed line along C (dash coordinate sd, half width hw per point), on the half of the car of `side`"""
+    sg = 1.0 if side == "L" else -1.0
+    idx = cand(GH_PARTS)
+    P = POSF[idx]
+    lo, hi = C.min(0) - 0.03, C.max(0) + 0.03
+    m = np.all((P >= lo) & (P <= hi), axis=1) & ((P[:, 0] >= 0) if side == "L" else (P[:, 0] < 0))
+    idx, P = idx[m], P[m]
+    d, j = cKDTree(C).query(P, k=1, distance_upper_bound=0.03)
+    ok = np.isfinite(d)
+    idx, d, j = idx[ok], d[ok], j[ok]
+    s, h = sd[j], hw[j]
+    loc = np.mod(s, DPER)
+    along = np.where(loc < DASH[0], 0.0, np.minimum(loc - DASH[0], DPER - loc))
+    a = smoothstep_aa(np.sqrt(along ** 2 + d ** 2), h)
+    blend(idx, INK, a, obstacle=True)
+    return idx[a > 0.5]
+
+
+def paint_greenhouse():
+    """Paint the greenhouse lines on both sides (left curves; the right side is their mirror image re-glued to the right
+    skin). Returns the centre curves {side: [main, head, rear]} (for the keyline / clearance tests)."""
+    g = greenhouse_curves()
+    main = g["main"]
+    Sm = arclen(main)
+    L = float(Sm[-1])
+    # main: a dash centred on the hood centreline; one stretch (closest to 1) puts the trunk centreline on the middle of
+    # a dash or of a gap
     best = None
     for tgt in (DASH[0] / 2, DASH[0] + DASH[1] / 2):
-        n = round((L - tgt) / DPER)
-        k = (tgt + n * DPER) / L
+        n = round((L + DASH[0] / 2 - tgt) / DPER)
+        k = (tgt + n * DPER - DASH[0] / 2) / L
         if best is None or abs(k - 1) < abs(best[0] - 1):
             best = (k, tgt)
-    k, tgt = best
-    rims = view_rims("apillar_L", (0.45, 0.75, 0.15, 1.02, 1.40, 1.00), ("side_left", "front34_left", "top")) \
-        if kind == "A" else view_rims("cpillar_L", (0.40, 0.75, -1.95, 1.0, 1.40, -0.95),
-                                      ("side_left", "rear34_left", "top"))
-    obst = np.vstack([rims["rim_gl"], rims["rim_ot"]])
-    obst = obst[obst[:, 0] > 0.25]
-    to = cKDTree(obst)
-    for s, h in halves.items():
-        C = h["C"]
-        S = arclen(C)
-        sd = (S[-1] - S) * (tgt + round((L - tgt) / DPER) * DPER) / S[-1]     # 0 at the junction, dash starts there
-        sg = np.array([1.0 if s == "L" else -1.0, 1.0, 1.0])
-        dd = to.query(C * sg)[0] - 0.011
-        loc = np.mod(sd, DPER)
-        dn = np.floor(sd / DPER).astype(int)
-        cap = loc > DPER - 0.011
-        dn = np.where(cap, dn + 1, dn)
-        painted = (loc < DASH[0] + 0.011) | cap
-        drop = sorted(set(int(v) for v in np.unique(dn[painted & (dd < 0.003)])))
-        idx = cand(PILLAR_PARTS)
-        P = POSF[idx]
-        lo, hi = C.min(0) - 0.03, C.max(0) + 0.03
-        m = np.all((P >= lo) & (P <= hi), axis=1) & ((P[:, 0] >= 0) if s == "L" else (P[:, 0] < 0))
-        idx, P = idx[m], P[m]
-        d, j = cKDTree(C).query(P, k=1, distance_upper_bound=0.03)
-        ok = np.isfinite(d)
-        idx, d, j = idx[ok], d[ok], j[ok]
-        sv = sd[j]
-        keep = ~np.isin(dash_owner(sv), drop)
-        dash_line(idx[keep], sv[keep], d[keep], 0.011, DASH[0], DASH[1], INK)
-        air = dd[painted & ~np.isin(dn, drop)]
-        kg = h["kg"] if len(h["kg"]) == len(C) else np.interp(S / S[-1], np.linspace(0, 1, len(h["kg"])), h["kg"])
-        pk = painted & ~np.isin(dn, drop)
-        pk[:8] = pk[-8:] = False
-        r_paint = 1.0 / max(float(kg[pk].max()), 1e-6) if pk.any() else 9.9
-        PILLAR_LOG.append(dict(kind=kind, side=s, length_cm=round(float(S[-1]) * 100, 1), stretch=round(k, 4),
-                               centre="dash middle" if tgt < DASH[0] else "gap middle",
-                               junction=[round(float(v), 3) for v in C[-1]], r_min_cm=round(r_paint * 100, 1),
-                               guide_dev_cm=h["dev_cm"], dashes_left_out=drop,
-                               air_frames_cm=round(float(air.min() + 0.0) * 100, 1) if len(air) else None))
-        print(f"   {kind}-pillar line {s}: {PILLAR_LOG[-1]}", flush=True)
-        out[s] = C
+    k_m, tgt_m = best
+    sd_main = DASH[0] / 2 + k_m * Sm
+    curves = {"main": (main, sd_main)}
+    log = dict(main_cm=round(L * 100, 1), main_stretch=round(k_m, 4),
+               trunk_centre="dash middle" if tgt_m < DASH[0] else "gap middle", r_main_cm=round(g["r_main"] * 100, 1))
+    for nm in ("head", "rear"):
+        Cb = g[nm]
+        Sb = arclen(Cb)
+        Lb = float(Sb[-1])
+        sM = float(sd_main[g[nm + "_join"]])
+        best = None
+        for tgt in (DASH[0] / 2, DASH[0] + DASH[1] / 2):
+            # sd_b(a) = sM - kb (Lb - a); centre (a = 0) on tgt (mod DPER)
+            base = sM - Lb
+            n = round((base - tgt) / DPER)
+            for nn in (n - 1, n, n + 1):
+                kb = (sM - (tgt + nn * DPER)) / Lb
+                if kb > 0 and (best is None or abs(kb - 1) < abs(best[0] - 1)):
+                    best = (kb, tgt)
+        kb, tgt = best
+        curves[nm] = (Cb, sM - kb * (Lb - Sb))
+        log[nm + "_cm"] = round(Lb * 100, 1)
+        log[nm + "_stretch"] = round(kb, 4)
+        log[nm + "_centre"] = "dash middle" if tgt < DASH[0] else "gap middle"
+        log[nm + "_turn_r_cm"] = round(g["rturn_" + nm] * 100, 1)
+    out = {"L": [], "R": []}
+    surfR = _Surf(GH_PARTS, "R", *GH_BOX)
+    for side in ("L", "R"):
+        sg = 1.0 if side == "L" else -1.0
+        for nm, (C, sd) in curves.items():
+            Cs = C if side == "L" else surfR.snap(C * np.array([-1.0, 1.0, 1.0]))
+            if side == "R":
+                Cs[:, 0] = np.minimum(Cs[:, 0], 0.0)
+            hw, dpart = _gh_width(Cs, sg)
+            ink = paint_gh_line(Cs, sd, side, hw)
+            out[side].append(Cs)
+            if side == "L":
+                log[nm + "_hw_min_cm"] = round(float(hw.min()) * 200, 2)
+                log[nm + "_air_min_cm"] = round(float((dpart - hw).min()) * 100, 2)
+                GH.setdefault("ink", {})[nm] = ink
+    GH_LOG.append(log)
+    print(f"   greenhouse lines: {log}", flush=True)
     return out
 
 
@@ -2795,7 +3024,6 @@ def paint_body():
         C = curve_line(c3[s], SIDE_PARTS, s, 0.011, INK, dash=DASH, phase=phase, resnap_mode="side", trim=(-1.0, S_B))
         shoulder[s] = C
         SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
-        belly_connector(s, A_PTS[s], C, phase)
         Se = arclen(eye)
         k1, k2, s_n, s_e = eyeliner_dash(float(Se[-1]), E["a_gap"], S_B + phase)
         sd = np.where(Se <= E["a_gap"], S_B + phase - k1 * Se, s_n - k2 * (Se - E["a_gap"]))
@@ -2811,52 +3039,9 @@ def paint_body():
               f"centreline, stretch {k1:.4f} / {k2:.4f}, neck {E['neck_cm']} cm wide, smallest turn radius "
               f"{E['r_min_cm']} cm, guide deviation {E['dev_cm']} cm, dashes left out {sorted(drop)}", flush=True)
 
-    # --- hood / roof transverse cut lines (meet the shoulder crease on the fenders)
-    TOP = ["hood", "front_fender_top", "front_fender", "roof", "roof_rail"]
-    # parallel to the curved hood rear edge, 15 cm ahead of it, running on across the fender tops until it MEETS
-    # the shoulder cut line. The junction is put on the middle of a shoulder dash (where the hood line's end slope,
-    # carried straight on, crosses the shoulder line in plan), and the hood dashes are stretched (< 1 dash period over
-    # the whole line) so the line starts and ends with a full dash whose rounded end sits on that shoulder dash:
-    # an ink T-junction on both fenders, no stub.
-    hx = np.array([0.0, 0.3, 0.5, 0.6, 0.7])
-    he = np.array([-1.116, -1.095, -1.048, -1.002, -0.923])
-    xs = np.linspace(-0.70, 0.70, 29)
-    pts = [(x, np.interp(abs(x), hx, he) - 0.15) for x in xs]
-    CL = shoulder["L"]
-    SL = arclen(CL)
-    ph = SH_PHASE["L"]
-    win = np.flatnonzero((CL[:, 1] > -1.25) & (CL[:, 1] < -0.70))
-    yr = pts[-1][1] + (CL[win, 0] - pts[-1][0]) * 0.79      # the hood line's end slope (dy/dx 0.79) carried on
-    s_aim = float(SL[win[int(np.argmin(np.abs(yr - CL[win, 1])))]])
-    s_j = math.floor((s_aim + ph) / DPER) * DPER + DASH[0] / 2 - ph
-    s_j = min((s_j - DPER, s_j, s_j + DPER), key=lambda v: abs(v - s_aim))
-    xj, yj = float(np.interp(s_j, SL, CL[:, 0])), float(np.interp(s_j, SL, CL[:, 1]))
-    mid = (0.5 * (0.70 + xj), 0.5 * (pts[-1][1] + yj) - 0.006)
-    pts = [(-xj, yj), (-mid[0], mid[1])] + pts + [mid, (xj, yj)]
-    hood = snap(pts, "top", TOP, exact=True)
-    Ch = dense_curve(hood, TOP, None, "top")
-    Lh = float(arclen(Ch)[-1])
-    nper = round((Lh - DASH[0]) / DPER)
-    curve_line(hood, TOP, None, 0.011, INK, dash=DASH, resnap_mode="top", scale=(nper * DPER + DASH[0]) / Lh)
-    for s in sides:
-        others[s].append(Ch)
-    LINE_NOTES.append(f"hood cut line meets the shoulder line at x=+-{xj:.3f} y={yj:.3f} on the middle of a shoulder "
-                      f"dash; {nper + 1} whole dashes, stretch {(nper * DPER + DASH[0]) / Lh:.4f}")
-    print(f"   hood cut line meets the shoulder line at x=+-{xj:.3f} y={yj:.3f} (z {Ch[-1, 2]:.3f} vs shoulder "
-          f"{float(np.interp(s_j, SL, CL[:, 2])):.3f}); {nper + 1} dashes, stretch {(nper * DPER + DASH[0]) / Lh:.4f}",
-          flush=True)
-    # --- roof cut lines: dashed burgundy only - no white keyline beside them on the roof (client); each runs on down
-    #     the A- / C-pillars into the shoulder line on both sides as one line (pillar_half, paint_hoop)
-    for kind in ("A", "C"):
-        hL = pillar_half(kind, "L", shoulder["L"], SH_PHASE["L"])
-        box = ((-0.01, -1.0, 0.82), (1.0, 0.0, 1.45)) if kind == "A" else ((-0.01, 0.8, 0.85), (1.0, 1.9, 1.45))
-        CR = _resample(_Surf(PILLAR_PARTS, "R", *box).snap(hL["C"] * np.array([-1.0, 1.0, 1.0])), 0.002)
-        JR, sjR = _land(shoulder["R"], SH_PHASE["R"], float(hL["J"][1]))
-        CR[0, 0] = 0.0
-        CR[-1] = JR
-        hoop = paint_hoop(kind, {"L": hL, "R": dict(hL, C=CR, J=JR, s_j=sjR)})
-        for s in sides:
-            others[s].append(hoop[s])
+    # --- greenhouse lines (hood cut line -> A-pillars -> roof edges -> C-pillars -> trunk lid, roof cross lines): they
+    #     no longer touch the shoulder line (no hood -> shoulder T-junction, no pillar landing at the mirror / door corner)
+    paint_greenhouse()
     # --- chrome keyline beside the shoulder line and the front cut line, constant offset, never across a cut line
     for s in sides:
         ib = int(np.searchsorted(arclen(shoulder[s]), SHOULDER[s]["S_B"]))
