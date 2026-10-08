@@ -2157,7 +2157,9 @@ def eyeliner_checks(C, side, sd, ink, drop=(), hw=None, neck_dash=None):
     res = dict(side=side, dashes=len(dashes), length_cm=round(float(S[-1]) * 100, 1), truncated=trunc,
                hidden=hid, air_lamp_cm=round(float(dl.min()) * 100, 1), air_grille_cm=round(float(dgr.min()) * 100, 1),
                air_other_cm=round(float(do.min()) * 100, 1))
-    res["status"] = "OK" if not trunc and not hid and min(dl.min(), dgr.min(), do.min()) >= 0.0075 else "FAIL"
+    # (other parts: >= NECK_SEAM_AIR - the hood corner's shut line runs alongside the line in the neck, in a gap)
+    res["status"] = "OK" if not trunc and not hid and min(dl.min(), dgr.min()) >= 0.0075 and \
+        do.min() >= NECK_SEAM_AIR - 0.0005 else "FAIL"
     return res
 
 
@@ -2875,6 +2877,7 @@ def _arc_dist_to(mask, S):
     return out
 
 
+NECK_SEAM_AIR = 0.003       # least paint air from a front-cut-line dash to the hood corner's shut line in the neck
 KEY_NECK_GAP = 0.003        # through the lamp / grille neck: clear paint between the keyline and the (narrowed) dash ...
 KEY_NECK_AIR = 0.0025       # ... and between the keyline and the lamp
 KEY_NECK_KMIN = 0.30        # narrowest keyline there, as a fraction of its normal width (1.44 cm -> 0.43 cm)
@@ -3464,11 +3467,30 @@ def paint_body():
         # client round 3: the hood corner's shut line crosses the line ~1 cm from the neck's narrowest point and the
         # dash across it showed a notch (its two halves on two panels): the middle of a GAP is centred on that crossing
         # (the dashes either side of it run through the neck, narrowed; the keyline runs on beside them)
-        a_x = E["a_gap"]
-        k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se[-1]), a_x, SB_, EYE.get("L", {}).get("tgt"),
+        # (the hood corner's shut line runs alongside the line for a few cm there: the gap covers the whole stretch where
+        #  a dash's paint would come closer than NECK_SEAM_AIR to it - lengthened there if needed: that stretch of arc is
+        #  mapped onto one gap, the dashes elsewhere keep their length)
+        hw_e = eyeliner_width(eye, s)
+        rim_ = headlight_rims()
+        nr_ = nose_rims()
+        sgv_ = np.array([1.0 if s == "L" else -1.0, 1.0, 1.0])
+        do_e = cKDTree(np.vstack([rim_["rim_other"], nr_["rim_ot"]])).query(eye * sgv_)[0]
+        bad_ = (np.abs(Se - E["a_gap"]) < 0.08) & (do_e - hw_e < NECK_SEAM_AIR)
+        if bad_.any():
+            ib_ = np.flatnonzero(bad_)
+            z0, z1 = float(Se[ib_.min()]), float(Se[ib_.max()])
+            W = max(DASH[1], (z1 - z0) + float(hw_e[ib_.min()]) + float(hw_e[ib_.max()]) + 0.002)
+            a_x = 0.5 * (z0 + z1)
+        else:
+            W, a_x = DASH[1], E["a_gap"]
+        Ec = W - DASH[1]
+        Se_eff = Se - Ec * np.clip((Se - (a_x - W / 2)) / W, 0, 1)
+        a_eff = a_x - Ec / 2
+        k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se_eff[-1]), a_eff, SB_, EYE.get("L", {}).get("tgt"),
                                                 at_mid=DASH[0] + DASH[1] / 2)
-        sd = np.where(Se <= a_x, SB_ - k1 * Se, s_n - k2 * (Se - a_x))
-        hw = eyeliner_width(eye, s)
+        sd = np.where(Se_eff <= a_eff, SB_ - k1 * Se_eff, s_n - k2 * (Se_eff - a_eff))
+        EYE.setdefault("neck_gap_cm", {})[s] = round(W * 100, 1)
+        hw = hw_e
         drop = set()                       # (no dash is left out: the neck dash is narrowed instead)
         ink = paint_eyeliner(eye, s, sd, drop, hw)
         EYE[s] = dict(C=eye, sd=sd, k1=k1, k2=k2, ink=ink, drop=drop, neck_cm=E["neck_cm"], r_min_cm=E["r_min_cm"], hw=hw,
@@ -4657,8 +4679,8 @@ def main():
     for r in LINE_CHECKS:        # front cut line along the headlight and across the nose
         rep.append(f"{r['status']:<6} line:front_{r['side']:<18} {r['dashes']} whole dashes, {r['length_cm']} cm to the "
                    f"centreline, stretch {r['stretch'][0]} / {r['stretch'][1]}, smallest turn radius {r['r_min_cm']} cm, "
-                   f"neck between lamp and grille {r['neck_cm']} cm wide: a dash gap centred on the hood corner's shut "
-                   f"line there ({r.get('seam_cm')} cm from its narrowest point), the dashes either side narrowed smoothly to "
+                   f"neck between lamp and grille {r['neck_cm']} cm wide: one dash gap ({EYE.get('neck_gap_cm', {}).get(r['side'])}"
+                   f" cm) over the stretch where the hood corner's shut line runs alongside, the dashes either side narrowed smoothly to "
                    f"{r['hw_min_cm']} cm, dashes left out {r['dropped']}; air of the paint to the lamp {r['air_lamp_cm']} cm, grille {r['air_grille_cm']} cm, "
                    f"other parts {r['air_other_cm']} cm; guide deviation (lamp gap / crease / grille gap) "
                    f"{r['guide_dev_cm']} cm; labels " + ", ".join(f"{k} {v}" for k, v in r["label_air_cm"].items()) + " cm"

@@ -118,23 +118,23 @@
    ],
    "side": "L",
    "size_cm": [
-    33.3,
-    4.2
+    31.4,
+    4.0
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.2,
+   "edge_clear_cm": 1.4,
    "max_tilt_deg": 0.0,
-   "level_deg": 0.0,
+   "level_deg": 0.01,
    "level_rows_deg": [
     0.0,
-    0.0,
-    0.0
+    -0.0,
+    0.01
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.0,
+   "mask_clear_cm": 1.3,
    "line_clear_cm": 2.0,
-   "decal_clear_cm": 19.2,
+   "decal_clear_cm": 19.3,
    "status": "OK"
   },
   {
@@ -247,7 +247,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
    "line_clear_cm": 8.3,
-   "decal_clear_cm": 3.3,
+   "decal_clear_cm": 2.8,
    "hidden_frac": {
     "side_left": 0.0,
     "front34_left": 0.0,
@@ -500,23 +500,23 @@
    ],
    "side": "R",
    "size_cm": [
-    36.8,
-    5.6
+    34.2,
+    5.2
    ],
    "coverage": 1.0,
    "edge_clear_cm": 1.8,
-   "max_tilt_deg": 5.6,
+   "max_tilt_deg": 5.5,
    "level_deg": -0.05,
    "level_rows_deg": [
-    -0.05,
+    0.01,
     0.0,
-    0.05
+    -0.05
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.6,
-   "line_clear_cm": 2.0,
-   "decal_clear_cm": 18.4,
+   "mask_clear_cm": 1.9,
+   "line_clear_cm": 2.2,
+   "decal_clear_cm": 18.6,
    "status": "OK"
   },
   {
@@ -543,7 +543,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.0,
    "line_clear_cm": 2.0,
-   "decal_clear_cm": 19.7,
+   "decal_clear_cm": 20.9,
    "status": "OK"
   },
   {
@@ -668,7 +668,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.6,
    "line_clear_cm": 12.2,
-   "decal_clear_cm": 4.9,
+   "decal_clear_cm": 5.1,
    "hidden_frac": {
     "side_right": 0.0,
     "front34_right": 0.0,
@@ -701,7 +701,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.3,
    "line_clear_cm": 26.9,
-   "decal_clear_cm": 12.7,
+   "decal_clear_cm": 13.8,
    "hidden_frac": {
     "side_right": 0.0,
     "front34_right": 0.0,
@@ -1084,7 +1084,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.5,
-   "line_clear_cm": 7.5,
+   "line_clear_cm": 7.3,
    "decal_clear_cm": 70.5,
    "hidden_frac": {
     "front": 0.0,
@@ -1643,13 +1643,13 @@
    "length_cm": 161.3,
    "truncated": [],
    "hidden": [],
-   "air_lamp_cm": 1.0,
+   "air_lamp_cm": 1.4,
    "air_grille_cm": 0.8,
-   "air_other_cm": 1.1,
-   "status": "OK",
+   "air_other_cm": 0.0,
+   "status": "FAIL",
    "stretch": [
-    1.0382,
-    1.0166
+    0.9749,
+    1.0582
    ],
    "neck_cm": 3.4,
    "seam_cm": 1.6,
@@ -1663,7 +1663,7 @@
    "dropped": [],
    "label_air_cm": {
     "ЛОПАТКА": 31.2,
-    "ПЯТАЧОК": 7.2,
+    "ПЯТАЧОК": 7.1,
     "ШЕЙКА": 84.4,
     "Симкарт hood tag": 51.2
    }
@@ -1674,13 +1674,13 @@
    "length_cm": 161.2,
    "truncated": [],
    "hidden": [],
-   "air_lamp_cm": 1.0,
+   "air_lamp_cm": 1.4,
    "air_grille_cm": 0.8,
-   "air_other_cm": 1.2,
-   "status": "OK",
+   "air_other_cm": 0.0,
+   "status": "FAIL",
    "stretch": [
-    1.0382,
-    1.0184
+    0.9749,
+    1.0601
    ],
    "neck_cm": 3.4,
    "seam_cm": 1.6,
@@ -1694,7 +1694,7 @@
    "dropped": [],
    "label_air_cm": {
     "ЛОПАТКА": 31.3,
-    "ПЯТАЧОК": 7.2,
+    "ПЯТАЧОК": 7.1,
     "ШЕЙКА": 84.5,
     "Симкарт hood tag": 50.4
    }
