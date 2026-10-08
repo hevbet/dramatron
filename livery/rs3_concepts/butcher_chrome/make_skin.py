@@ -711,13 +711,17 @@ def smoothstep_aa(d, half_w, aa=0.0013):
 # (band_edge): the bumper corner behind / under the flare (recessed ~11 cm) gets no second band, keyline or dashes - only
 # the low band continuing from the rear bumper. The dashed line on the flare top ends with the flare top (FLARE_DASH_END).
 FLARE_KEY_IN = 0.0045       # keyline centre below the flare edge (m): its white core sits on the side-facing face
-FLARE_TE_IN = 0.0105        # keyline centre ahead of the flare's trailing edge (m)
+FLARE_TE_IN = 0.0           # band edge -> the flare's trailing edge (m): the holo runs out to the panel's edge (round 3:
+#                             no keyline down it any more, see KEY_FLARE_END)
 FLARE_DASH_END = 1.895      # the flare top (its step) ends here: no dashes behind it above the bumper strip
 DOOR_BAND_Z = 0.40          # (old: level band edge along the front door - the band now follows the crease, see below)
 BAND_Y0 = -0.90             # client round 3 (A): the swoosh boundary follows the real body crease from just behind
 #                             the front wheel (the doors' lower feature line, rising gently into the rear flare's top
 #                             edge) - not a level line on the front door
 FAIR_TOL = 0.003            # the fair curve stays within 3 mm of the extracted ridge
+KEY_FLARE_END = 1.905       # the band keyline ends here at the flare's upper rear corner (with the last dash) ...
+KEY_RESUME_Z = 0.47         # ... and resumes at the bottom of the flare's trailing edge, into the bumper's low band
+BAND_LOW_Y = 2.02           # the rear bumper's low band (its height there is the one the recessed corner keeps)
 FLARE_LOG = {}
 
 
@@ -858,6 +862,26 @@ def trim_slot(side):
     return ys, bot
 
 
+def trim_slot_span(side):
+    """(ys, bottom, top) of the black lower-trim fin's slot in the rear bumper corner (see trim_slot)"""
+    sg = 1 if side == "L" else -1
+    m = OUTER & COV.reshape(-1) & (PARTF >= 0) & (POSF[:, 0] * sg > 0.55) & (POSF[:, 1] > 1.93) & \
+        (POSF[:, 1] < 2.22) & (POSF[:, 2] > 0.40) & (POSF[:, 2] < 0.56)
+    P = POSF[m]
+    ys = np.arange(1.94, 2.21, 0.005)
+    bot, top = np.full(len(ys), np.nan), np.full(len(ys), np.nan)
+    for i, y in enumerate(ys):
+        zz = np.sort(P[np.abs(P[:, 1] - y) < 0.0025, 2])
+        if len(zz) < 5:
+            continue
+        g = np.diff(zz)
+        ok = (zz[:-1] > 0.425) & (zz[:-1] < 0.49) & (g > 0.006)
+        if ok.any():
+            k = np.flatnonzero(ok)[int(np.argmax(g[ok]))]
+            bot[i], top[i] = zz[k], zz[k + 1]
+    return ys, bot, top
+
+
 def band_edge(P):
     """z of the band edge (its chrome keyline) at each point: B(y), except along the black lower-trim fin at the rear
     bumper corners, where it runs SLOT_GAP under the fin's slot - following its lower edge - and back (client: the
@@ -935,17 +959,40 @@ def paint_belly():
     col = col * lift + (1 - lift) * np.array([150, 90, 160], np.float32)
     ze, _ = band_edge(P)
     dist_e = np.where(zone, dist, (P[:, 2] - ze) / k)    # signed distance to the band edge / keyline (+ above)
+    # client round 3: the recessed rear-bumper corner behind / under the flare is calm base pink - holo only as the
+    # low band continuing from the rear bumper (its top edge = the bumper strip's band edge, its keyline continues)
+    zlow, _ = band_edge(np.stack([P[:, 0], np.maximum(P[:, 1], BAND_LOW_Y), P[:, 2]], 1))
+    recess = (PARTF[idx] == PID["rear_bumper_corner"]) & (np.abs(P[:, 0]) > 0.55) & (P[:, 1] < BAND_LOW_Y + 0.15) & \
+        (P[:, 2] > 0.40)
+    dist_e = np.where(recess, P[:, 2] - zlow, dist_e)
     band = np.clip((-dist_e) / 0.0013 + 0.5, 0, 1)
     blend(idx, col, band)
     # chrome keyline straddling the band edge (8 mm), with a dark hairline under it for separation
     # lines stop where B dives steeply into the rear wheel arch (the band edge meets the arch lip there)
     # (the keyline follows B down the rear-arch dive so it runs into the arch lip instead of stopping short)
     flat = np.ones(len(P), np.float32)      # (the keyline follows B everywhere: over the arch, down the trailing edge)
-    blend(idx[outward], INK_D, smoothstep_aa(np.abs(dist_e[outward] + 0.0003), 0.0092), obstacle=True)
+    # client round 3 (verifier): the dashed line ends with the flare top; the keyline used to turn the corner and run
+    # down the flare's trailing edge alone - now it ends together with the dashes, with a round cap, at the flare's
+    # upper rear corner; the holo of the flare face runs out to the panel's trailing edge (no keyline there), and the
+    # keyline resumes at the bottom with the low band along the rear bumper
+    kd = dist_e.copy()
+    CB = band_curve3d()
+    SB_ = arclen(CB)
+    i_end = int(np.flatnonzero(CB[:, 1] >= KEY_FLARE_END)[0])
+    i_res = int(np.flatnonzero((CB[:, 1] > KEY_FLARE_END) & (CB[:, 2] <= KEY_RESUME_Z))[0])
+    for sg in (1.0, -1.0):
+        zm = zone & (P[:, 0] * sg > 0) & (P[:, 1] > KEY_FLARE_END - 0.03)
+        if zm.any():
+            _, jj = cKDTree(CB * np.array([sg, 1.0, 1.0])).query(P[zm])
+            sj = SB_[jj]
+            # (arc distance into the gap from its nearer end: a round cap of the keyline's half width at each end)
+            gapd = np.where((sj > SB_[i_end]) & (sj < SB_[i_res]), np.minimum(sj - SB_[i_end], SB_[i_res] - sj), 0.0)
+            kd[zm] = np.sqrt(kd[zm] ** 2 + gapd ** 2)
+    blend(idx[outward], INK_D, smoothstep_aa(np.abs(kd[outward] + 0.0003), 0.0092), obstacle=True)
     # 15 mm graded chrome: bright white edge -> grey core -> white edge
-    u = np.clip(np.abs(dist_e) / 0.0075, 0, 1)
+    u = np.clip(np.abs(kd) / 0.0075, 0, 1)
     chrome = np.interp(u, [0, 0.35, 0.7, 1.0], [150, 205, 250, 238])[:, None] * np.array((1.0, 0.98, 1.04), np.float32)
-    blend(idx[outward], np.clip(chrome[outward], 0, 255), smoothstep_aa(np.abs(dist_e[outward]), 0.0075),
+    blend(idx[outward], np.clip(chrome[outward], 0, 255), smoothstep_aa(np.abs(kd[outward]), 0.0075),
           obstacle=True)
     # dashed butcher line 2.2 cm above the band edge, rounded dash ends, continuous around the car
     # arc-length parameter: along the side it is the arc of B(y); around the nose / tail corners the lateral
@@ -1028,12 +1075,32 @@ def paint_belly():
             hid.add(int(k + kmin))
             HIDDEN_IN.setdefault(int(k + kmin), set()).add(v)
     hid = sorted(hid)
+    # (3) at the fin: a dash that reaches within 1.2 cm of the black lower-trim fin's slot (above or below it) shows
+    #     as a fragment beside the fin in the rear views - left out whole (client round 3)
+    fin = set()
+    for side, sg in (("L", 1.0), ("R", -1.0)):
+        ys_, bot_, top_ = trim_slot_span(side)
+        okf = np.isfinite(bot_)
+        if okf.sum() < 3:
+            continue
+        cand_ = np.flatnonzero(keep & (d_c < 0.011) & (loc < DASH[0]) & (P[:, 0] * sg > 0.5) &
+                               (P[:, 1] > ys_[okf].min() - 0.01) & (P[:, 1] < ys_[okf].max() + 0.01))
+        if not len(cand_):
+            continue
+        b_ = np.interp(P[cand_, 1], ys_[okf], bot_[okf])
+        t_ = np.interp(P[cand_, 1], ys_[okf], top_[okf])
+        near_ = (P[cand_, 2] > b_ - 0.012) & (P[cand_, 2] < t_ + 0.012)
+        for kk in np.unique(key[cand_[near_]]):
+            fin.add(int(kk))
+            HIDDEN_IN.setdefault(int(kk), set()).add("fin")
+    trunc = sorted(set(trunc) | fin)
     bad = sorted(set(trunc) | set(hid))
     for k in bad:
         m = key == k
         m &= OUTER[idx] & (d_c < 0.008)
         BELLY_DROPPED.append(dict(dash=k // 2, side="L" if k % 2 else "R",
-                                  why=("hidden in " + ",".join(sorted(HIDDEN_IN[k]))) if k in hid else "truncated",
+                                  why=("hidden in " + ",".join(sorted(HIDDEN_IN[k]))) if k in hid else
+                                  ("beside the trim fin" if k in fin else "truncated"),
                                   y=round(float(np.median(P[m, 1])), 3), x=round(float(np.median(P[m, 0])), 3)))
     LINE_NOTES.append(f"tail centre: one {DASH[0] * 100:.1f} cm dash centred on x=0 (lateral stretch {REAR_K:.4f})")
     print(f"   rear dash centred on the car (lateral stretch {REAR_K:.4f}); whole dashes left out: "
@@ -2843,22 +2910,23 @@ def paint_keyline(C, side, others, open_start=False, hwd=None):
     sgv = np.array([sg, 1.0, 1.0])
     rim = headlight_rims()
     nr = nose_rims()
-    lamps = np.vstack([rim["rim_hl"], nr["rim_hl"], nr["rim_gr"]]) * sgv
+    front_l = np.vstack([rim["rim_hl"], nr["rim_hl"], nr["rim_gr"]]) * sgv
     tl = taillamp_points()
-    lamps = np.vstack([lamps, tl[tl[:, 0] * sg > 0]])
+    tl = tl[tl[:, 0] * sg > 0]
+    lamps = np.vstack([front_l, tl])
     # client (round 3): no 12 cm break at the lamp / grille neck - the keyline runs on through it on the same side,
     # closer to the (narrowed) dash and narrowed itself, like the dash: room = distance from the cut line's centre to
     # the lamp / grille on the keyline's side; where the normal keyline (KEY_OFF, 1.44 cm wide, 0.8 cm air) does not
     # fit, its width k and offset are the largest that keep KEY_NECK_GAP to the dash and KEY_NECK_AIR to the lamp,
     # eased in / out along the line (no step)
     hwd = np.full(len(C), 0.011) if hwd is None else np.asarray(hwd, float)
-    tl_ = cKDTree(lamps)
+    tl_ = cKDTree(front_l)
     nb_d, nb_j = tl_.query(C, k=64, distance_upper_bound=0.06)
     room = np.full(len(C), 0.06)
     for i in range(len(C)):
-        ok_ = np.isfinite(nb_d[i])
+        ok_ = np.isfinite(nb_d[i]) & (C[i, 1] < -1.2)              # (the nose only: the lamp / grille neck)
         if ok_.any():
-            v = lamps[nb_j[i][ok_]] - C[i]
+            v = front_l[nb_j[i][ok_]] - C[i]
             side_ = (v @ lat[i]) > 0.0
             if side_.any():
                 room[i] = float(nb_d[i][ok_][side_].min())
@@ -2872,7 +2940,14 @@ def paint_keyline(C, side, others, open_start=False, hwd=None):
                      KEY_OFF)
     off = np.clip(off, lo_off, None)
     K = C + lat * off[:, None]
-    gap_part = (cKDTree(lamps).query(K)[0] < hw0 * kf + KEY_NECK_AIR - 0.0005)
+    gap_part = (cKDTree(front_l).query(K)[0] < hw0 * kf + KEY_NECK_AIR - 0.0005)
+    # at the tail lamp: the keyline ends KEY_AIR_PART from it, in one clean round cap (everything behind the first
+    # point that comes too close is left out - no ragged on / off at the lamp's edge)
+    gt = cKDTree(tl).query(K)[0] < hw0 + KEY_AIR_PART
+    gt &= C[:, 1] > 1.0
+    if gt.any():
+        gt[int(np.flatnonzero(gt)[0]):] = True
+    gap_part |= gt
     gap = gap_line | gap_part
     ends = gap.copy()
     if not open_start:
@@ -2905,7 +2980,8 @@ def paint_keyline(C, side, others, open_start=False, hwd=None):
                                   width_min_cm=round(float(kf.min() * 2 * hw0) * 100, 2),
                                   offset_min_cm=round(float(off.min()) * 100, 2),
                                   gap_to_dash_min_cm=round(float((off - hwd - hw0 * kf)[on].min()) * 100, 2),
-                                  air_to_lamp_min_cm=round(float((tl_.query(K[on])[0] - hw0 * kf[on]).min()) * 100, 2)),
+                                  air_to_lamp_min_cm=round(float((tl_.query(K[on & nk])[0] - hw0 * kf[on & nk]).min()) * 100, 2)
+                                  if (on & nk).any() else None),
                         air_line_min_cm=round(float(min([cKDTree(O).query(K[on])[0].min() for O in others] + [9.9])
                                                       - 0.011 - hw0) * 100, 1),
                         air_part_min_cm=round(float(cKDTree(lamps).query(K[on & ~nk])[0].min() - hw0) * 100, 1)
@@ -3746,22 +3822,24 @@ def side_decals(s):
                                                                       0.740), rd, h * 6),
               parts=rd, kind="text", tilt_gate=10.0, line_min=1.0, deco_min=2.5, min_clear_cm=1.0,
               keepout=dict(pts=handle_pts(s), min_cm=2.0, what="the door handle"), **kw)
+    # (round 3: the swoosh's keyline now runs on the doors' lower crease, z ~0.35 here - the brisket label sits in the
+    #  strip under it, >= 2 cm from the keyline, as large as that leaves room for)
     decal_fit(f"label_grudinka_{s}", lambda h: cut_label("ГРУДИНКА", px(h), underline=False),
-              [0.060, 0.055, 0.050, 0.046, 0.042, 0.038],
-              lambda h: sc((-0.50, -0.48, -0.53), (0.316, 0.308, 0.324), fl, h * 7),
-              parts=fl, kind="text", tilt_gate=10.0, line_min=1.0, deco_min=4.0, **kw)
+              [0.060, 0.055, 0.050, 0.046, 0.042, 0.040, 0.038, 0.036, 0.034],
+              lambda h: sc((-0.50, -0.48, -0.53, -0.45), (0.300, 0.296, 0.292, 0.304, 0.288, 0.308), fl, h * 7),
+              parts=fl, kind="text", tilt_gate=10.0, line_min=2.0, deco_min=4.0, **kw)
     # ham: the haunch in front of the rear wheel = the flat lower rear-door strip under the door crease (z 0.29-0.38,
     # same strip as ГРУДИНКА on the front door; the rear quarter behind the wheel is only 21 cm wide)
     decal_fit(f"label_okorok_{s}", lambda h: cut_label("ОКОРОК", px(h), underline=False),
-              [0.064, 0.060, 0.056, 0.052, 0.048, 0.044],
-              lambda h: sc((0.60, 0.56, 0.64), (0.330, 0.322, 0.338), rd, h * 6),
-              parts=rd, kind="text", tilt_gate=10.0, line_min=1.5, deco_min=4.0, min_clear_cm=1.5, **kw)
+              [0.064, 0.060, 0.056, 0.052, 0.048, 0.044, 0.040],
+              lambda h: sc((0.60, 0.56, 0.64, 0.68), (0.330, 0.322, 0.314, 0.338), rd, h * 6),
+              parts=rd, kind="text", tilt_gate=10.0, line_min=2.0, deco_min=4.0, min_clear_cm=1.5, **kw)
     # ---- partners on the holo band: dark / pearl backers so they read on the iridescence
     # SMP RACING ESPORTS (series) – full colour on a deep-ink pill, flat lower front door strip
     decal_fit(f"smp_low_{s}", lambda h: pill(asset_smp(px(h)), px(0.012), px(0.008), INK_D),
-              [0.058, 0.054, 0.050, 0.046, 0.042],
-              lambda h: sc((0.02, -0.04, 0.08), (0.316, 0.308, 0.324), fl, h * 5),
-              parts=fl, tilt_gate=12.0, line_min=1.0, deco_min=6.0, **kw)
+              [0.058, 0.054, 0.050, 0.046, 0.042, 0.038, 0.035, 0.032, 0.030],
+              lambda h: sc((0.02, -0.04, 0.08, -0.10), (0.300, 0.296, 0.292, 0.304, 0.308), fl, h * 5),
+              parts=fl, tilt_gate=12.0, line_min=2.0, deco_min=6.0, **kw)
     # rear flare behind the wheel (one panel: arch lip y~1.70 .. trailing edge y~1.97), on its holo lower area: the
     # stacked pair of the client's BR03 skin - KARTING64 (kart artwork on the sill's pearl pad) on top, DriveOil on
     # its orange plate below, the same width, a clear gap - one level projection (art up = world +z), the largest
@@ -4405,12 +4483,9 @@ def glass_sticker(driver, num):
     if not _EP_POS:
         _EP_POS.update(endplate_layout())
     for nm, (ex0, ex1) in (("R", (110, 305)), ("L", (326, 521))):
-        d.rectangle(k([ex0, 757, ex1, 859]), fill=INK + (255,))
-        hb = holo_rgb((ex1 - ex0) * S, 7 * S, 1.6).convert("RGBA")
-        G.alpha_composite(hb, (ex0 * S, 757 * S))
-        G.alpha_composite(hb, (ex0 * S, 852 * S))
-        d.rectangle(k([ex0, 764, ex1, 765]), fill=(250, 248, 255, 255))
-        d.rectangle(k([ex0, 850, ex1, 851]), fill=(250, 248, 255, 255))
+        # (round 3: the holo bands along the long edges are gone - only a 1 px rainbow sliver of them showed, on the
+        #  plate's top edge; the whole plate incl. its edge faces is burgundy)
+        d.rectangle(k([ex0, 745, ex1, 859]), fill=INK + (255,))
         hp, cx, cy, clr, box = _EP_POS[nm]
         # (the left plate's face runs toward the rear in texture x: the kart is mirrored there so it faces forward)
         pad_ = k64_pad(hp * S, flip=(nm == "L"))
