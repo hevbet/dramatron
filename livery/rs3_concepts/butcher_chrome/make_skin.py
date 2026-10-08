@@ -1887,7 +1887,7 @@ def eyeliner_curve(shoulder_C):
 def eyeliner_dash(L, a_n, SB):
     """Dash coordinate along the front cut line (decreasing from SB at the branch, where it continues the shoulder
     line's dashes): two stretches k1 (branch -> neck) and k2 (neck -> centreline), each as close to 1 as possible, that
-    put the middle of a gap on the neck point a_n and the middle of a dash on the end (the centreline). Returns
+    put the middle of a dash on the neck point a_n and the middle of a dash or a gap on the end (the centreline). Returns
     (k1, k2, s_neck, s_end). The neck point gets the middle of a dash (narrowed there, see eyeliner_width)."""
     best = None
     dash_mid = DASH[0] / 2
@@ -1896,8 +1896,8 @@ def eyeliner_dash(L, a_n, SB):
         s_n = dash_mid + i * DPER          # (a dash centred in the neck: the line visibly runs through it, narrowed)
         k1 = (SB - s_n) / a_n
         base_e = math.floor((s_n - (L - a_n) - dash_mid) / DPER)
-        for j in range(base_e - 2, base_e + 3):
-            s_e = dash_mid + j * DPER
+        for j, tgt in [(j, t) for j in range(base_e - 2, base_e + 3) for t in (dash_mid, DASH[0] + DASH[1] / 2)]:
+            s_e = tgt + j * DPER                # (the centreline on the middle of a dash or of a gap)
             k2 = (s_n - s_e) / (L - a_n)
             sc = max(abs(k1 - 1), abs(k2 - 1))
             if k1 > 0 and k2 > 0 and (best is None or sc < best[0]):
@@ -1948,7 +1948,7 @@ def front_line_report():
     the labels nearby"""
     for s in ("L", "R"):
         e = EYE[s]
-        r = eyeliner_checks(e["C"], s, e["sd"], e["ink"], e["drop"], eyeliner_width(e["C"], s))
+        r = eyeliner_checks(e["C"], s, e["sd"], e["ink"], e["drop"], eyeliner_width(e["C"], s), e["neck_dash"])
         r.update(stretch=[round(e["k1"], 4), round(e["k2"], 4)], neck_cm=e["neck_cm"], seam_cm=e["seam_cm"],
                  hw_min_cm=e["hw_min_cm"],
                  r_min_cm=e["r_min_cm"],
@@ -1964,7 +1964,7 @@ def front_line_report():
         print(f"   front cut line {s}: {r}", flush=True)
 
 
-def eyeliner_checks(C, side, sd, ink, drop=(), hw=None):
+def eyeliner_checks(C, side, sd, ink, drop=(), hw=None, neck_dash=None):
     """Whole dashes only: every painted dash of the line is checked in three strips across its width (centre, +-6 mm)
     for holes in the outer skin (> 1.2 cm = cut by a seam / opening) and, in each standard view that faces it (all
     but the far side's: from there the lamp / grille neck is seen round the corner, across the grille frame that
@@ -2024,6 +2024,8 @@ def eyeliner_checks(C, side, sd, ink, drop=(), hw=None):
     dl = cKDTree(lamp).query(Pm)[0]
     dgr = cKDTree(nr["rim_gr"][nr["rim_gr"][:, 0] > -0.01]).query(Pm)[0]
     do = cKDTree(np.vstack([rim["rim_other"], nr["rim_ot"]])).query(Pm)[0]
+    if neck_dash is not None:       # (the neck dash crosses the hood-corner shut line - like the door dashes their shut
+        do = do[dash_of != neck_dash]   # lines; its air to the lamp and grille is checked above)
     res = dict(side=side, dashes=len(dashes), length_cm=round(float(S[-1]) * 100, 1), truncated=trunc,
                hidden=hid, air_lamp_cm=round(float(dl.min()) * 100, 1), air_grille_cm=round(float(dgr.min()) * 100, 1),
                air_other_cm=round(float(do.min()) * 100, 1))
@@ -2443,9 +2445,9 @@ def greenhouse_curves():
         out[nm] = Cb
         out[nm + "_join"] = int(jm[len(Cb) - 1])
         out["r_" + nm] = r_b
-        # the radius of the turn into the side line (the part of the cross line off 'main')
-        r_turn, _, _ = _fair_radius(Cb, surf)
-        out["rturn_" + nm] = r_turn
+        # the radius of the turn into the side line, measured on the fitted curve (the glued one also steps over the
+        # 2-3 mm offset at the roof / C-pillar seam, which is not a turn)
+        out["rturn_" + nm] = r_b
     out["surf"] = surf
     GH.update(out)
     return GH
@@ -3103,7 +3105,8 @@ def paint_body():
         drop = set()                       # (no dash is left out: the neck dash is narrowed instead)
         ink = paint_eyeliner(eye, s, sd, drop, hw)
         EYE[s] = dict(C=eye, sd=sd, k1=k1, k2=k2, ink=ink, drop=drop, neck_cm=E["neck_cm"], r_min_cm=E["r_min_cm"],
-                      dev_cm=E["dev_cm"], seam_cm=E["seam_cm"], hw_min_cm=round(float(hw.min()) * 200, 2))
+                      dev_cm=E["dev_cm"], seam_cm=E["seam_cm"], hw_min_cm=round(float(hw.min()) * 200, 2),
+                      neck_dash=int(dash_owner(np.array([s_n]))[0]))
         CREASE[s]["off_cm"] = crease_offset_cm(C[np.searchsorted(arclen(C), S_B):], s)
         print(f"   shoulder line {s}: on the crease from y {C[np.searchsorted(arclen(C), S_B), 1]:.3f} to "
               f"{C[-1, 1]:.3f} (last dash end {SH_REAR_AIR * 100:.1f} cm from the tail lamp), phase {phase:.4f}; "
@@ -3537,7 +3540,7 @@ def top_decals():
     # the closed roof loop line and to the Саратовская область block (placed after it, nudged back if needed).
     roof = ["roof"]
     decal_fit("number_roof", lambda w: number_plate(px(w), px(w * 0.70)),
-              [round(1.00 - 0.02 * i, 2) for i in range(14)],
+              [round(1.16 - 0.02 * i, 2) for i in range(22)],
               lambda w: top_cands((0.0,), (0.36, 0.34, 0.38, 0.32, 0.40, 0.30, 0.42), roof, (0, -1, 0), normal="z"),
               ppm=PPM, parts=roof, kind="number", air=2.0, line_min=2.0, deco_min=2.0)
     reg = lambda h: row([asset_coat(px(h)), stack([ink_text("САРАТОВСКАЯ", F_TEAM(px(h * 0.31)), INK),
@@ -3551,11 +3554,21 @@ def top_decals():
     # hood's mean normal there (the oval keeps its shape), >= 2 cm from the Симкарт tag, ШЕЙКА, ПЯТАЧОК, every dashed
     # line, and from the vent cut-out / hood edges
     def gc(w):
-        return top_cands((0.40, 0.36, 0.44, -0.40, -0.36, -0.44), (-1.50, -1.45, -1.55, -1.60, -1.40, -1.65, -1.70), ["hood"],
-                         (0, 1, 0), r=0.15)
-    decal_fit("gost_hood", lambda w: gost_stamp(px(w)), [0.35, 0.34, 0.33, 0.32, 0.31, 0.30, 0.29, 0.28], gc,
-              ppm=PPM, parts=["hood"], kind="logo", depth_tol=0.05, min_clear_cm=2.0, air=2.0, line_min=2.0, deco_min=2.0,
-              occl_views=["front", "front34_left", "front34_right"])
+        out = []
+        hi = cand(["hood"])
+        for x in (0.44, 0.42, 0.46, 0.40, 0.48, 0.38, 0.50):
+            for y in (-1.36, -1.34, -1.38, -1.32, -1.40, -1.30, -1.42, -1.45):
+                for sg in (1, -1):
+                    c = surf_point("top", sg * x, y, ["hood"])
+                    # the hood's own visible top skin around the centre (not its inner flanges under it)
+                    k = (np.linalg.norm(POSF[hi] - c, axis=1) < 0.08) & (NRMF[hi, 2] > 0.3) & OUTER[hi]
+                    nv = NRMF[hi[k]].mean(0)
+                    out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 1, 0)))
+        return out
+    decal_fit("gost_hood", lambda w: gost_stamp(px(w)), [0.35, 0.34, 0.33, 0.32, 0.31, 0.30, 0.29, 0.28, 0.27, 0.26,
+                                                          0.25, 0.24], gc,
+              ppm=PPM, parts=["hood"], kind="logo", depth_tol=0.015, min_clear_cm=2.0, air=2.0, line_min=2.0,
+              deco_min=2.0, occl_views=["front", "front34_left", "front34_right"])
     # Y2K sparkles (accents only, kept off logos and lines)
     for k, (xs, ys, rr, pp) in enumerate((((0.30, 0.32), (0.05, 0.0), 0.026, roof), ((-0.30, -0.32), (0.80, 0.84), 0.020, roof),
                                           ((0.37, 0.40), (-1.30, -1.26), 0.024, hood), ((-0.37, -0.40), (-1.62, -1.58), 0.018, hood))):
@@ -3641,38 +3654,48 @@ def rear_front_decals():
 
 def splitter_urls():
     """Front splitter (client): «simkarting.ru» and «karting64.ru» in the URL face (Exo 2 ExtraBold Italic, as on the
-    rear bumper), white, one on each side of the nose, mirror-symmetric, read left to right from the front. The carbon
-    blade itself (Circle.004_SUB0, ext_plastic.dds u 0..0.54) cannot carry them: that region of ext_plastic.dds is
-    shared with ~14 other meshes (the rear wing among them), so they go on the painted 'front_splitter' skin zone - the
-    bumper's lower lip just above the blade, left black as in the source; it faces forward only at |x| 0.45-0.85 (the
-    middle sits behind the grille's lower frame). One common size for both (the largest that passes on both sides:
-    flat within 12 deg, inside the lip, fully seen in the front and that side's 3/4 view), projected along a level
-    normal so the baseline is level."""
+    rear bumper), white with a thin deep-ink edge, one on each side of the nose, mirror-symmetric, read left to right
+    from the front (simkarting.ru on the car's right). The carbon blade itself (Circle.004_SUB0, ext_plastic.dds
+    u 0..0.54, v -1..0) cannot carry them: rasterised, that region of ext_plastic.dds is shared with 14 other meshes
+    (the rear wing, the front lower grille piece, mirrors ...), so an override would print the URLs on those too. They
+    go on the painted fallback instead: the 'front_splitter' skin zone, the bumper's lower lip just above the blade
+    (left black as in the source), and the bumper's own lowest strip above it - in front view only the two wings at
+    |x| 0.40-0.65 face forward (under the grille the lip is ~1 cm tall, behind the grille's lower frame). One common
+    size for both (the largest that passes on both sides: flat within 15 deg, >= 0.8 cm inside the lip, fully seen in
+    the front and that side's 3/4 view), projected along a level normal (baseline level, upright)."""
     spl = np.flatnonzero((PARTF == PID["front_splitter"]) & COV.reshape(-1))
     CAN[spl] = A0.reshape(-1, 3)[spl] / SHADE.reshape(-1)[spl, None]      # (unchanged black source under the URLs)
     PAINTF[spl] = True
     _idx_cache.clear()
-    sp = ["front_splitter"]
+    sp = ["front_bumper", "front_splitter"]
 
     def cands(sg):
         def f(h):
             out = []
             Q = POSF[cand(sp)]
-            for x in (0.62, 0.60, 0.64, 0.58, 0.66):
-                for z in (0.232, 0.228, 0.236, 0.224):
+            for x in np.arange(0.50, 0.40, -0.02).tolist() + np.arange(0.52, 0.65, 0.02).tolist():
+                for z in (0.26, 0.25, 0.27, 0.24, 0.28, 0.23, 0.29, 0.22):
                     m = (np.abs(Q[:, 0] - sg * x) < 0.006) & (np.abs(Q[:, 2] - z) < 0.004)
                     if not m.any():
                         continue
                     c = (sg * x, float(Q[m][:, 1].min()), z)
-                    nv = mean_normal(c, sp, None, 0.08)
+                    nv = mean_normal(c, sp, None, 0.06)
                     nv[2] = 0.0
                     out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 0, 1)))
             return out
         return f
-    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.05, min_clear_cm=0.8, tilt_gate=12.0, line_min=1.0,
+
+    def art(txt):
+        def f(h):
+            m = pad(text_mask(txt, F_SPON(px(h * 1.35))), 6)
+            o = Image.new("RGBA", m.size, (0, 0, 0, 0))
+            o.alpha_composite(solid(grow(m, max(2, px(0.0012))), INK_D))
+            o.alpha_composite(solid(m, WHITE))
+            return o.crop(o.getbbox())
+        return f
+    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.05, min_clear_cm=0.8, tilt_gate=15.0, line_min=1.0,
               deco_min=2.0)
-    sizes = [0.040, 0.038, 0.036, 0.034, 0.032, 0.030, 0.028, 0.026, 0.024, 0.022]
-    art = lambda txt: (lambda h: ink_text(txt, F_SPON(px(h * 1.35)), WHITE))
+    sizes = [0.030, 0.028, 0.026, 0.024, 0.022, 0.020, 0.019, 0.018, 0.017, 0.016, 0.015, 0.014, 0.013, 0.012]
     jobs = (("url_splitter_R", SIMKART_URL, -1, "front34_right"), ("url_splitter_L", K64_URL, 1, "front34_left"))
     fits = [fit_search(nm, art(t), sizes, cands(sg), occl_views=["front", v], **kw) for nm, t, sg, v in jobs]
     h = min(f[0] for f in fits)
@@ -3684,8 +3707,9 @@ def splitter_urls():
                                                              if k not in ("tilt_gate", "line_min", "deco_min")})
         print(f"   {nm}: «{t}» {sz * 100:.1f} cm type -> {'OK' if ok else 'NO FIT'} tilt={rep['max_tilt_deg']} "
               f"edge={rep['edge_clear_cm']} hidden={rep.get('hidden_frac')}", flush=True)
-    URL_NOTES.append(f"front splitter lip: «{SIMKART_URL}» right / «{K64_URL}» left, one size, white (the blade's "
-                     f"ext_plastic.dds region is shared with other meshes: no texture override)")
+    URL_NOTES.append(f"front splitter lip: «{SIMKART_URL}» right / «{K64_URL}» left, {h * 100:.1f} cm type, white with a "
+                     f"deep-ink edge (the blade's ext_plastic.dds region is shared with 14 other meshes: no texture "
+                     f"override; the painted lip only faces forward at |x| 0.40-0.65)")
 
 
 # ================================================================= glass_sticker.dds (1024, alpha kept)
@@ -4239,8 +4263,10 @@ def main():
                    f"shoulder line")
     for r in KEY_LOG:
         rep.append(f"INFO   keyline:{r['side']} {r['length_cm']} cm of cut line, one accompanying line: pieces (m along it from "
-                   f"the nose centreline) {r['pieces_m']}; interruptions {r['gaps']}; air of its paint to any other cut "
-                   f"line >= {r['air_line_min_cm']} cm, to lamps / grille >= {r['air_part_min_cm']} cm; round ends")
+                   f"the nose centreline) {r['pieces_m']}; interruptions {r['gaps']}; "
+                   + ("no other cut line meets or crosses it" if r['air_line_min_cm'] > 900 else
+                      f"air of its paint to any other cut line >= {r['air_line_min_cm']} cm")
+                   + f"; air to lamps / grille >= {r['air_part_min_cm']} cm; round ends")
     for s_, r in SLOT_LOG.items():
         if r:
             rep.append(f"INFO   keyline:band_{s_} runs {SLOT_GAP * 100:.1f} cm under the black lower-trim fin's slot, "
