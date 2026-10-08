@@ -48,9 +48,15 @@ so they are kept wherever nothing changed. rim_d: mip texels whose footprint lie
 from the new level 0 (box filter), mixed texels of the deep mips get original + box-filtered change.
 rim_blur: mips 0-4 are recoloured level by level with the same coverage model (re-filtering level 0 would
 leave the stock mips' sharper grey cores inside pink halos), deeper mips get the box-filtered change.
-Only 4x4 blocks whose colour changed are re-encoded (Pillow BC3), and only where the result is closer to
-the target than the stock block; all other blocks are byte-identical to the original, and the alpha half
-of every block is the original one on every level.
+Only 4x4 blocks whose colour changed are re-encoded, and only where the result is closer to the target than
+the stock block AND no texel of another part of the wheel moves: a DXT block shares one 4-colour palette
+between its 16 texels, so on the small mips a block holding nut texels next to the rim lip / barrel could
+snap the lip texel to the pink palette and still win on the mean error (seen at mip 5-7). On every level a
+texel whose footprint touches a non-nut island (rim_blur: a used texel that is not recoloured) must decode
+within KEEP_TOL grey levels of the segment [stock, target]; its unused bilinear neighbours must not change
+hue. Pillow's BC3 encode is tried first, then a small constrained BC1 encoder; failing both, the stock block
+stays (the nut texels in it then stay grey on that mip). All other blocks are byte-identical to the
+original, and the alpha half of every block is the original one on every level.
 
 Usage: python3 make_bolts.py [--out DIR] [--skins A,B] [--debug DIR]
 """
@@ -93,6 +99,9 @@ BLOB_R = (36.0, 120.0)                 # rim_blur: nut annulus around the textur
 BLOB_FEATHER = 8.0                     # soft edge of that annulus (px)
 BLOB_NOISE = 2.0                       # darkening below this (grey levels) is bake / DXT noise, left alone
 BLUR_LEVELS = 5                        # rim_blur mips 0..4 (hub >= 7 px) are recoloured level by level
+KEEP_TOL = 2                           # DXT: a texel of a non-nut part may end up at most this many grey levels
+                                       # (any channel) off the segment [stock, target] (see write_levels)
+RING_LUM_TOL = 24                      # ... its unused bilinear neighbours: hue within KEEP_TOL, brightness this
 
 
 def rgb3(c):
@@ -315,6 +324,24 @@ def blur_levels(orig_lv, used0, l_ref):
     return out, m0, st
 
 
+def protected_levels(used0, levels, orig_lv, only_unchanged=False):
+    """Per mip level the texels a DXT re-encode must not drag along, as classes (uint8):
+      2  footprint touches used0 (a level-0 mask; with only_unchanged just those whose target is the stock
+         colour): within KEEP_TOL of [stock, target] in every channel
+      1  unused 1-texel ring around them with an unchanged target (bilinear filtering blends it into the edge of
+         the part): no hue shift (chroma within KEEP_TOL), brightness within RING_LUM_TOL
+      0  free (nut texels, empty space)"""
+    out = []
+    for k, lv in enumerate(orig_lv):
+        same = np.all(np.clip(levels[k] + 0.5, 0, 255).astype(np.uint8) == lv[..., :3], -1)
+        core = box(used0[..., None].astype(np.float32), 1 << k)[..., 0] > 0
+        if only_unchanged:
+            core &= same
+        ring = ndimage.binary_dilation(core, np.ones((3, 3), bool)) & same & ~core
+        out.append(np.where(core, 2, np.where(ring, 1, 0)).astype(np.uint8))
+    return out
+
+
 # ---------------------------------------------------------------- DDS out (changed blocks only)
 def encode_level(rgba):
     h, w = rgba.shape[:2]
@@ -345,48 +372,226 @@ def block_err(a, tgt, bw, bh):
     return (e.reshape(bh, 4, bw, 4).sum((1, 3)) / n.reshape(bh, 4, bw, 4).sum((1, 3))).ravel()
 
 
-def write_levels(path, orig, levels):
-    """orig: original DDS bytes; levels: float RGB per mip level. 4x4 blocks without any colour change keep
-    their original 16 bytes; changed blocks get Pillow's BC3 colour half and the ORIGINAL alpha half (only if
-    that lands closer to the target than the stock block)."""
+def keep_dev(dec, stock, tgt):
+    """Per texel: how far (max channel, grey levels) the decoded colour lies off the segment [stock, target].
+    0 for the stock colour, the target and anything on the way between them."""
+    dec, stock, tgt = (np.asarray(x, np.float32) for x in (dec, stock, tgt))
+    seg = tgt - stock
+    t = np.clip(((dec - stock) * seg).sum(-1) / np.maximum((seg * seg).sum(-1), 1e-9), 0.0, 1.0)
+    return np.abs(dec - (stock + t[..., None] * seg)).max(-1)
+
+
+def keep_excess(dec, stock, tgt, cls):
+    """Grey levels by which a decoded texel breaks the limit of its protection class (0 = fine)."""
+    dec, stock, tgt = (np.asarray(x, np.float32) for x in (dec, stock, tgt))
+    strict = np.maximum(keep_dev(dec, stock, tgt) - KEEP_TOL, 0.0)
+    m = lambda x: x.mean(-1, keepdims=True)
+    hue = np.maximum(keep_dev(dec - m(dec), stock - m(stock), tgt - m(tgt)) - KEEP_TOL, 0.0)
+    md, ms, mt = dec.mean(-1), stock.mean(-1), tgt.mean(-1)
+    lum = np.maximum(np.maximum(np.minimum(ms, mt) - md, md - np.maximum(ms, mt)) - RING_LUM_TOL, 0.0)
+    return np.where(cls == 2, strict, np.where(cls == 1, hue + lum, 0.0))
+
+
+# ---- a small constrained BC1 colour-block encoder (only for the blocks where Pillow's encode is refused)
+_C565_MAX = np.array([31, 63, 31])
+
+
+def _expand565(e):
+    r, g, b = e[..., 0], e[..., 1], e[..., 2]
+    return np.stack([(r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)], -1)
+
+
+def _palette(E):
+    """(N, 2, 3) endpoints in 5:6:5 units -> (N, 4, 3) decoded palette. BC3 colour blocks always decode in
+    4-colour mode: c0, c1, (2 c0 + c1) / 3, (c0 + 2 c1) / 3 (integer, as Pillow; D3D may differ by 1)."""
+    p0, p1 = _expand565(E[:, 0]), _expand565(E[:, 1])
+    return np.stack([p0, p1, (2 * p0 + p1) // 3, (p0 + 2 * p1) // 3], 1)
+
+
+def _block_cost(E, T, S, keep, valid):
+    """Cost of N endpoint pairs for one block: squared error to the target over the valid texels, plus a
+    dominating penalty for every protected texel (keep = class, see protected_levels) beyond its limit."""
+    P = _palette(E).astype(np.float32)[:, :, None, :]                     # N, 4, 1, 3
+    err = ((P - T) ** 2).sum(-1)                                           # N, 4, 16
+    ex = keep_excess(P, S, T, keep)                                        # N, 4, 16
+    c = err + 1e6 * ex
+    idx = c.argmin(1)                                                      # N, 16
+    cb = np.take_along_axis(c, idx[:, None], 1)[:, 0]
+    eb = np.take_along_axis(ex, idx[:, None], 1)[:, 0]
+    total = np.where(valid, cb, 0.0).sum(-1)
+    ok = ~(valid & (eb > 0)).any(-1)
+    return total, idx, ok
+
+
+def _moves():
+    m = []
+    for e in (0, 1):
+        for ch in range(3):
+            for d in (-4, -2, -1, 1, 2, 4):
+                x = np.zeros((2, 3), int)
+                x[e, ch] = d
+                m.append(x)
+    for ch in range(3):
+        for d in (-2, -1, 1, 2):
+            x = np.zeros((2, 3), int)
+            x[:, ch] = d                                                   # both ends together
+            m.append(x)
+            y = np.zeros((2, 3), int)
+            y[0, ch], y[1, ch] = d, -d                                     # spread / squeeze
+            m.append(y)
+    return np.array(m)
+
+
+_MOVES = _moves()
+
+
+def _to565(rgb):
+    return np.clip(np.round(np.asarray(rgb, np.float32) * _C565_MAX / 255.0), 0, _C565_MAX).astype(int)
+
+
+def _ends_of(block):
+    c0, c1 = struct.unpack_from("<HH", bytes(block[8:12]))
+    return np.array([[(c >> 11) & 31, (c >> 5) & 63, c & 31] for c in (c0, c1)])
+
+
+def _pack(E, idx):
+    """Endpoints + indices -> 8-byte colour half, with c0 > c1 (4-colour mode for any decoder)."""
+    c0, c1 = (int(e[0]) << 11 | int(e[1]) << 5 | int(e[2]) for e in E)
+    idx = np.asarray(idx).copy()
+    if c0 < c1:
+        c0, c1, idx = c1, c0, np.array([1, 0, 3, 2])[idx]
+    elif c0 == c1:
+        idx[:] = 0
+    word = sum(int(i) << (2 * t) for t, i in enumerate(idx))
+    return np.frombuffer(struct.pack("<HHI", c0, c1, word), np.uint8)
+
+
+def _anchor_pairs(cols):
+    """Endpoint pairs (5:6:5) that put any two of the given colours exactly on two of the 4 palette positions
+    (0, 1/3, 2/3, 1): a coarse global search over the colinear BC1 palettes that fit the block."""
+    cols = np.unique(np.round(cols), axis=0)
+    i, j = np.triu_indices(len(cols), 1)
+    A, B = cols[i], cols[j]
+    out = [np.stack([_to565(cols), _to565(cols)], 1)]
+    pos = (0.0, 1 / 3, 2 / 3, 1.0)
+    for ta in pos:
+        for tb in pos:
+            if ta == tb:
+                continue
+            step = (B - A) / (tb - ta)                                     # c1 - c0
+            c0 = A - ta * step
+            out.append(np.stack([_to565(np.clip(c0, 0, 255)), _to565(np.clip(c0 + step, 0, 255))], 1))
+    return np.unique(np.concatenate(out), axis=0)
+
+
+def encode_block_constrained(T, S, keep, valid, starts, n_climb=6):
+    """Best BC1 colour half for one block with the protected texels as hard limits: coarse search over anchor
+    pairs (target and stock colours of the block), then hill-climbs on the two 5:6:5 endpoints from the best
+    few and from `starts`. Returns (8 colour bytes, feasible)."""
+    v = valid.astype(bool)
+    cand = _anchor_pairs(np.concatenate([T[v], S[v & (keep > 0)]]))
+    cs, _, _ = _block_cost(cand, T, S, keep, v)
+    seeds = [cand[j] for j in np.argsort(cs)[:n_climb]] + [np.asarray(E, int) for E in starts]
+    best = None
+    for E in seeds:
+        E = np.clip(np.asarray(E, int), 0, _C565_MAX)
+        cost = _block_cost(E[None], T, S, keep, v)[0][0]
+        for _ in range(400):
+            C = np.clip(E[None] + _MOVES, 0, _C565_MAX)
+            cs, _, _ = _block_cost(C, T, S, keep, v)
+            j = int(cs.argmin())
+            if cs[j] >= cost - 1e-6:
+                break
+            E, cost = C[j], cs[j]
+        if best is None or cost < best[0]:
+            best = (cost, E)
+    _, idx, ok = _block_cost(best[1][None], T, S, keep, v)
+    return _pack(best[1], idx[0]), bool(ok[0])
+
+
+def _blocks(a, bw, bh):
+    """(h, w, ...) -> (bh * bw, 16, ...) in DXT block order, texel t = 4 y + x; edge-padded."""
+    h, w = a.shape[:2]
+    pad = [(0, bh * 4 - h), (0, bw * 4 - w)] + [(0, 0)] * (a.ndim - 2)
+    a = np.pad(a, pad, mode="edge")
+    rest = a.shape[2:]
+    return a.reshape((bh, 4, bw, 4) + rest).swapaxes(1, 2).reshape((bh * bw, 16) + rest)
+
+
+def write_levels(path, orig, levels, keep):
+    """orig: original DDS bytes; levels: float RGB per mip level; keep: per level the protection classes of
+    protected_levels (2: texel of a non-nut part, 1: its unused bilinear neighbour, 0: free). 4x4 blocks
+    without any colour change keep their original 16 bytes. A changed block gets a new colour half and the
+    ORIGINAL alpha half only if
+      - every protected texel in it stays within its limit (class 2: KEEP_TOL of the segment [stock, target]
+        in every channel; class 1: no hue shift) - a DXT block is shared by 16 texels: without this, a block
+        where the nut texels gain a lot could snap a neighbouring rim-lip texel to the pink palette and still
+        win on the mean error (mip 5-7 of rim_d), and
+      - the block's mean error to the target is lower than the stock block's (on the tiniest mips the change
+        is a fraction of a grey level and BC3 re-encoding error would dominate).
+    Pillow's BC3 encode is tried first; where it breaks the first rule a constrained encode (protected texels
+    as hard limits, squared error to the target otherwise) is tried; where that fails too, the stock block
+    stays. Returns per level (blocks re-encoded by Pillow, by the constrained encoder, refused -> stock)."""
     hh = struct.unpack_from("<31I", orig, 4)
     mips = max(1, hh[6])
     lv = decode_levels(orig)
-    assert len(levels) == len(lv) == mips
+    assert len(levels) == len(lv) == len(keep) == mips
     out = bytearray(orig[:128])
-    off, n_blocks = 128, []
+    off, stats = 128, []
     for k in range(mips):
         h, w = lv[k].shape[:2]
         tgt = np.clip(levels[k] + 0.5, 0, 255).astype(np.uint8)
-        chg = np.any(tgt != lv[k][..., :3], -1)
+        st = lv[k][..., :3]
+        chg = np.any(tgt != st, -1)
         bw, bh = max(1, (w + 3) // 4), max(1, (h + 3) // 4)
         nb = bw * bh
         ob = np.frombuffer(orig[off:off + nb * 16], np.uint8).reshape(-1, 16).copy()
+        n_pil = n_con = n_ref = 0
         if chg.any():
+            valid = _blocks(np.pad(np.ones((h, w), bool), ((0, bh * 4 - h), (0, bw * 4 - w))), bw, bh)
+            kp = np.where(valid, _blocks(keep[k], bw, bh), 0)
+            Tb = _blocks(tgt, bw, bh).astype(np.float32)
+            Sb = _blocks(st, bw, bh).astype(np.float32)
+            cp = _blocks(chg, bw, bh).any(1) & valid.any(1)
+            e_old = block_err(st.astype(np.float32), tgt, bw, bh)
+
+            def judge(cand):
+                dec = decode_level(orig[:128], w, h, cand.tobytes())[..., :3].astype(np.float32)
+                ex = _blocks(keep_excess(dec, st, tgt, keep[k]), bw, bh)
+                return ~(valid & (ex > 0)).any(1), block_err(dec, tgt, bw, bh) < e_old
+
             enc = encode_level(np.dstack([tgt, lv[k][..., 3]]))
-            cp = np.pad(chg, ((0, bh * 4 - h), (0, bw * 4 - w))).reshape(bh, 4, bw, 4).any((1, 3)).ravel()
             cand = ob.copy()
             cand[cp, 8:] = enc[cp, 8:]
-            # keep a re-encoded block only where it is closer to the target than the stock block (on the
-            # tiniest mips the change is a fraction of a grey level and BC3 re-encoding error would dominate)
-            dec = decode_level(orig[:128], w, h, cand.tobytes())[..., :3].astype(np.float32)
-            e_new = block_err(dec, tgt, bw, bh)
-            e_old = block_err(lv[k][..., :3].astype(np.float32), tgt, bw, bh)
-            use = cp & (e_new < e_old)
+            safe, better = judge(cand)
+            use = cp & safe & better
             ob[use, 8:] = enc[use, 8:]
-            n_blocks.append(int(use.sum()))
-        else:
-            n_blocks.append(0)
+            n_pil = int(use.sum())
+            retry = np.nonzero(cp & ~safe)[0]
+            if len(retry):
+                cand = ob.copy()
+                for i in retry:
+                    col, ok = encode_block_constrained(Tb[i], Sb[i], kp[i], valid[i],
+                                                       [_ends_of(ob[i]), _ends_of(enc[i])])
+                    if ok:
+                        cand[i, 8:] = col
+                safe, better = judge(cand)
+                use2 = np.zeros(nb, bool)
+                use2[retry] = safe[retry] & better[retry]
+                ob[use2, 8:] = cand[use2, 8:]
+                n_con = int(use2.sum())
+                n_ref = len(retry) - n_con
+        stats.append((n_pil, n_con, n_ref))
         out += ob.tobytes()
         off += nb * 16
     assert off == len(orig) and len(out) == len(orig)
     with open(path + ".tmp", "wb") as fh:
         fh.write(out)
     os.replace(path + ".tmp", path)
-    return n_blocks
+    return stats
 
 
-def verify(path, orig, levels):
+def verify(path, orig, levels, keep):
     data = open(path, "rb").read()
     a, b = decode_levels(data), decode_levels(orig)
     same_alpha = all(np.array_equal(data[o:o + 8], orig[o:o + 8]) for o in range(128, len(data), 16))
@@ -396,12 +601,21 @@ def verify(path, orig, levels):
     blk = chg.reshape(h // 4, 4, w // 4, 4).any((1, 3))                # 4x4 blocks holding changed texels
     outside = ~np.repeat(np.repeat(blk, 4, 0), 4, 1)
     err = np.abs(a[0][..., :3][chg].astype(np.float32) - levels[0][chg]).mean() if chg.any() else 0.0
+    # every level: texels of non-nut parts stay on [stock, target] within KEEP_TOL, their unused neighbours
+    # keep their hue (protected_levels)
+    kd, kx = [], 0.0
+    for k in range(len(a)):
+        t = np.clip(levels[k] + 0.5, 0, 255).astype(np.uint8)
+        kd.append(float(keep_dev(a[k][..., :3], b[k][..., :3], t)[keep[k] == 2].max(initial=0.0)))
+        kx = max(kx, float(keep_excess(a[k][..., :3], b[k][..., :3], t, keep[k]).max()))
     hh = struct.unpack_from("<31I", data, 4)
     return dict(bytes=len(data), size=f"{hh[3]}x{hh[2]}", fourcc=data[84:88].decode(), mips=len(a),
                 same_header=data[:128] == orig[:128], alpha_blocks_identical=same_alpha,
                 alpha_minmax=(int(a[0][..., 3].min()), int(a[0][..., 3].max())),
                 rest_of_level0_identical=bool(np.array_equal(a[0][outside], b[0][outside])),
-                mean_dxt_err_changed=round(float(err), 2))
+                mean_dxt_err_changed=round(float(err), 2),
+                non_nut_max_dev_per_level=[round(x, 1) for x in kd],
+                protected_ok_all_levels=kx == 0.0)
 
 
 # ---------------------------------------------------------------- main
@@ -453,20 +667,24 @@ def main():
     new_rim, region, zone, st = recolour_rim(rim_lv[0], nut_any, nut_cen, other_any)
     print(f"  rim_d nut grey: min {st['l_min']:.0f} median {st['l_med']:.0f} L_REF (p99) {st['l_ref']:.1f}; "
           f"texels recoloured incl. padding: {st['n_region']} (other texels of level 0 untouched)")
-    jobs = [(RIM, rim_bytes, rim_levels(rim_lv, new_rim, region, zone))]
+    # protected on every level: texels whose footprint touches any non-nut island (rim lip, spokes, barrel ...)
+    rim_new = rim_levels(rim_lv, new_rim, region, zone)
+    jobs = [(RIM, rim_bytes, rim_new, protected_levels(other_any, rim_new, rim_lv))]
 
     if not a.no_blur:
         blur_bytes = tex[BLUR]
         used = blur_used(blurs, size)
-        blur_lv, bmask, bst = blur_levels(decode_levels(blur_bytes), used, st["l_ref"])
+        blur_orig = decode_levels(blur_bytes)
+        blur_lv, bmask, bst = blur_levels(blur_orig, used, st["l_ref"])
         print(f"rim_blur: blob core grey {bst['n_ref']:.0f} on hub {bst['bg_at_blobs']:.0f} -> nut pink "
               f"{rgb3(bst['pink'])}; level-0 texels changed {bst['n_changed']} (inside the hub used by the "
               f"rimblur meshes: {bool((bmask <= used).all())})")
-        jobs.append((BLUR, blur_bytes, blur_lv))
+        # rimblur: the hub is one island with the nut blobs on it -> protected = used texels left unchanged
+        jobs.append((BLUR, blur_bytes, blur_lv, protected_levels(used, blur_lv, blur_orig, only_unchanged=True)))
 
     if a.debug:
         os.makedirs(a.debug, exist_ok=True)
-        for name, _, levels in jobs:
+        for name, _, levels, _ in jobs:
             Image.fromarray(np.clip(levels[0] + 0.5, 0, 255).astype(np.uint8)).save(
                 os.path.join(a.debug, name.replace(".dds", "_new.png")))
         dbg = np.zeros((size, size, 3), np.uint8)
@@ -480,10 +698,11 @@ def main():
     for skin in [s for s in a.skins.split(",") if s]:
         d = os.path.join(a.out, skin)
         os.makedirs(d, exist_ok=True)
-        for name, orig, levels in jobs:
+        for name, orig, levels, keep in jobs:
             pth = os.path.join(d, name)
-            nb = write_levels(pth, orig, levels)
-            print(f"wrote {pth}: re-encoded 4x4 blocks per level {nb}; {verify(pth, orig, levels)}")
+            nb = write_levels(pth, orig, levels, keep)
+            print(f"wrote {pth}: 4x4 blocks per level (Pillow, constrained, refused -> stock) {nb}; "
+                  f"{verify(pth, orig, levels, keep)}")
 
 
 if __name__ == "__main__":

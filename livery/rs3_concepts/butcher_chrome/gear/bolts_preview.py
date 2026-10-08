@@ -7,6 +7,9 @@
   3. front left: original vs new in game, the pixels that changed, the raw texel colour (no detail multiply)
   4. the spinning wheel (rimblur meshes, which render_rs3 normally skips) before / after, and the whole
      front left / rear right wheels in game
+  5. from a distance: render_rs3 samples level 0 only, so rim_d mip MIP (stock / new) is drawn as the wheel
+     texture (bilinear upscale = what the GPU shows when it samples that mip), plus the texels of that mip;
+     and per mip the count of rim-part texels (not nuts) that moved more than 2 grey levels (must be 0)
 
 Usage: python3 bolts_preview.py [--work DIR] [--skip-render] [--skin Konopelko_00]
 """
@@ -34,6 +37,7 @@ DIM = (176, 150, 160)
 PIG = (242, 158, 178)
 
 HUB = 0.105          # half size of the hub close-up box (m)
+MIP = 5              # rim_d mip shown "from a distance" (32x32: one texel = 32x32 texels of level 0)
 WHEELS = {           # name: (view, wheel axis y, z, outer face side)
     "front left": ("side_left", 0.3245, 1.3135, 1),
     "rear left": ("side_left", 0.3245, -1.3475, 1),
@@ -108,6 +112,38 @@ def make_skin_copy(src, dst, files):
         shutil.copy(f, os.path.join(dst, os.path.basename(f)))
 
 
+def promote_mip(dds_bytes, level, dst):
+    """Write mip `level` of a DXT5 rim texture, bilinearly upscaled to the level-0 size, as an uncompressed
+    DDS (a stand-in for the GPU sampling that mip; render_rs3 itself always samples level 0)."""
+    lv = MB.decode_levels(dds_bytes)
+    size = lv[0].shape[1], lv[0].shape[0]
+    # RGB and alpha resized apart: Pillow resizes RGBA premultiplied, and the rim_d alpha is 0 everywhere
+    rgb = Image.fromarray(lv[level][..., :3]).resize(size, Image.BILINEAR)
+    alpha = Image.fromarray(lv[level][..., 3]).resize(size, Image.BILINEAR)
+    Image.merge("RGBA", (*rgb.split(), alpha)).save(dst, format="DDS")
+
+
+def rim_part_moves(new_bytes):
+    """Per rim_d mip: texels whose footprint holds other rim parts but no recoloured nut texel, and that moved
+    more than 2 levels from stock (they must stay stock: the DXT re-encode must not drag them along)."""
+    tex, _ = MB.load_textures()
+    rims, _ = MB.wheel_meshes()
+    lf = [x for x in rims if "_LF/" in x["name"]][0]
+    tri_nut, _ = MB.nut_islands(lf)
+    a, b = MB.decode_levels(tex[MB.RIM]), MB.decode_levels(new_bytes)
+    nut_any, nut_cen = MB.raster(lf, tri_nut, a[0].shape[0])
+    other, _ = MB.raster(lf, ~tri_nut, a[0].shape[0])
+    _, region, _, _ = MB.recolour_rim(a[0], nut_any, nut_cen, other)            # nuts + padding (recoloured)
+    out = []
+    for k in range(len(a)):
+        f = 1 << k
+        part = MB.box(other[..., None].astype(np.float32), f)[..., 0] > 0
+        clean = part & ~(MB.box(region[..., None].astype(np.float32), f)[..., 0] > 0)
+        mv = np.abs(a[k][..., :3].astype(int) - b[k][..., :3].astype(int)).max(-1) > 2
+        out.append(int((clean & mv).sum()))
+    return out
+
+
 def label(d, xy, text, f, fill=FG, bg=(0, 0, 0)):
     x, y = xy
     w = d.textlength(text, font=f)
@@ -126,9 +162,16 @@ def main():
     os.makedirs(W, exist_ok=True)
     new = {n: os.path.join(HERE, "out", a.skin, n) for n in (MB.RIM, MB.BLUR)}
     test, base = os.path.join(W, "test_skin"), os.path.join(W, "base_skin")
+    mip_base, mip_test = os.path.join(W, "mip_base_skin"), os.path.join(W, "mip_test_skin")
+    tex, _ = MB.load_textures()
+    new_rim = open(new[MB.RIM], "rb").read()
     if not a.skip_render:
         make_skin_copy(os.path.join(BC, a.skin), test, new.values())
         make_skin_copy(os.path.join(BC, a.skin), base, [])
+        make_skin_copy(os.path.join(BC, a.skin), mip_base, [])
+        make_skin_copy(os.path.join(BC, a.skin), mip_test, [])
+        promote_mip(tex[MB.RIM], MIP, os.path.join(mip_base, MB.RIM))
+        promote_mip(new_rim, MIP, os.path.join(mip_test, MB.RIM))
 
     jobs, P = [], {}
 
@@ -147,12 +190,13 @@ def main():
     job("wheel_front_left", test, "side_left", 900, wheel_box("front left"), True)
     job("wheel_rear_right", test, "side_right", 900, wheel_box("rear right"), True)
     job("wheel_front_left_orig", base, "side_left", 900, wheel_box("front left"), True)
+    job("mip_orig", mip_base, "side_left", 900, wheel_box("front left"), True)
+    job("mip_new", mip_test, "side_left", 900, wheel_box("front left"), True)
     if not a.skip_render:
         run_all(jobs)
     R = {k: Image.open(p).convert("RGB") for k, p in P.items()}
 
     # ------------------------------------------------------------ flat textures
-    tex, _ = MB.load_textures()
     lv = {n: (MB.decode_levels(tex[n])[0][..., :3], MB.decode_levels(open(new[n], "rb").read())[0][..., :3])
           for n in (MB.RIM, MB.BLUR)}
     crops = [(lv[MB.RIM][0], (0, 0, 244, 244), "rim_d.dds nuts, original (kn5)"),
@@ -172,7 +216,7 @@ def main():
     # ------------------------------------------------------------ sheet
     PAD, T = 24, 432
     SW = PAD * 2 + 4 * T + 3 * PAD
-    SH = 2500
+    SH = 3100
     sheet = Image.new("RGB", (SW, SH), BG)
     d = ImageDraw.Draw(sheet)
     y = 18
@@ -228,6 +272,15 @@ def main():
     y = row([(R["blur_orig"], "spinning (rim_blur), original"), (R["blur_new"], "spinning (rim_blur), new"),
              (R["wheel_front_left"], "front left, in game"), (R["wheel_rear_right"], "rear right, in game")], y,
             "rim blur (rimblur meshes, shown at speed) and the whole wheel")
+    moves = rim_part_moves(new_rim)
+    print(f"rim_d: rim-part texels (no nut in the footprint) moved > 2 levels, per mip: {moves}")
+    mo, mn = MB.decode_levels(tex[MB.RIM])[MIP][..., :3], MB.decode_levels(new_rim)[MIP][..., :3]
+    n = 12                                                    # mip texels shown: level-0 x/y 0 .. n * 2^MIP
+    y = row([(R["mip_orig"], f"mip {MIP}, original"), (R["mip_new"], f"mip {MIP}, new"),
+             (Image.fromarray(mo[:n, :n]).resize((T, T), Image.NEAREST), f"mip {MIP} texels {n}x{n}, original"),
+             (Image.fromarray(mn[:n, :n]).resize((T, T), Image.NEAREST), f"mip {MIP} texels {n}x{n}, new")], y,
+            f"from a distance: rim_d mip {MIP} ({mo.shape[1]}x{mo.shape[0]}) as the wheel texture; rim lip / barrel "
+            f"texels moved > 2 levels on mips 0-{len(moves) - 1}: {sum(moves)}")
     sheet = sheet.crop((0, 0, SW, y))
     sheet.save(a.out)
     print(f"wrote {a.out} {sheet.size}")
