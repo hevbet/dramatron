@@ -2010,7 +2010,7 @@ def eyeliner_curve(shoulder_C):
     return out
 
 
-def eyeliner_dash(L, a_n, SB, end_tgt=None):
+def eyeliner_dash(L, a_n, SB, end_tgt=None, at_mid=None):
     """Dash coordinate along the front cut line (decreasing from SB at the branch, where it continues the shoulder
     line's dashes): two stretches k1 (branch -> neck) and k2 (neck -> centreline), each as close to 1 as possible, that
     put the middle of a dash on the neck point a_n and the middle of a dash or a gap on the end (the centreline). Returns
@@ -2020,7 +2020,7 @@ def eyeliner_dash(L, a_n, SB, end_tgt=None):
     dash_mid = DASH[0] / 2
     base_n = math.floor((SB - a_n - dash_mid) / DPER)
     for i in range(base_n - 2, base_n + 3):
-        s_n = dash_mid + i * DPER          # (a dash centred in the neck: the line visibly runs through it, narrowed)
+        s_n = (dash_mid if at_mid is None else at_mid) + i * DPER   # (what is centred on a_n: a dash or a gap)
         k1 = (SB - s_n) / a_n
         base_e = math.floor((s_n - (L - a_n) - dash_mid) / DPER)
         tgts = (dash_mid, DASH[0] + DASH[1] / 2) if end_tgt is None else (end_tgt,)
@@ -3458,14 +3458,19 @@ def paint_body():
         SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
         Se = arclen(eye)
         SB_ = scale * S_B + phase
-        k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se[-1]), E["a_neck"], SB_, EYE.get("L", {}).get("tgt"))
-        sd = np.where(Se <= E["a_neck"], SB_ - k1 * Se, s_n - k2 * (Se - E["a_neck"]))
+        # client round 3: the hood corner's shut line crosses the line ~1 cm from the neck's narrowest point and the
+        # dash across it showed a notch (its two halves on two panels): the middle of a GAP is centred on that crossing
+        # (the dashes either side of it run through the neck, narrowed; the keyline runs on beside them)
+        a_x = E["a_gap"]
+        k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se[-1]), a_x, SB_, EYE.get("L", {}).get("tgt"),
+                                                at_mid=DASH[0] + DASH[1] / 2)
+        sd = np.where(Se <= a_x, SB_ - k1 * Se, s_n - k2 * (Se - a_x))
         hw = eyeliner_width(eye, s)
         drop = set()                       # (no dash is left out: the neck dash is narrowed instead)
         ink = paint_eyeliner(eye, s, sd, drop, hw)
         EYE[s] = dict(C=eye, sd=sd, k1=k1, k2=k2, ink=ink, drop=drop, neck_cm=E["neck_cm"], r_min_cm=E["r_min_cm"], hw=hw,
                       dev_cm=E["dev_cm"], seam_cm=E["seam_cm"], hw_min_cm=round(float(hw.min()) * 200, 2),
-                      neck_dash=int(dash_owner(np.array([s_n]))[0]), tgt=tgt_e)
+                      neck_dash=None, tgt=tgt_e)
         CREASE[s]["off_cm"] = crease_offset_cm(C[np.searchsorted(arclen(C), S_B):], s)
         print(f"   shoulder line {s}: on the crease from y {C[np.searchsorted(arclen(C), S_B), 1]:.3f} to "
               f"{C[-1, 1]:.3f} (last dash end {SH_REAR_AIR * 100:.1f} cm from the tail lamp), phase {phase:.4f}; "
@@ -4649,7 +4654,8 @@ def main():
     for r in LINE_CHECKS:        # front cut line along the headlight and across the nose
         rep.append(f"{r['status']:<6} line:front_{r['side']:<18} {r['dashes']} whole dashes, {r['length_cm']} cm to the "
                    f"centreline, stretch {r['stretch'][0]} / {r['stretch'][1]}, smallest turn radius {r['r_min_cm']} cm, "
-                   f"neck between lamp and grille {r['neck_cm']} cm wide: a dash centred in it, narrowed smoothly to "
+                   f"neck between lamp and grille {r['neck_cm']} cm wide: a dash gap centred on the hood corner's shut "
+                   f"line there ({r.get('seam_cm')} cm from its narrowest point), the dashes either side narrowed smoothly to "
                    f"{r['hw_min_cm']} cm, dashes left out {r['dropped']}; air of the paint to the lamp {r['air_lamp_cm']} cm, grille {r['air_grille_cm']} cm, "
                    f"other parts {r['air_other_cm']} cm; guide deviation (lamp gap / crease / grille gap) "
                    f"{r['guide_dev_cm']} cm; labels " + ", ".join(f"{k} {v}" for k, v in r["label_air_cm"].items()) + " cm"
