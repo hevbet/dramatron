@@ -1296,8 +1296,46 @@ def crease_path(side, sigma=0.04):
     w = t * t * t * (t * (t * 6 - 15) + 10)
     z = (1 - w) * zf + w * zd
     ok = np.isfinite(z)
-    CREASE[side] = dict(y=ys[ok], z=z[ok], raw=np.where(ys <= CREASE_FENDER_END, fz, dz)[ok])
+    ys, z, raw = ys[ok], z[ok], np.where(ys <= CREASE_FENDER_END, fz, dz)[ok]
+    z = _plan_blend(side, ys, z)
+    CREASE[side] = dict(y=ys, z=z, raw=raw)
     return CREASE[side]["y"], CREASE[side]["z"]
+
+
+SH_S_PLAN = (-1.16, -0.862)    # the S from the flare's top edge to the door crease, designed in plan (see _plan_blend)
+SH_SHUT_Y = -0.848             # middle of the front fender / front door shut gap at the shoulder line: a dash gap there
+
+
+def _plan_blend(side, ys, z):
+    """Client round 3: the S from the fender flare's top edge (x ~0.97) to the door crease (x ~0.85) read as a ~90 deg
+    notch in the 3/4 views - the z(y) blend left the edge late and ran across the fender's tapering rear end almost
+    square to the door. Over SH_S_PLAN the line is now laid out in plan: x(y) is one smootherstep from the edge's x
+    to the door crease's x (zero slope at both ends, plan radius >= ~20 cm), and z is where the outer surface has that
+    x at that y (on the flare's sloping top face), so it flows onto the door tangentially."""
+    y0, y1 = SH_S_PLAN
+    i0, i1 = int(np.argmin(np.abs(ys - y0))), int(np.argmin(np.abs(ys - y1)))
+    sx = lambda y, zz: snap([(y, q) for q in zz], "side", SIDE_PARTS, side)[:, 0]
+    sg = 1.0 if side == "L" else -1.0
+    x0 = float(sx(ys[i0], [z[i0]])[0]) * sg
+    x1 = float(sx(ys[i1], [z[i1]])[0]) * sg
+    out = z.copy()
+    zz = np.arange(min(z[i0], z[i1]) - 0.004, max(z[i0], z[i1]) + 0.03, 0.0005)
+    for i in range(i0 + 1, i1):
+        t = (ys[i] - ys[i0]) / (ys[i1] - ys[i0])
+        xt = x0 + (x1 - x0) * t * t * t * (t * (t * 6 - 15) + 10)
+        xs = sx(ys[i], zz) * sg
+        below = np.flatnonzero((xs <= xt) & (zz >= z[i0] - 0.002))
+        if len(below):
+            k = int(below[0])
+            if k > 0 and xs[k - 1] > xs[k]:       # (interpolate between the two samples around xt)
+                f = (xs[k - 1] - xt) / (xs[k - 1] - xs[k])
+                out[i] = zz[k - 1] + f * (zz[k] - zz[k - 1])
+            else:
+                out[i] = zz[k]
+    # (a light smoothing of the solved heights: texel noise of the snapped x)
+    seg = slice(i0, i1 + 1)
+    out[seg] = np.concatenate([[out[i0]], ndimage.gaussian_filter1d(out[i0 + 1:i1], 1.5, mode="nearest"), [out[i1]]])
+    return out
 
 
 def crease_z(side, y):
@@ -1402,7 +1440,8 @@ HL_CACHE = os.path.join(SCRATCH, "bc", "headlight_rims_v1.npz")
 HL_BOX = (0.40, 0.42, 1.38, 1.00, 0.98, 2.18)       # close-up box around the left lamp (renderer world: x, y up, z front)
 HL_VIEWS = ("side_left", "front", "front34_left")
 EYE = {}               # filled by paint_body: curves, phases, checks (for the report)
-SH_PHASE = {}          # dash phase of the shoulder line per side (its dash coordinate = arc length + phase)
+SH_PHASE = {}          # dash phase of the shoulder line per side (its dash coordinate = SH_SCALE * arc length + phase)
+SH_SCALE = {}
 SHOULDER = {}          # per side: painted shoulder centre curve, branch arc length, phase
 LINE_CHECKS = []
 
@@ -3302,7 +3341,14 @@ def paint_body():
     eyeL = E["C"]
     for s in sides:
         Sarc = arclen(Csh[s])
-        SH_PHASE[s] = phase = float((DASH[0] - Sarc[-1]) % DPER)
+        # dash coordinate = scale * arc + phase: the last dash ends at the line's rear end (SH_REAR_AIR from the tail
+        # lamp) and a gap is centred on the front fender / door shut gap (client round 3: no dash straddling it)
+        S_sh = float(Sarc[int(np.argmin(np.abs(Csh[s][:, 1] - SH_SHUT_Y)))])
+        gm = DASH[0] + DASH[1] / 2
+        n_ = round((Sarc[-1] - S_sh - (DASH[0] - gm)) / DPER)
+        scale = float((DASH[0] - gm + n_ * DPER) / (Sarc[-1] - S_sh))
+        SH_SCALE[s] = scale
+        SH_PHASE[s] = phase = float((DASH[0] - scale * Sarc[-1]) % DPER)
         if s == "L":
             eye, S_B = eyeL, E["S_B"]
         else:
@@ -3313,12 +3359,14 @@ def paint_body():
             eye[0] = Csh[s][ib]
             eye[-1, 0] = 0.0
         # the shoulder line starts at the branch (nothing painted ahead of it)
-        C = curve_line(c3[s], SIDE_PARTS, s, 0.011, INK, dash=DASH, phase=phase, resnap_mode="side", trim=(-1.0, S_B))
+        C = curve_line(c3[s], SIDE_PARTS, s, 0.011, INK, dash=DASH, phase=phase, resnap_mode="side", trim=(-1.0, S_B),
+                       scale=scale)
         shoulder[s] = C
         SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
         Se = arclen(eye)
-        k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se[-1]), E["a_neck"], S_B + phase, EYE.get("L", {}).get("tgt"))
-        sd = np.where(Se <= E["a_neck"], S_B + phase - k1 * Se, s_n - k2 * (Se - E["a_neck"]))
+        SB_ = scale * S_B + phase
+        k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se[-1]), E["a_neck"], SB_, EYE.get("L", {}).get("tgt"))
+        sd = np.where(Se <= E["a_neck"], SB_ - k1 * Se, s_n - k2 * (Se - E["a_neck"]))
         hw = eyeliner_width(eye, s)
         drop = set()                       # (no dash is left out: the neck dash is narrowed instead)
         ink = paint_eyeliner(eye, s, sd, drop, hw)
