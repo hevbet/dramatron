@@ -1933,6 +1933,7 @@ PILLAR_PARTS = ["roof", "roof_rail", "a_pillar", "c_pillar", "front_door", "rear
                 "rear_fender", "front_fender_top", "front_fender"]
 PILLAR_GAP_C = 0.045        # C-pillar line centre -> quarter-window frame (m)
 A_LAND_Y = -0.755           # A-pillar line: aimed landing on the shoulder line (door front corner, ahead of the mirror)
+PILLAR_AIR = 0.022           # line centre -> frame / glass edge wanted on the pillars (1.1 cm of pink beside the line)
 PILLAR_LOG = []
 
 
@@ -1978,29 +1979,33 @@ def pillar_half(kind, side, shoulder_C, phase):
         (np.array([-0.01, 0.8, 0.85]), np.array([1.0, 1.9, 1.45]))
     surf = _Surf(PILLAR_PARTS, "L", lo, hi)
     yl = -0.24 if kind == "A" else 1.10
-    roof = snap([(x, yl) for x in np.arange(0.0, 0.461, 0.04)], "top", ["roof", "roof_rail"])
+    rims = view_rims("apillar_L", (0.45, 0.75, 0.15, 1.02, 1.40, 1.00), ("side_left", "front34_left", "top")) \
+        if kind == "A" else view_rims("cpillar_L", (0.40, 0.75, -1.95, 1.0, 1.40, -0.95),
+                                      ("side_left", "rear34_left", "top"))
+    obst = np.vstack([rims["rim_gl"], rims["rim_ot"]])
+    to = cKDTree(obst[obst[:, 0] > 0.25])
     if kind == "A":
-        m = (PARTF == PID["a_pillar"]) & OUTER & (POSF[:, 0] > 0)
+        roof = snap([(x, yl) for x in np.arange(0.0, 0.441, 0.04)], "top", ["roof", "roof_rail"])
+        # the A-pillar's middle line: per 2 cm slice the painted texel with the most air to the frames / glass
+        m = np.isin(PARTF, [PID[p] for p in ("a_pillar", "roof_rail")]) & OUTER & (POSF[:, 0] > 0.55) & \
+            (POSF[:, 1] < -0.30) & (POSF[:, 1] > -0.84) & (POSF[:, 2] > 0.93)
         P = POSF[m]
+        air = to.query(P)[0]
         mids = []
-        for y0 in np.arange(-0.36, -0.805, -0.02):
-            k = np.abs(P[:, 1] - y0) < 0.004
-            if k.sum() < 5:
-                continue
-            Q = P[k]
-            c = Q.mean(0)
-            u = np.linalg.svd(Q[:, [0, 2]] - c[[0, 2]])[2][0]
-            t = (Q[:, [0, 2]] - c[[0, 2]]) @ u
-            mids.append(0.5 * (Q[np.argmin(t)] + Q[np.argmax(t)]))
-        pil = surf.snap(np.array(mids))
+        for y0 in np.arange(-0.34, -0.805, -0.02):
+            k = np.abs(P[:, 1] - y0) < 0.005
+            if k.sum() >= 5:
+                mids.append(P[k][int(np.argmax(air[k]))])
+        mids = np.array(mids)
+        mids = ndimage.gaussian_filter1d(mids, 1.0, axis=0, mode="nearest")
+        pil = surf.snap(mids)
         J, s_j = _land(shoulder_C, phase, A_LAND_Y)
         base = pil[-1]
-        door = surf.snap(np.array([base + (J - base) * t + np.array([0.0, -0.01, 0.0]) * math.sin(math.pi * t)
-                                   for t in (0.35, 0.7)]))
+        door = surf.snap(np.array([base + (J - base) * t for t in (0.35, 0.7)]))
         G = np.vstack([roof, pil, door, J])
-        w = np.concatenate([np.full(len(roof), 6.0), np.full(len(pil), 6.0), np.full(len(door), 2.0), [60.0]])
+        w = np.concatenate([np.full(len(roof), 6.0), np.full(len(pil), 8.0), np.full(len(door), 2.0), [60.0]])
     else:
-        rims = view_rims("cpillar_L", (0.40, 0.75, -1.95, 1.0, 1.40, -0.95), ("side_left", "rear34_left", "top"))
+        roof = snap([(x, yl) for x in np.arange(0.0, 0.441, 0.04)], "top", ["roof", "roof_rail"])
         fr = rims["rim_ot"]
         fr = fr[(fr[:, 0] > 0.3) & (fr[:, 2] > 1.0) & (fr[:, 2] < 1.31) & (fr[:, 1] > 0.9) & (fr[:, 1] < 1.5)]
         dfr = cKDTree(fr).query(surf.P)[0]
@@ -2026,8 +2031,7 @@ def pillar_half(kind, side, shoulder_C, phase):
     Gm = G[1:4] * np.array([-1.0, 1.0, 1.0])
     G2 = np.vstack([Gm[::-1], G])
     w2 = np.concatenate([w[1:4][::-1], w])
-    lim = np.full(len(G2), 0.003)
-    for it in range(20):
+    for it in range(25):
         C = _fit_path(G2, w2, surf)
         k0 = int(np.argmin(np.abs(C[:, 0])))
         Ch = C[k0:]
@@ -2040,8 +2044,9 @@ def pillar_half(kind, side, shoulder_C, phase):
         near = cKDTree(Ch[tight]).query(G2)[0] < 0.05
         near[-1] = False
         w2[near] *= 0.7
-    dev = float(cKDTree(Ch).query(G2[3:-1])[0].max())
-    return dict(C=Ch, J=J, s_j=s_j, r_min_cm=round(r_min * 100, 1), dev_cm=round(dev * 100, 2), iters=it + 1)
+    dev = float(cKDTree(Ch).query(G[1:-1])[0].max())
+    return dict(C=Ch, J=J, s_j=s_j, r_min_cm=round(r_min * 100, 1), dev_cm=round(dev * 100, 2), iters=it + 1,
+                air_min_cm=round(float(to.query(Ch)[0].min() - 0.011) * 100, 1))
 
 
 def paint_hoop(kind, halves):
@@ -2075,7 +2080,7 @@ def paint_hoop(kind, halves):
         cap = loc > DPER - 0.011
         dn = np.where(cap, dn + 1, dn)
         painted = (loc < DASH[0] + 0.011) | cap
-        drop = sorted(set(int(v) for v in np.unique(dn[painted & (dd < 0.005)])))
+        drop = sorted(set(int(v) for v in np.unique(dn[painted & (dd < 0.003)])))
         idx = cand(PILLAR_PARTS)
         P = POSF[idx]
         lo, hi = C.min(0) - 0.03, C.max(0) + 0.03
