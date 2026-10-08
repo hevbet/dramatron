@@ -706,7 +706,11 @@ def main():
     ap.add_argument("--skins", default=",".join(SKINS))
     ap.add_argument("--debug", default=None, help="also save masks / level-0 PNGs into this folder")
     ap.add_argument("--no-blur", action="store_true", help="skip rim_blur.dds")
+    ap.add_argument("--rim-colour", default="graphite",
+                    help="in-game rim colour as a car_paint_rims texel: R,G,B | graphite (default, "
+                         f"{GRAPHITE}) | stock (white rim, old output)")
     a = ap.parse_args()
+    rim_col = parse_colour(a.rim_colour)
 
     tex, mats = load_textures()
     rim_m = mats["rim"]
@@ -718,6 +722,9 @@ def main():
           f"(constant: {bool((det == det[0, 0]).all())}) -> diffuse x {det[0, 0, 0] / 255:.3f} where rim_d alpha is 0")
     bm = mats["rimblur"]
     print(f"material rimblur ({bm['shader']}): useDetail={bm['props'].get('useDetail')} samplers={bm['samplers']}")
+    tint = np.ones(3, np.float32) if rim_col is None else np.array(rim_col, np.float32) / det[0, 0, :3]
+    print(f"rim colour: {'stock' if rim_col is None else rim_col} -> non-nut texels x {np.round(tint, 3).tolist()} "
+          f"(car_paint_rims.dds untouched)")
     print(f"pink: PIG {PIG} -> anodised (sat x{SAT_GAIN}) {rgb3(NUT)}, texel {rgb3(NUT_TEX)} -> in game "
           f"x{det[0, 0, 0] / 255:.3f} = {rgb3(NUT_TEX * det[0, 0, 0] / 255)}")
 
@@ -749,23 +756,30 @@ def main():
     print(f"  rim_d nut grey: min {st['l_min']:.0f} median {st['l_med']:.0f} L_REF (p99) {st['l_ref']:.1f}; "
           f"texels recoloured incl. padding: {st['n_region']} (other texels of level 0 untouched)")
     # protected on every level: texels whose footprint touches any non-nut island (rim lip, spokes, barrel ...)
-    rim_new = rim_levels(rim_lv, new_rim, region, zone)
-    jobs = [(RIM, rim_bytes, rim_new, protected_levels(other_any, rim_new, rim_lv))]
+    rim_new = rim_levels(rim_lv, new_rim, region, zone, tint)
+    rim_base, rim_base_lv, rim_G = tinted_base(rim_bytes, tint)
+    rim_tgt = snap_to_base(rim_new, rim_G, rim_base_lv)
+    jobs = [(RIM, rim_bytes, rim_base, rim_tgt, protected_levels(other_any, rim_tgt, rim_base_lv), nut_cen,
+             other_any & ~nut_any)]
 
     if not a.no_blur:
         blur_bytes = tex[BLUR]
         used = blur_used(blurs, size)
         blur_orig = decode_levels(blur_bytes)
-        blur_lv, bmask, bst = blur_levels(blur_orig, used, st["l_ref"])
+        blur_lv, bmask, bst = blur_levels(blur_orig, used, st["l_ref"], tint)
         print(f"rim_blur: blob core grey {bst['n_ref']:.0f} on hub {bst['bg_at_blobs']:.0f} -> nut pink "
               f"{rgb3(bst['pink'])}; level-0 texels changed {bst['n_changed']} (inside the hub used by the "
               f"rimblur meshes: {bool((bmask <= used).all())})")
         # rimblur: the hub is one island with the nut blobs on it -> protected = used texels left unchanged
-        jobs.append((BLUR, blur_bytes, blur_lv, protected_levels(used, blur_lv, blur_orig, only_unchanged=True)))
+        blur_base, blur_base_lv, blur_G = tinted_base(blur_bytes, tint)
+        blur_tgt = snap_to_base(blur_lv, blur_G, blur_base_lv)
+        jobs.append((BLUR, blur_bytes, blur_base, blur_tgt,
+                     protected_levels(used, blur_tgt, blur_base_lv, only_unchanged=True),
+                     bmask, used & ~ndimage.binary_dilation(bmask, iterations=2)))
 
     if a.debug:
         os.makedirs(a.debug, exist_ok=True)
-        for name, _, levels, _ in jobs:
+        for name, _, _, levels, _, _, _ in jobs:
             Image.fromarray(np.clip(levels[0] + 0.5, 0, 255).astype(np.uint8)).save(
                 os.path.join(a.debug, name.replace(".dds", "_new.png")))
         dbg = np.zeros((size, size, 3), np.uint8)
@@ -779,11 +793,15 @@ def main():
     for skin in [s for s in a.skins.split(",") if s]:
         d = os.path.join(a.out, skin)
         os.makedirs(d, exist_ok=True)
-        for name, orig, levels, keep in jobs:
+        for name, orig, base, levels, keep, nut_m, rim_m in jobs:
             pth = os.path.join(d, name)
-            nb = write_levels(pth, orig, levels, keep)
-            print(f"wrote {pth}: 4x4 blocks per level (Pillow, constrained, refused -> stock) {nb}; "
-                  f"{verify(pth, orig, levels, keep)}")
+            nb = write_levels(pth, base, levels, keep)
+            data = open(pth, "rb").read()
+            same_alpha = all(data[o:o + 8] == orig[o:o + 8] for o in range(128, len(data), 16))
+            print(f"wrote {pth}: nut 4x4 blocks per level (Pillow, constrained, refused -> base) {nb}; "
+                  f"{verify(pth, base, levels, keep)}; vs stock: header identical {data[:128] == orig[:128]}, "
+                  f"alpha identical {same_alpha}, size {len(data) == len(orig)}; "
+                  f"level 0 {colour_check(pth, levels, nut_m, rim_m)}")
 
 
 if __name__ == "__main__":
