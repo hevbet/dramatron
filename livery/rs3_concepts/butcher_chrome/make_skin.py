@@ -2189,16 +2189,20 @@ GH_GAP_WS = 0.028           # A-pillar line centre -> windscreen glass / frame (
 GH_GAP_HEAD = 0.034         # header line centre -> windscreen top edge
 GH_GAP_SIDE = 0.030         # roof side line centre -> side window
 GH_GAP_RW = 0.034           # C-pillar / rear cross line centre -> rear window
-GH_GAP_TRUNK = 0.034        # trunk line centre -> rear window's lower edge incl. its black frame (>= 1.5 cm of paint + half
+GH_GAP_TRUNK = GH_GAP_RW     # trunk line centre -> rear window's lower edge incl. its black frame (>= 1.5 cm of paint + half
 #                             a dash); the rear wing's stays pierce the lid 2.9 cm behind that edge (x +-0.20): each
 #                             stands in the middle of a dash gap (see GH_STAY_X)
 GH_RC_X = 0.40              # the rear cross line follows the rear window's top edge out to |x| ~0.40 ...
-GH_RC_JOIN = (0.80, 0.96)   # ... and lands on the rail line ahead of the window's upper corner (y range on the rail)
+GH_RC_JOIN = (0.68, 0.84)   # ... and lands on the rail line ahead of the window's upper corner (y range on the rail)
+GH_RC_CROSS = 0.93          # ... crossing the roof's trim strip at this y (narrow and straight there)
+GH_HD_CROSS = -0.12         # the header crosses it here ...
+GH_HD_JOIN = (-0.03, 0.13)  # ... and lands on the rail line behind it (y range on the rail)
 GH_CLEAR = 0.015            # least clear paint between a dash and any glass / glass frame (client, round 3 item B)
 GH_STAY_X = 0.20            # |x| of the rear wing stays where they go into the trunk lid: the middle of a dash gap
 GH_R_MIN = 0.05             # smallest turn radius of the greenhouse lines (client: >= 5 cm)
 GH_HW = 0.011               # dash half width; narrowed to GH_HW_MIN where the strip is narrow
-GH_HW_MIN = 0.006
+GH_HW_MIN = 0.004           # (the upper A-pillar shows only 3.1-4.6 cm of paint between the windscreen frame and the
+#                             side window's frame: 1.5 cm to the windscreen + a 0.8 cm dash + 0.8 cm to the side frame)
 GH_AIR = 0.008              # air kept from the dash paint to any other part when narrowing
 GH_PARTS = ["hood", "front_fender_top", "front_fender", "a_pillar", "roof", "roof_rail", "c_pillar", "rear_shoulder",
             "trunk_lid", "front_door", "rear_door", "rear_fender"]
@@ -2409,16 +2413,16 @@ def greenhouse_curves():
     surf.idx, surf.P, surf.N = surf.idx[k_], surf.P[k_], surf.N[k_]
     surf.tree = cKDTree(surf.P)
     P = surf.P
-    dw = cKDTree(cl["ws"]).query(P, distance_upper_bound=0.08)[0]
-    dr = cKDTree(cl["rw"]).query(P, distance_upper_bound=0.08)[0]
-    ds = cKDTree(cl["sd"]).query(P, distance_upper_bound=0.08)[0]
+    dw = np.minimum(cKDTree(cl["ws"]).query(P, distance_upper_bound=0.08)[0], 0.08)
+    dr = np.minimum(cKDTree(cl["rw"]).query(P, distance_upper_bound=0.08)[0], 0.08)
+    ds = np.minimum(cKDTree(cl["sd"]).query(P, distance_upper_bound=0.08)[0], 0.08)
     L_ = P[:, 0] > -0.004
     hood = snap([(x, float(np.interp(x, *HOOD_EDGE)) - HOOD_LINE_OFF) for x in np.arange(-0.12, 0.521, 0.04)], "top",
                 ["hood", "front_fender_top"], exact=True)
     # A-pillar and roof edge: GH_GAP_WS from the windscreen / GH_GAP_SIDE from the side window, but in the middle of the
     # visible strip where it is narrower than twice that (the upper A-pillar between the windscreen frame and the side
     # window's frame is only 3-4.5 cm wide): the guide is the iso-line of d - min(gap, (dw + ds) / 2)
-    half = 0.5 * (dw + ds)
+    half = 0.5 * (dw + ds) + 0.0045          # (1.5 cm to the windscreen wins over 0.6 cm to the side frame)
     A = _iso_guides(P, dw - np.minimum(GH_GAP_WS, half), 0.0,
                     L_ & (P[:, 0] > 0.5) & (P[:, 1] < -0.20) & (P[:, 1] > -0.80), lambda Q: Q[:, 1],
                     np.arange(-0.80, -0.20, 0.02))
@@ -2426,7 +2430,10 @@ def greenhouse_curves():
     # not visible), so the line comes down onto the fender top outboard of it - the middle of the fender top's strip
     # between the hood shut line and the fender's outer roll (x 0.77 .. 0.82) - and turns in across the hood from there
     foot = snap([(0.792, -0.88), (0.795, -0.92), (0.792, -0.96)], "top", ["front_fender_top"], exact=True)
-    S = _iso_guides(P, ds - np.minimum(GH_GAP_SIDE, half), 0.0,
+    # (along the roof the rail line runs in a ~4 cm channel between the side window's frame and the roof's side trim
+    #  strip: in its middle where that is closer than GH_GAP_SIDE)
+    do_ = np.minimum(cKDTree(cl["out"]).query(P, distance_upper_bound=0.08)[0], 0.08)
+    S = _iso_guides(P, ds - np.minimum(np.minimum(GH_GAP_SIDE, dw + ds - half), 0.5 * (ds + do_)), 0.0,
                     L_ & (P[:, 0] > 0.45) & (P[:, 1] > -0.20) & (P[:, 1] < 1.08) & (P[:, 2] > 1.2),
                     lambda Q: Q[:, 1], np.arange(-0.20, 1.08, 0.02))
     # C-pillar, round the rear window's lower corner and across the trunk lid: one iso-line of the distance to the rear
@@ -2449,18 +2456,44 @@ def greenhouse_curves():
     w = np.where(grp == 0, 8.0, 6.0)
     main, r_main, it_m = _fit_curve(G, w, surf)
     main = _cut_at_centre(_cut_at_centre(main, "start"), "end")
+    main = _cut_at_centre(_cut_at_centre(_gh_push(main, surf), "start"), "end")
+    r_main = min(r_main, _fair_radius(main, surf)[0])
     Sm = arclen(main)
     # roof cross lines: guide points along their glass edge, then on along 'main' past the roof corner (they join it)
     out = dict(main=main, r_main=r_main)
     # (the cross lines leave their glass edge before the roof corner - header at |x| 0.43, rear at 0.31 - and join the
     #  side / C-pillar line 10-15 cm along it: room for a round turn, the glass corners themselves are tighter)
-    for nm, guides, ysel in (("head", Hd, (-0.14, 0.06)), ("rear", Rc, GH_RC_JOIN)):
+    # each cross line crosses the roof's side trim strip (between the roof and the rail line) at a steep angle where
+    # the strip is narrow and straight - the rear one at y GH_RC_CROSS (behind that the strip fans out into the rear
+    # window's corner frame), the header at GH_HD_CROSS: bridging guides from the glass edge to the strip's middle and
+    # on past it at 55 deg to the strip (a ~1.6 cm crossing, inside one dash gap), held like the rail points
+    so = cl["out"]
+    BR = {}
+
+    def bridge(G, yc, dy):
+        k_ = (np.abs(so[:, 1] - yc) < 0.01) & (so[:, 0] > 0.45) & (so[:, 0] < 0.62) & (so[:, 2] > 1.2)
+        B = surf.snap(np.array([[float(np.median(so[k_, 0])), yc, G[-1][2]]]))[0]
+        dirb = np.array([0.82, 0.57 * dy, 0.0])
+        a0 = G[-1]
+        br = surf.snap(np.vstack([a0 + (B - dirb * 0.03 - a0) * f for f in (0.4, 0.8)] +
+                                 [B - dirb * 0.015, B, B + dirb * 0.015]))
+        return np.vstack([G, br]), len(br)
+    Rc, BR["rear"] = bridge(Rc, GH_RC_CROSS, -1.0)
+    Hd, BR["head"] = bridge(Hd, GH_HD_CROSS, 1.0)
+    for nm, guides, ysel in (("head", Hd, GH_HD_JOIN), ("rear", Rc, GH_RC_JOIN)):
         on = main[(main[:, 1] > ysel[0]) & (main[:, 1] < ysel[1])][::5]
+        if nm == "rear":                 # (it lands on the rail heading forward: the rail points from the rear)
+            on = on[::-1]
         Gb = np.vstack([guides, on])
         wb = np.concatenate([np.full(len(guides), 6.0), np.full(len(on), 30.0)])
         keep = np.concatenate([np.zeros(len(guides), bool), np.ones(len(on), bool)])
+        wb[len(guides) - BR[nm]:len(guides)] = 30.0       # (the bridging guides hold like the rail points)
+        keep[len(guides) - BR[nm]:len(guides)] = True
         Cb, r_b, it_b = _fit_curve(Gb, wb, surf, keep=keep)
         Cb = _cut_at_centre(Cb, "start")
+        # (pushed off the glass only: it crosses the roof's side trim strip - in a dash gap, see paint_greenhouse)
+        Cb = _cut_at_centre(_gh_push(Cb, surf, kinds=("ws", "rw")), "start")
+        r_b = min(r_b, _fair_radius(Cb, surf)[0])
         dmain, jm = cKDTree(main).query(Cb)
         far = np.flatnonzero(dmain > 0.002)
         iy = int(far[-1]) + 1 if len(far) else len(Cb) - 1      # first point where it lies on 'main' for good
@@ -2476,17 +2509,70 @@ def greenhouse_curves():
     return GH
 
 
-def _gh_width(C, sg):
-    """dash half width along C: GH_HW, narrowed smoothly where a part standing out of the skin (frame, seal, frit,
-    trim) is closer than GH_HW + GH_AIR; and that distance"""
-    cl = greenhouse_clouds()
-    if "_out_tree" not in GH:
-        GH["_out_tree"] = cKDTree(cl["out"])
-    d = np.minimum(GH["_out_tree"].query(C * np.array([sg, 1.0, 1.0]), distance_upper_bound=0.05)[0], 0.05)
-    raw = np.clip(d - GH_AIR, GH_HW_MIN, GH_HW)
+def _gh_trees():
+    if "_trees" not in GH:
+        cl = greenhouse_clouds()
+        GH["_trees"] = {k: cKDTree(cl[k]) for k in ("ws", "rw", "sd", "out")}
+    return GH["_trees"]
+
+
+def _gh_dists(C, sg=1.0):
+    """per point of C: distance to the nearest visible edge of the windscreen / rear window (incl. their frames and frit:
+    >= GH_CLEAR of paint, client round 3 item B) and to the side windows' frames or any other part standing out of the
+    skin (>= GH_AIR of paint)"""
+    T = _gh_trees()
+    Q = C * np.array([sg, 1.0, 1.0])
+    dg = np.minimum.reduce([np.minimum(T[k].query(Q, distance_upper_bound=0.08)[0], 0.08) for k in ("ws", "rw")])
+    do = np.minimum.reduce([np.minimum(T[k].query(Q, distance_upper_bound=0.08)[0], 0.08) for k in ("sd", "out")])
+    return dg, do
+
+
+def _gh_width(C, sg, free=None):
+    """dash half width along C: GH_HW, narrowed smoothly where a glass edge is closer than GH_HW + GH_CLEAR or another
+    part standing out of the skin (seal, trim, stay) closer than GH_HW + GH_AIR; and the distance to the nearest of
+    them (both measured from the centre line)"""
+    dg, do = _gh_dists(C, sg)
+    raw = np.clip(np.minimum(dg - GH_CLEAR, do - GH_AIR), GH_HW_MIN, GH_HW)
+    if free is not None:                 # (points in a dash gap that is placed over a trim strip: nothing to narrow)
+        raw = np.where(free, GH_HW, raw)
     hw = ndimage.minimum_filter1d(raw, 25, mode="nearest")          # (5 cm either side) ...
     hw = ndimage.gaussian_filter1d(hw, 8.0, mode="nearest")          # ... and eased in / out
-    return np.minimum(hw, raw + 0.001), d
+    return np.minimum(hw, raw + 0.001), np.minimum(dg - GH_CLEAR + GH_AIR, do)
+
+
+def _gh_push(C, surf, fixed=None, iters=40, kinds=("ws", "rw", "sd", "out")):
+    """move the centre curve sideways (in the surface) where even the narrowest dash would leave less than GH_CLEAR of
+    paint to a glass edge (or GH_AIR to another part): the deficit, eased along the curve over ~4 cm, away from the
+    nearest edge point; `fixed`: points that must stay (joins). Returns the curve (2 mm resampled, glued)."""
+    T = _gh_trees()
+    cl = {k: T[k].data for k in T}
+    # (the glass edge wins where the strip is too narrow for both: >= 1.5 cm of paint to the windscreen / rear window,
+    #  >= 0.6 cm to a side window's frame)
+    need_g, need_o = GH_HW_MIN + GH_CLEAR + 0.0015, GH_HW_MIN + 0.006
+    for _ in range(iters):
+        dg, do = _gh_dists(C)
+        defi = need_g - dg if "out" not in kinds else np.maximum(need_g - dg, need_o - do)
+        if defi.max() <= 0.0002:
+            break
+        V = np.zeros_like(C)
+        for k, need in (("ws", need_g), ("rw", need_g), ("sd", need_o), ("out", need_o)):
+            if k not in kinds:
+                continue
+            d, j = T[k].query(C, distance_upper_bound=0.08)
+            m = np.isfinite(d) & (d < need)
+            if m.any():
+                v = C[m] - cl[k][j[m]]
+                v /= np.linalg.norm(v, axis=1, keepdims=True) + 1e-9
+                V[m] += v * (need - d[m])[:, None]
+        Nn = surf.N[surf.tree.query(C)[1]]
+        V -= (V * Nn).sum(1, keepdims=True) * Nn
+        V = ndimage.gaussian_filter1d(V, 8.0, axis=0, mode="nearest") * 1.5
+        if fixed is not None:
+            V[fixed] = 0.0
+        C = _resample(surf.snap(C + V), 0.002)
+        if fixed is not None:
+            fixed = None                         # (the joins sit on already-clear points; resampling shifts indices)
+    return C
 
 
 def paint_gh_line(C, sd, side, hw):
@@ -2508,6 +2594,41 @@ def paint_gh_line(C, sd, side, hw):
     return idx[a > 0.5]
 
 
+CROSS_FREE = {}
+
+
+def _phase_pieces(t_anchor, s0, targets, sign=1.0):
+    """piecewise-linear dash coordinate along a curve: sd(0) = s0, and at each anchor arc position t_anchor[i] one of
+    targets[i] (mod DPER: a dash middle or a gap middle), each piece stretched as little as possible (k closest to 1).
+    sign -1: the dash coordinate decreases along the curve. Returns (knot t, knot sd, stretches, targets chosen)."""
+    kt, ks_, st, ch = [0.0], [s0], [], []
+    for t, tg in zip(t_anchor, targets):
+        tp, sp = kt[-1], ks_[-1]
+        best = None
+        for g in tg:
+            n = round((sp + sign * (t - tp) - g) / DPER)
+            for nn in (n - 1, n, n + 1):
+                k = (g + nn * DPER - sp) * sign / (t - tp)
+                if k > 0 and (best is None or abs(k - 1) < abs(best[0] - 1)):
+                    best = (k, g + nn * DPER, g)
+        kt.append(float(t))
+        ks_.append(best[1])
+        st.append(round(best[0], 4))
+        ch.append(best[2])
+    return np.array(kt), np.array(ks_), st, ch
+
+
+def _hood_seam_arc(C):
+    """arc position where the curve crosses the hood / fender shut line (part change hood -> front_fender_top)"""
+    hi = cand(["hood"])
+    fi = cand(["front_fender_top"])
+    th, tf = cKDTree(POSF[hi]), cKDTree(POSF[fi])
+    dh, df = th.query(C)[0], tf.query(C)[0]
+    on_f = df < dh
+    k = np.flatnonzero(~on_f[:-1] & on_f[1:])
+    return float(arclen(C)[k[0] + 1]) if len(k) else None
+
+
 def paint_greenhouse():
     """Paint the greenhouse lines on both sides (left curves; the right side is their mirror image re-glued to the right
     skin). Returns the centre curves {side: [main, head, rear]} (for the keyline / clearance tests)."""
@@ -2515,43 +2636,56 @@ def paint_greenhouse():
     main = g["main"]
     Sm = arclen(main)
     L = float(Sm[-1])
-    # main: a dash centred on the hood centreline; one stretch (closest to 1) puts the trunk centreline on the middle of
-    # a dash or of a gap
-    # two stretches: hood centre -> the wing stay (the middle of a gap there), stay -> trunk centre (middle of a dash or
-    # of a gap); each as close to 1 as possible
-    ks = np.flatnonzero((main[:-1, 0] > GH_STAY_X) & (main[1:, 0] <= GH_STAY_X) & (main[:-1, 1] > 1.7))
-    a_s = float(Sm[ks[-1]])
     gap_mid = DASH[0] + DASH[1] / 2
-    n1 = round((DASH[0] / 2 + a_s - gap_mid) / DPER)
-    k1 = (gap_mid + n1 * DPER - DASH[0] / 2) / a_s
-    s_st = gap_mid + n1 * DPER
-    best = None
-    for tgt in (DASH[0] / 2, gap_mid):
-        n = round((s_st + (L - a_s) - tgt) / DPER)
-        k2 = (tgt + n * DPER - s_st) / (L - a_s)
-        if best is None or abs(k2 - 1) < abs(best[0] - 1):
-            best = (k2, tgt)
-    k2, tgt_m = best
-    sd_main = np.where(Sm <= a_s, DASH[0] / 2 + k1 * Sm, s_st + k2 * (Sm - a_s))
-    curves = {"main": (main, sd_main)}
-    log = dict(main_cm=round(L * 100, 1), main_stretch=[round(k1, 4), round(k2, 4)],
-               trunk_centre="dash middle" if tgt_m < DASH[0] else "gap middle", r_main_cm=round(g["r_main"] * 100, 1))
+    # cross lines (header, rear): where each lands on 'main', its heading there (+1: along main's arc) and the sign of
+    # its dash coordinate walking back from the join (so it runs on like main's); the roof's side trim strip (a part
+    # standing out of the skin) lies between the roof and the rail line, and each crosses it a few cm before the join:
+    # in the middle of a dash gap (no dash cut by it) at the natural dash length - which fixes main's phase at the join
+    cx = {}
     for nm in ("head", "rear"):
         Cb = g[nm]
         Sb = arclen(Cb)
         Lb = float(Sb[-1])
-        sM = float(sd_main[g[nm + "_join"]])
-        best = None
-        for tgt in (DASH[0] / 2, DASH[0] + DASH[1] / 2):
-            # sd_b(a) = sM - kb (Lb - a); centre (a = 0) on tgt (mod DPER)
-            base = sM - Lb
-            n = round((base - tgt) / DPER)
-            for nn in (n - 1, n, n + 1):
-                kb = (sM - (tgt + nn * DPER)) / Lb
-                if kb > 0 and (best is None or abs(kb - 1) < abs(best[0] - 1)):
-                    best = (kb, tgt)
-        kb, tgt = best
-        curves[nm] = (Cb, sM - kb * (Lb - Sb))
+        jn = int(g[nm + "_join"])
+        hd = 1 if float(np.dot(Cb[-1] - Cb[-6], main[min(jn + 2, len(main) - 1)] - main[max(jn - 2, 0)])) > 0 else -1
+        do = np.minimum(_gh_trees()["out"].query(Cb, distance_upper_bound=0.08)[0], 0.08)
+        ix = int(np.argmin(np.where((Lb - Sb) < 0.40, do, 9.0)))
+        cross = bool(do[ix] < 0.012)
+        cx[nm] = dict(Cb=Cb, Sb=Sb, Lb=Lb, jn=jn, sgn=-float(hd), ix=ix, cross=cross, t_x=Lb - float(Sb[ix]))
+        if cross:
+            CROSS_FREE[nm] = np.abs(Sb - Sb[ix]) < DASH[1] / 2
+    # main: anchors along it - a dash centred on the hood centreline; a gap centred on the hood / fender shut line at
+    # the A-pillar's foot (the hood half and the fender half of a dash straddling it did not line up); at each cross
+    # line's join the phase that puts the gap on the trim strip; a gap centred on the wing stay; the trunk centreline
+    # on the middle of a dash or of a gap. Piecewise stretch, each piece as close to 1 as possible.
+    ks = np.flatnonzero((main[:-1, 0] > GH_STAY_X) & (main[1:, 0] <= GH_STAY_X) & (main[:-1, 1] > 1.7))
+    a_s = float(Sm[ks[-1]])
+    a_hf = _hood_seam_arc(main)
+    GH["hood_seam_arc"] = a_hf
+    anch = [(a_s, [gap_mid]), (L, [DASH[0] / 2, gap_mid])]
+    if a_hf:
+        anch.append((a_hf, [gap_mid]))
+    for nm, c in cx.items():
+        if c["cross"]:
+            anch.append((float(Sm[c["jn"]]), [float((gap_mid - c["sgn"] * c["t_x"]) % DPER)]))
+    anch.sort()
+    kt, ksd, kst, chs = _phase_pieces([a for a, _ in anch], DASH[0] / 2, [t for _, t in anch])
+    sd_main = np.interp(Sm, kt, ksd)
+    tgt_m = chs[-1]
+    curves = {"main": (main, sd_main)}
+    log = dict(main_cm=round(L * 100, 1), main_stretch=kst, hood_seam_cm=None if a_hf is None else round(a_hf * 100, 1),
+               trunk_centre="dash middle" if tgt_m < DASH[0] else "gap middle", r_main_cm=round(g["r_main"] * 100, 1))
+    for nm, c in cx.items():
+        Cb, Sb, Lb, sgn = c["Cb"], c["Sb"], c["Lb"], c["sgn"]
+        sM = float(sd_main[c["jn"]])
+        anc, tg = [Lb], [[DASH[0] / 2, gap_mid]]
+        if c["cross"]:
+            anc, tg = [c["t_x"], Lb], [[gap_mid], tg[0]]
+        kt, ksd, kst, chs = _phase_pieces(anc, sM, tg, sign=sgn)
+        curves[nm] = (Cb, np.interp(Lb - Sb, kt, ksd))
+        kb, tgt = kst[-1], chs[-1]
+        log[nm + "_strip_cross_cm"] = round(float(Sb[c["ix"]]) * 100, 1) if c["cross"] else None
+        log[nm + "_stretches"] = kst
         log[nm + "_cm"] = round(Lb * 100, 1)
         log[nm + "_stretch"] = round(kb, 4)
         log[nm + "_centre"] = "dash middle" if tgt < DASH[0] else "gap middle"
@@ -2564,12 +2698,17 @@ def paint_greenhouse():
             Cs = C if side == "L" else surfR.snap(C * np.array([-1.0, 1.0, 1.0]))
             if side == "R":
                 Cs[:, 0] = np.minimum(Cs[:, 0], 0.0)
-            hw, dpart = _gh_width(Cs, sg)
+            hw, dpart = _gh_width(Cs, sg, CROSS_FREE.get(nm))
             ink = paint_gh_line(Cs, sd, side, hw)
             out[side].append(Cs)
             if side == "L":
                 log[nm + "_hw_min_cm"] = round(float(hw.min()) * 200, 2)
-                log[nm + "_air_min_cm"] = round(float((dpart - hw).min()) * 100, 2)
+                # paint clearances measured on the dashes only (a gap may lie over the trim strip / the wing stay)
+                dg_, do_ = _gh_dists(Cs, sg)
+                loc = np.mod(sd, DPER)
+                on = (loc < DASH[0] + 0.004) | (loc > DPER - 0.004)
+                log[nm + "_glass_clear_min_cm"] = round(float((dg_ - hw)[on].min()) * 100, 2)
+                log[nm + "_other_air_min_cm"] = round(float((do_ - hw)[on].min()) * 100, 2)
                 GH.setdefault("ink", {})[nm] = ink
     GH_LOG.append(log)
     print(f"   greenhouse lines: {log}", flush=True)
@@ -2602,7 +2741,12 @@ def _arc_dist_to(mask, S):
     return out
 
 
-def paint_keyline(C, side, others, open_start=False):
+KEY_NECK_GAP = 0.003        # through the lamp / grille neck: clear paint between the keyline and the (narrowed) dash ...
+KEY_NECK_AIR = 0.0025       # ... and between the keyline and the lamp
+KEY_NECK_KMIN = 0.30        # narrowest keyline there, as a fraction of its normal width (1.44 cm -> 0.43 cm)
+
+
+def paint_keyline(C, side, others, open_start=False, hwd=None):
     """Keyline beside the cut-line centre curve C (ordered; its first point is the centreline end of the nose line
     when open_start: there the mirrored keyline of the other side carries on). others: centre curves of the cut lines
     that meet / cross it."""
@@ -2636,7 +2780,33 @@ def paint_keyline(C, side, others, open_start=False):
     lamps = np.vstack([rim["rim_hl"], nr["rim_hl"], nr["rim_gr"]]) * sgv
     tl = taillamp_points()
     lamps = np.vstack([lamps, tl[tl[:, 0] * sg > 0]])
-    gap_part = cKDTree(lamps).query(K)[0] < hw0 + KEY_AIR_PART
+    # client (round 3): no 12 cm break at the lamp / grille neck - the keyline runs on through it on the same side,
+    # closer to the (narrowed) dash and narrowed itself, like the dash: room = distance from the cut line's centre to
+    # the lamp / grille on the keyline's side; where the normal keyline (KEY_OFF, 1.44 cm wide, 0.8 cm air) does not
+    # fit, its width k and offset are the largest that keep KEY_NECK_GAP to the dash and KEY_NECK_AIR to the lamp,
+    # eased in / out along the line (no step)
+    hwd = np.full(len(C), 0.011) if hwd is None else np.asarray(hwd, float)
+    tl_ = cKDTree(lamps)
+    nb_d, nb_j = tl_.query(C, k=64, distance_upper_bound=0.06)
+    room = np.full(len(C), 0.06)
+    for i in range(len(C)):
+        ok_ = np.isfinite(nb_d[i])
+        if ok_.any():
+            v = lamps[nb_j[i][ok_]] - C[i]
+            side_ = (v @ lat[i]) > 0.0
+            if side_.any():
+                room[i] = float(nb_d[i][ok_][side_].min())
+    kf = np.clip((room - KEY_NECK_AIR - KEY_NECK_GAP - hwd) / (2 * hw0), KEY_NECK_KMIN, 1.0)
+    kf = ndimage.gaussian_filter1d(ndimage.minimum_filter1d(kf, 31, mode="nearest"), 8.0, mode="nearest")
+    kf = np.clip(kf, KEY_NECK_KMIN, 1.0)
+    lo_off = hwd + KEY_NECK_GAP + hw0 * kf                   # (closest to the dash)
+    hi_off = room - KEY_NECK_AIR - hw0 * kf                   # (closest to the lamp)
+    off = np.minimum(KEY_OFF, 0.5 * (lo_off + np.maximum(hi_off, lo_off)))
+    off = np.minimum(ndimage.gaussian_filter1d(ndimage.minimum_filter1d(off, 31, mode="nearest"), 8.0, mode="nearest"),
+                     KEY_OFF)
+    off = np.clip(off, lo_off, None)
+    K = C + lat * off[:, None]
+    gap_part = (cKDTree(lamps).query(K)[0] < hw0 * kf + KEY_NECK_AIR - 0.0005)
     gap = gap_line | gap_part
     ends = gap.copy()
     if not open_start:
@@ -2648,11 +2818,12 @@ def paint_keyline(C, side, others, open_start=False):
     ok = np.isfinite(d)
     ok[ok] &= ((P[ok] - C[j[ok]]) * lat[j[ok]]).sum(1) > 0
     ok[ok] &= f[j[ok]] > 0
-    ii, dd, fj = idx[ok], d[ok], f[j[ok]]
+    ii, dd, fj, oj, kj = idx[ok], d[ok], f[j[ok]], off[j[ok]], kf[j[ok]]
     for hw, col in KEY_HW:
+        hw = hw * kj
         # round ends: within hw of an interruption the half width follows a half circle of radius hw
         h = np.where(fj < hw, np.sqrt(np.clip(hw * hw - (hw - fj) ** 2, 0, None)), hw)
-        blend(ii, col, smoothstep_aa(np.abs(dd - KEY_OFF), h), obstacle=True)
+        blend(ii, col, smoothstep_aa(np.abs(dd - oj), h), obstacle=True)
     on = f > 0
     runs = np.split(np.arange(len(C)), np.flatnonzero(np.diff(on.astype(int))) + 1)
     pieces = [(round(float(S[r[0]]), 3), round(float(S[r[-1]]), 3)) for r in runs if on[r[0]]]
@@ -2662,10 +2833,17 @@ def paint_keyline(C, side, others, open_start=False):
             why = "crossing line" if gap_line[r].any() else "lamp / grille neck"
             gaps.append(dict(at_m=round(float(S[r[0]]), 3), len_cm=round(float(S[r[-1]] - S[r[0]]) * 100, 1), why=why,
                              y=round(float(C[r[len(r) // 2], 1]), 3)))
+    nk = kf < 0.98
     KEY_LOG.append(dict(side=side, length_cm=round(float(S[-1]) * 100, 1), pieces_m=pieces, gaps=gaps,
+                        neck=dict(narrowed_cm=round(float(np.ptp(S[nk])) * 100, 1) if nk.any() else 0.0,
+                                  width_min_cm=round(float(kf.min() * 2 * hw0) * 100, 2),
+                                  offset_min_cm=round(float(off.min()) * 100, 2),
+                                  gap_to_dash_min_cm=round(float((off - hwd - hw0 * kf)[on].min()) * 100, 2),
+                                  air_to_lamp_min_cm=round(float((tl_.query(K[on])[0] - hw0 * kf[on]).min()) * 100, 2)),
                         air_line_min_cm=round(float(min([cKDTree(O).query(K[on])[0].min() for O in others] + [9.9])
                                                       - 0.011 - hw0) * 100, 1),
-                        air_part_min_cm=round(float(cKDTree(lamps).query(K[on])[0].min() - hw0) * 100, 1)))
+                        air_part_min_cm=round(float(cKDTree(lamps).query(K[on & ~nk])[0].min() - hw0) * 100, 1)
+                        if (on & ~nk).any() else None))
     print(f"   keyline {side}: {len(pieces)} pieces {pieces}, interruptions {gaps}, air to other lines "
           f">= {KEY_LOG[-1]['air_line_min_cm']} cm, to lamps / grille >= {KEY_LOG[-1]['air_part_min_cm']} cm", flush=True)
 
@@ -3133,7 +3311,7 @@ def paint_body():
         hw = eyeliner_width(eye, s)
         drop = set()                       # (no dash is left out: the neck dash is narrowed instead)
         ink = paint_eyeliner(eye, s, sd, drop, hw)
-        EYE[s] = dict(C=eye, sd=sd, k1=k1, k2=k2, ink=ink, drop=drop, neck_cm=E["neck_cm"], r_min_cm=E["r_min_cm"],
+        EYE[s] = dict(C=eye, sd=sd, k1=k1, k2=k2, ink=ink, drop=drop, neck_cm=E["neck_cm"], r_min_cm=E["r_min_cm"], hw=hw,
                       dev_cm=E["dev_cm"], seam_cm=E["seam_cm"], hw_min_cm=round(float(hw.min()) * 200, 2),
                       neck_dash=int(dash_owner(np.array([s_n]))[0]), tgt=tgt_e)
         CREASE[s]["off_cm"] = crease_offset_cm(C[np.searchsorted(arclen(C), S_B):], s)
@@ -3151,7 +3329,8 @@ def paint_body():
     for s in sides:
         ib = int(np.searchsorted(arclen(shoulder[s]), SHOULDER[s]["S_B"]))
         Ck = np.vstack([EYE[s]["C"][::-1], shoulder[s][ib + 1:]])
-        paint_keyline(Ck, s, others[s], open_start=True)
+        hwd = np.concatenate([EYE[s]["hw"][::-1], np.full(len(shoulder[s]) - ib - 1, 0.011)])
+        paint_keyline(Ck, s, others[s], open_start=True, hwd=hwd)
 
 
 def pill(art, padx, pady, fill, line=(255, 214, 232), lw=None):
@@ -4332,22 +4511,32 @@ def main():
                        f"({SH_REAR_AIR * 100:.1f} cm from the tail lamp), dash phase {SH_PHASE.get(s_, 0):.4f}")
     for r in GH_LOG:
         rep.append(f"INFO   line:greenhouse one dashed line per side, hood centreline -> A-pillar (beside the windscreen, "
-                   f"{GH_GAP_WS * 100:.1f} cm) -> roof edge ({GH_GAP_SIDE * 100:.1f} cm from the side window) -> C-pillar "
-                   f"(beside the rear window, {GH_GAP_RW * 100:.1f} cm) -> trunk lid ({GH_GAP_TRUNK * 100:.2f} cm from the "
-                   f"rear window's lower edge) -> trunk centreline: {r['main_cm']} cm, stretches {r['main_stretch']} (a gap "
-                   f"centred on each wing stay), trunk centreline on a {r['trunk_centre']}, smallest turn radius "
-                   f"{r['r_main_cm']} cm; roof loop closed by the header ({GH_GAP_HEAD * 100:.1f} cm behind the windscreen, "
-                   f"{r['head_cm']} cm, turn radius {r['head_turn_r_cm']} cm, centre on a {r['head_centre']}) and the rear "
-                   f"cross line ({r['rear_cm']} cm, turn radius {r['rear_turn_r_cm']} cm, centre on a {r['rear_centre']}), "
-                   f"each joining the side line in a Y on its dashes; no dash left out - narrowest dash "
-                   f"{min(r['main_hw_min_cm'], r['head_hw_min_cm'], r['rear_hw_min_cm'])} cm wide; nothing meets the "
-                   f"shoulder line")
+                   f"{GH_GAP_WS * 100:.1f} cm; on the upper pillar, 3.1-4.6 cm of paint wide, between the windscreen frame "
+                   f"and the side window's frame, narrowed) -> roof edge (in the channel between the side window and the "
+                   f"roof's trim strip) -> C-pillar (beside the rear window, {GH_GAP_RW * 100:.1f} cm) -> trunk lid "
+                   f"({GH_GAP_TRUNK * 100:.1f} cm from the rear window's lower edge incl. its frame) -> trunk centreline: "
+                   f"{r['main_cm']} cm, piecewise stretches {r['main_stretch']} (gaps centred on the hood / fender shut "
+                   f"line at {r['hood_seam_cm']} cm and on each wing stay, the cross lines' joins phased), trunk centreline "
+                   f"on a {r['trunk_centre']}, smallest turn radius {r['r_main_cm']} cm; roof loop closed by the header "
+                   f"({GH_GAP_HEAD * 100:.1f} cm behind the windscreen, {r['head_cm']} cm, turn radius "
+                   f"{r['head_turn_r_cm']} cm, centre on a {r['head_centre']}) and the rear cross line ({r['rear_cm']} cm, "
+                   f"round the rear window's upper corner on painted roof, turn radius {r['rear_turn_r_cm']} cm, centre on "
+                   f"a {r['rear_centre']}), each crossing the roof's trim strip in the middle of a dash gap (at "
+                   f"{r['head_strip_cross_cm']} / {r['rear_strip_cross_cm']} cm) and joining the rail line in a Y on its "
+                   f"dashes; clear paint from the dashes to the windscreen / rear window and their frames >= "
+                   f"{min(r['main_glass_clear_min_cm'], r['head_glass_clear_min_cm'], r['rear_glass_clear_min_cm'])} cm, "
+                   f"to side-window frames / other parts >= "
+                   f"{min(r['main_other_air_min_cm'], r['head_other_air_min_cm'], r['rear_other_air_min_cm'])} cm; no dash "
+                   f"left out - narrowest dash {min(r['main_hw_min_cm'], r['head_hw_min_cm'], r['rear_hw_min_cm'])} cm wide")
     for r in KEY_LOG:
         rep.append(f"INFO   keyline:{r['side']} {r['length_cm']} cm of cut line, one accompanying line: pieces (m along it from "
                    f"the nose centreline) {r['pieces_m']}; interruptions {r['gaps']}; "
                    + ("no other cut line meets or crosses it" if r['air_line_min_cm'] > 900 else
                       f"air of its paint to any other cut line >= {r['air_line_min_cm']} cm")
-                   + f"; air to lamps / grille >= {r['air_part_min_cm']} cm; round ends")
+                   + f"; air to lamps / grille >= {r['air_part_min_cm']} cm; through the lamp / grille neck it runs on, "
+                   f"narrowed like the dash over {r['neck']['narrowed_cm']} cm (down to {r['neck']['width_min_cm']} cm "
+                   f"wide, {r['neck']['offset_min_cm']} cm off the cut line's centre, >= {r['neck']['gap_to_dash_min_cm']} "
+                   f"cm of paint to the dash and >= {r['neck']['air_to_lamp_min_cm']} cm to the lamp); round ends")
     for s_, r in SLOT_LOG.items():
         if r:
             rep.append(f"INFO   keyline:band_{s_} runs {SLOT_GAP * 100:.1f} cm under the black lower-trim fin's slot, "
