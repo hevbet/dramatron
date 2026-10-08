@@ -1014,6 +1014,13 @@ DASH = (0.075, 0.045)
 DPER = DASH[0] + DASH[1]
 
 
+def dash_owner(s):
+    """index of the dash that a point at dash coordinate s belongs to: floor(s / DPER), with the second half of each
+    gap going to the next dash (its rounded cap) - so a dash left out whole takes both its caps with it"""
+    loc = np.mod(s, DPER)
+    return np.floor(s / DPER).astype(int) + (loc > DASH[0] + DASH[1] / 2)
+
+
 def _wrap(v):
     """wrap a dash-phase difference into [-DPER/2, DPER/2)"""
     return (v + DPER / 2) % DPER - DPER / 2
@@ -1773,7 +1780,17 @@ def eyeliner_curve(shoulder_C):
     dsum = tl.query(C)[0] + tg.query(C)[0]
     inn = (tl.query(C)[0] < 0.05) & (tg.query(C)[0] < 0.05)
     i_n = int(np.flatnonzero(inn)[np.argmin(dsum[inn])])
-    out = dict(C=C, S_B=float(S_sh[ib]), a_neck=float(S[i_n]), neck_cm=round(float(dsum[i_n]) * 100, 1),
+    # the hood's front corner reaches down into the neck: the line crosses its shut line (bumper -> hood tip -> nose)
+    # about 1 cm from the narrowest point. The gap of the dash pattern is centred on that crossing, so no dash end
+    # (rounded cap) lies on the seam and nothing spills onto the bumper face under the hood edge.
+    pidx = cand(EYE_PARTS + NOSE_PARTS, "L")
+    pidx = pidx[OUTER[pidx]]
+    on_hood = PARTF[pidx[cKDTree(POSF[pidx]).query(C)[1]]] == PID["hood"]
+    ch = np.flatnonzero(on_hood[1:] != on_hood[:-1]) + 1
+    ch = ch[np.abs(S[ch] - S[i_n]) < 0.03]
+    a_gap = float(S[ch].mean()) if len(ch) else float(S[i_n])
+    out = dict(C=C, S_B=float(S_sh[ib]), a_neck=float(S[i_n]), a_gap=a_gap,
+               seam_cm=round((a_gap - float(S[i_n])) * 100, 1), neck_cm=round(float(dsum[i_n]) * 100, 1),
                r_min_cm=round(r_min * 100, 1),
                dev_cm={k: round(float(dev[part == k].max()) * 100, 2) for k in (1, 2, 3)}, iters=it + 1,
                crease_pts=len(P2))
@@ -1818,7 +1835,7 @@ def paint_eyeliner(C, side, sd, drop=()):
     idx, d, j = idx[ok], d[ok], j[ok]
     s = sd[j]
     if len(drop):
-        keep = ~np.isin(np.floor(s / DPER).astype(int), list(drop))
+        keep = ~np.isin(dash_owner(s), list(drop))
         idx, d, s = idx[keep], d[keep], s[keep]
     dash_line(idx, s, d, 0.011, DASH[0], DASH[1], INK)
     loc = np.mod(s, DPER)
@@ -1832,7 +1849,8 @@ def front_line_report():
     for s in ("L", "R"):
         e = EYE[s]
         r = eyeliner_checks(e["C"], s, e["sd"], e["ink"], e["drop"])
-        r.update(stretch=[round(e["k1"], 4), round(e["k2"], 4)], neck_cm=e["neck_cm"], r_min_cm=e["r_min_cm"],
+        r.update(stretch=[round(e["k1"], 4), round(e["k2"], 4)], neck_cm=e["neck_cm"], seam_cm=e["seam_cm"],
+                 r_min_cm=e["r_min_cm"],
                  guide_dev_cm=e["dev_cm"], dropped=sorted(e["drop"]))
         lab = {"ЛОПАТКА": f"label_lopatka_{s}", "ПЯТАЧОК": "label_pyatachok", "ШЕЙКА": "label_sheika_hood",
                "Симкарт hood tag": "simkart_hood"}
@@ -1847,8 +1865,9 @@ def front_line_report():
 
 def eyeliner_checks(C, side, sd, ink, drop=()):
     """Whole dashes only: every painted dash of the line is checked in three strips across its width (centre, +-6 mm)
-    for holes in the outer skin (> 1.2 cm = cut by a seam / opening) and, in each of the 9 standard views that faces
-    it, for being partly hidden behind another part. Plus the air from the paint to the lamp, the grille and every other
+    for holes in the outer skin (> 1.2 cm = cut by a seam / opening) and, in each standard view that faces it (all
+    but the far side's: from there the lamp / grille neck is seen round the corner, across the grille frame that
+    stands proud of the bumper), for being partly hidden behind another part. Plus the air from the paint to the lamp, the grille and every other
     part (3D, mirrored for the right side)."""
     S = arclen(C)
     loc = np.mod(sd, DPER)
@@ -1878,8 +1897,11 @@ def eyeliner_checks(C, side, sd, ink, drop=()):
                 worst = max(worst, max(len(h) for h in runs_h) * 0.002)
         if worst > 0.012:
             trunc.append(int(dn))
-    dash_of = dnum[cKDTree(C).query(POSF[ink])[1]]
+    dash_of = dash_owner(sd)[cKDTree(C).query(POSF[ink])[1]]
+    far = "_right" if side == "L" else "_left"
     for v in VIEWS9:
+        if v.endswith(far):
+            continue        # (seen from the far side the neck is round the corner, behind the proud grille frame)
         e = VISD["cam"][v][0]
         dv = e[None, :] - POSF[ink]
         dv /= np.linalg.norm(dv, axis=1, keepdims=True)
@@ -2209,7 +2231,7 @@ def paint_hoop(kind, halves):
         ok = np.isfinite(d)
         idx, d, j = idx[ok], d[ok], j[ok]
         sv = sd[j]
-        keep = ~np.isin(np.floor(sv / DPER).astype(int), drop)
+        keep = ~np.isin(dash_owner(sv), drop)
         dash_line(idx[keep], sv[keep], d[keep], 0.011, DASH[0], DASH[1], INK)
         air = dd[painted & ~np.isin(dn, drop)]
         kg = h["kg"] if len(h["kg"]) == len(C) else np.interp(S / S[-1], np.linspace(0, 1, len(h["kg"])), h["kg"])
@@ -2775,12 +2797,12 @@ def paint_body():
         SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
         belly_connector(s, A_PTS[s], C, phase)
         Se = arclen(eye)
-        k1, k2, s_n, s_e = eyeliner_dash(float(Se[-1]), E["a_neck"], S_B + phase)
-        sd = np.where(Se <= E["a_neck"], S_B + phase - k1 * Se, s_n - k2 * (Se - E["a_neck"]))
+        k1, k2, s_n, s_e = eyeliner_dash(float(Se[-1]), E["a_gap"], S_B + phase)
+        sd = np.where(Se <= E["a_gap"], S_B + phase - k1 * Se, s_n - k2 * (Se - E["a_gap"]))
         drop = eyeliner_tight_dashes(eye, s, sd)
         ink = paint_eyeliner(eye, s, sd, drop)
         EYE[s] = dict(C=eye, sd=sd, k1=k1, k2=k2, ink=ink, drop=drop, neck_cm=E["neck_cm"], r_min_cm=E["r_min_cm"],
-                      dev_cm=E["dev_cm"])
+                      dev_cm=E["dev_cm"], seam_cm=E["seam_cm"])
         CREASE[s]["off_cm"] = crease_offset_cm(C[np.searchsorted(arclen(C), S_B):], s)
         print(f"   shoulder line {s}: on the crease from y {C[np.searchsorted(arclen(C), S_B), 1]:.3f} to "
               f"{C[-1, 1]:.3f} (last dash end {SH_REAR_AIR * 100:.1f} cm from the tail lamp), phase {phase:.4f}; "
@@ -3142,7 +3164,7 @@ def side_decals(s):
     # +z, horizontal axis along the car with no z component); its measured rotation in the side view is level_deg.
     # Size stays the approved 0.42 m plate (the shoulder and belly lines leave exactly room for it with 6 cm air).
     _, nb = decal_fit(f"number_door_{s}", lambda w: number_plate(px(w), px(w * 0.674)), [0.42],
-                      lambda w: level_side_cands((-0.52, -0.54, -0.50), (0.645, 0.635, 0.655), fd, s, w, w * 0.674),
+                      lambda w: level_side_cands((-0.52, -0.54, -0.50), (0.645, 0.640, 0.635, 0.655), fd, s, w, w * 0.674),
                       parts=fd, kind="number", line_min=6.0, air=2.0, **kw)
     ny_ = nb[0][1]
     # main partner Симкарт – front door, behind the number (>= 7 cm air to the plate, inside the door)
@@ -3868,7 +3890,8 @@ def main():
     for r in LINE_CHECKS:        # front cut line along the headlight and across the nose
         rep.append(f"{r['status']:<6} line:front_{r['side']:<18} {r['dashes']} whole dashes, {r['length_cm']} cm to the "
                    f"centreline, stretch {r['stretch'][0]} / {r['stretch'][1]}, smallest turn radius {r['r_min_cm']} cm, "
-                   f"neck between lamp and grille {r['neck_cm']} cm wide (middle of a gap on it), dashes left out "
+                   f"neck between lamp and grille {r['neck_cm']} cm wide (in a gap, whose middle is on the hood-corner shut "
+                   f"line {r['seam_cm']} cm further on), dashes left out "
                    f"{r['dropped']}; air of the paint to the lamp {r['air_lamp_cm']} cm, grille {r['air_grille_cm']} cm, "
                    f"other parts {r['air_other_cm']} cm; guide deviation (lamp gap / crease / grille gap) "
                    f"{r['guide_dev_cm']} cm; labels " + ", ".join(f"{k} {v}" for k, v in r["label_air_cm"].items()) + " cm"
