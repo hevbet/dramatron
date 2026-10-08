@@ -11,11 +11,15 @@ clearance to the cut lines, surface tilt) — see check_report.txt. Dashed lines
 dash that would be cut by an arch lip / trim notch or half-hidden behind a part mounted on the body (tow strap) is
 left out whole and listed in the report; lines that meet another line end on the middle of one of its dashes.
 
-Run:  python3 make_skin.py            (writes Pozdnyakov_00/, Konopelko_00/, texture_preview.png, zips)
+Run:  python3 make_skin.py            (writes one skin folder per driver, named Surname_Number - Pozdnyakov_23/,
+                                      Konopelko_00/ - their zips, the team zip ../butcher_chrome.zip,
+                                      texture_preview.png, check_report.txt/.json; each skin folder also gets
+                                      every file of gear/out/<skin>/ - calipers, driver gear, crew)
 """
 import json
 import math
 import os
+import shutil
 import struct
 import sys
 import zipfile
@@ -364,13 +368,36 @@ def saratov_flag(w, h):
     return t
 
 
-def number_plate(w, h, num="00"):
-    """Race-number plate: burgundy price-tag plate, chrome frame, chrome Unbounded digits."""
+RACE_NUM = "00"        # number painted by the body decals in progress (set per driver in main from NUMBERS)
+NUM_REF = "00"         # the digits every number is sized against (the approved plates were fitted to «00»)
+
+
+def number_digits(w, h, num):
+    """(digits art, x, y, scale) of `num` on a w x h plate. The reference «00» is fitted once (80 % of the plate
+    width, 74 % of its height - as the approved plates) and every number is set at that SAME scale: same cap
+    height, stroke and outline, i.e. the same optical size and the same top / bottom air as «00», never stretched
+    (one uniform scale). It is centred across the plate on its own ink and keeps the font baseline of «00» (all
+    digits share the cap height, the offset term only matters for a digit whose ink top differs). A number wider
+    than 80 % of the plate at that scale would be scaled down uniformly (none is: «23» is narrower than «00»)."""
+    f = F_NUM(int(h * 0.9))
+    ow = max(3, int(h * 0.035))
+    ref = chrome_text(NUM_REF, f, ow, outline=INK_D)
+    k = min(w * 0.80 / ref.width, h * 0.74 / ref.height)
+    art = ref if num == NUM_REF else chrome_text(num, f, ow, outline=INK_D)
+    k = min(k, w * 0.80 / art.width)
+    art = art.resize((max(1, round(art.width * k)), max(1, round(art.height * k))), Image.LANCZOS)
+    y = (h - max(1, round(ref.height * k))) // 2 + int(h * 0.01) + round((f.getbbox(num)[1] - f.getbbox(NUM_REF)[1]) * k)
+    return art, (w - art.width) // 2, y, k
+
+
+def number_plate(w, h, num=None):
+    """Race-number plate: burgundy price-tag plate, chrome frame, chrome Unbounded digits (see number_digits).
+    The plate itself (size, frame, fill) is the same for every number."""
+    num = RACE_NUM if num is None else num
     bw = max(5, int(h * 0.045))
     p = chrome_frame(w, h, int(h * 0.2), bw, INK)
-    digits = chrome_text(num, F_NUM(int(h * 0.9)), max(3, int(h * 0.035)), outline=INK_D)
-    digits = fit_box(digits, w * 0.80, h * 0.74)
-    p.alpha_composite(digits, ((w - digits.width) // 2, (h - digits.height) // 2 + int(h * 0.01)))
+    digits, x, y, _ = number_digits(w, h, num)
+    p.alpha_composite(digits, (x, y))
     return p
 
 
@@ -416,37 +443,48 @@ def url_pair(h, col=INK, two_lines=False):
     return solid(pad(m, 4), col)
 
 
-def pig_tail(h, turns=1.4):
-    """Curly pig tail as a smooth vector stroke: a short root rising from the left that runs tangentially into an
-    inward (Archimedean) spiral of `turns` turns; the stroke tapers from the root to a rounded tip in the middle of
-    the curl. Chrome with a holo tint, holo hairline and deep-ink outline + soft shadow (the chrome lettering
-    treatment). h = art height (px)."""
+def pig_tail(h, loops=3.0, a=0.30, R0=1.0, R1=0.72, w0=0.40, w1=0.19):
+    """Curly pig tail laid out sideways as a coil (the cartoon corkscrew): a short root rising from the left runs
+    tangentially into `loops` round curls (prolate trochoid x = a t + R sin t, y = -R cos t: the curls sit on top,
+    each crossing the stroke once) that shrink slightly to a tapered, rounded tip on the right. The stroke is drawn
+    in arc-length order, and where a later part of the stroke crosses over an earlier one the under-part gets a
+    deep-ink edge, so every crossing reads as over/under. Chrome with a holo tint, holo hairline and deep-ink
+    outline + soft shadow (the chrome lettering treatment). h = art height (px), aspect kept (~3.3 : 1)."""
     S = 4
-    R0, R1 = 1.0, 0.36
-    th = np.linspace(0.0, 2 * math.pi * turns, 1800)        # from the bottom of the curl, counter-clockwise
-    r = R0 - (R0 - R1) * th / th[-1]
-    sx, sy = r * np.sin(th), -r * np.cos(th)                 # (y up): starts at (0, -R0) heading +x
-    tq = np.linspace(0, 1, 500)[:-1, None]
-    q0, q1, q2 = np.array([-1.55, -0.62]), np.array([-0.75, -1.0]), np.array([0.0, -1.0])
+    tend = 2 * math.pi * loops + 0.55 * math.pi
+    th = np.linspace(0.0, tend, 3000)
+    R = R0 + (R1 - R0) * th / tend
+    cx, cy = a * th + R * np.sin(th), -R * np.cos(th)          # (y up) starts at the bottom heading +x
+    tq = np.linspace(0, 1, 400)[:-1, None]
+    q0, q1, q2 = np.array([-1.3, -R0 + 0.55]), np.array([-0.585, -R0]), np.array([0.0, -R0])
     stem = (1 - tq) ** 2 * q0 + 2 * (1 - tq) * tq * q1 + tq ** 2 * q2
-    x = np.concatenate([stem[:, 0], sx])
-    y = np.concatenate([stem[:, 1], sy])
-    u = np.linspace(0, 1, len(x))
-    sw = 0.30 * (1.0 - 0.58 * u ** 1.15)                     # stroke width, root -> tip
-    span_y = (y + sw / 2).max() - (y - sw / 2).min()
-    sc = (h * S) / span_y
-    ow = max(2, int(h * 0.05))
-    m_pad = int(h * 0.12) * S
-    X = (x - (x - sw / 2).min()) * sc + m_pad
-    Y = ((y + sw / 2).max() - y) * sc + m_pad                # image y down
-    W, Hh = int(X.max() + sw.max() * sc + 2 * m_pad), int(Y.max() + sw.max() * sc + 2 * m_pad)
-    m = Image.new("L", (W, Hh), 0)
-    d = ImageDraw.Draw(m)
-    for xi, yi, wi in zip(X, Y, sw * sc / 2):
-        d.ellipse([xi - wi, yi - wi, xi + wi, yi + wi], fill=255)
-    m = m.resize((max(1, W // S), max(1, Hh // S)), Image.LANCZOS)
-    m = m.crop(m.getbbox())
-    m = pad(m, ow * 2 + 8)
+    x, y = np.concatenate([stem[:, 0], cx]), np.concatenate([stem[:, 1], cy])
+    s = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+    sw = w0 + (w1 - w0) * (s / s[-1]) ** 0.9                  # stroke width, root -> tip
+    h0 = h / 1.16                                             # (outline, shadow and padding add ~16 %)
+    sc = (h0 * S) / ((y + sw / 2).max() - (y - sw / 2).min())
+    ow = max(2, int(h0 * 0.05))
+    mp = int(h0 * 0.12) * S
+    X = (x - (x - sw / 2).min()) * sc + mp
+    Y = ((y + sw / 2).max() - y) * sc + mp                    # image y down
+    W, Hh = int(X.max() + sw.max() * sc + 2 * mp), int(Y.max() + sw.max() * sc + 2 * mp)
+    um = np.full((Hh, W), -1.0, np.float32)                   # arc length of the topmost stroke part per pixel
+    gy, gx = np.mgrid[0:Hh, 0:W]
+    for i in range(0, len(X), max(1, len(X) // 1500)):
+        r = sw[i] * sc / 2
+        x0, x1, y0, y1 = int(max(0, X[i] - r - 1)), int(min(W, X[i] + r + 2)), int(max(0, Y[i] - r - 1)), \
+            int(min(Hh, Y[i] + r + 2))
+        disc = (gx[y0:y1, x0:x1] - X[i]) ** 2 + (gy[y0:y1, x0:x1] - Y[i]) ** 2 <= r * r
+        um[y0:y1, x0:x1][disc] = s[i] * sc
+    on = um >= 0
+    oh = ow * S
+    fp = np.hypot(*np.mgrid[-oh:oh + 1, -oh:oh + 1]) <= oh
+    later = ndimage.grey_dilation(np.where(on, um, -1.0), footprint=fp)
+    cross = on & (later - um > 5 * oh + 0.6 * sw.max() * sc)   # an earlier part right under a later part's edge
+    m = Image.fromarray((on * 255).astype(np.uint8)).resize((W // S, Hh // S), Image.LANCZOS)
+    cr = Image.fromarray((cross * 255).astype(np.uint8)).resize((W // S, Hh // S), Image.LANCZOS)
+    bb = m.getbbox()
+    m, cr = pad(m.crop(bb), ow * 2 + 8), pad(cr.crop(bb), ow * 2 + 8)
     ol = grow(m, ow)
     out = Image.new("RGBA", m.size, (0, 0, 0, 0))
     sh = ImageChops.offset(ol, max(2, ow // 2), max(3, ow // 2 + 1)).filter(ImageFilter.GaussianBlur(ow * 0.4))
@@ -457,21 +495,24 @@ def pig_tail(h, turns=1.4):
                             .astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.7))
     tint = Image.blend(chrome_rgb(m.width, m.height), holo_rgb(m.width, m.height, 0.9, 0.3), 0.28)
     out.alpha_composite(fill_mask(inner, tint))
-    return out.crop(out.getbbox())
+    out.alpha_composite(solid(cr, INK_D))
+    out = out.crop(out.getbbox())
+    return fit_h(out, int(h))                                  # (uniform: aspect kept)
 
 
 def tail_with_label(h):
     """Trunk art: curly chrome tail + «ХВОСТИК» cut label (cut_label: Podkova ExtraBold, ink, as ГРУДИНКА / ОКОРОК
-    without the ——◆—— underline: the tail itself is the ornament); h = label cap height (m). The tail sits centred
-    ABOVE the word (stacked): the strip between the wing stays is ~33 cm wide but only ~11 cm deep, and the word is
-    7.8 x its cap height wide, so the tail-beside-label row ran into the stays at a 3.0 cm cap with a 5.3 cm tail
-    while using only half the depth. Stacked, both grow: the tail art is TAIL_K x the cap height tall."""
+    without the ——◆—— underline: the tail itself is the ornament); h = label cap height (m). The strip between the
+    wing stays that every rear / top view sees is ~37 cm wide but only ~12 cm deep (see trunk_tail), and the word is
+    7.8 x its cap height wide, so the tail sits centred ABOVE the word and is laid out sideways as a coil
+    (pig_tail, ~3.3 : 1): the word and the tail together fill the strip in both directions - the tail art is
+    TAIL_K x the cap height tall and spans ~2/3 of the word."""
     lab = cut_label("ХВОСТИК", px(h), underline=False)
-    tail = pig_tail(px(h) * TAIL_K / 1.178)          # (pig_tail adds outline + shadow: art = 1.178 x h)
+    tail = pig_tail(px(h) * TAIL_K)
     return stack([tail, lab], px(h * 0.25))          # (a quarter cap of air between the tail and the word)
 
 
-TAIL_K = 1.6
+TAIL_K = 1.4
 
 
 def cut_label(s, h_px, col=INK, underline=True):
@@ -503,17 +544,30 @@ _, (iy, ix) = ndimage.distance_transform_edt(logo, return_indices=True)
 A = A0.copy()
 A[logo] = A[iy[logo], ix[logo]]
 # Audi rings box: the box is painted like its surroundings (it used to be left out of PAINT, so the source navy showed
-# as a dark rectangle). The ring strokes are thin lines clearly darker than the local navy: a grey closing (11 px,
-# > 3-4 px stroke) gives the ring-free navy for the shading, and (closing - source) gives the strokes as a soft alpha
-# that is drawn back on top in deep ink (paint_audi_rings).
+# as a dark rectangle). The ring strokes are thin lines clearly darker than the local navy: (grey closing 11 px, > the
+# 3-4 px stroke) - source gives the strokes as a soft alpha that is drawn back on top in deep ink (paint_audi_rings).
+# The shading under the rings: inside the ring hull (the four discs + 5 px) every row is interpolated linearly
+# between the clean source just left and right of the hull, so the pink runs on continuously - no darker lenses
+# where the rings overlap (a closing keeps the source's darker anti-aliased navy there) and no box edge (outside the
+# hull the box keeps the source itself, incl. the dark rim along the top edge of the panel).
 _rp = 12
 _rs = A0[720 - _rp:790 + _rp, 1950 - _rp:2140 + _rp]
-_rc = np.stack([ndimage.grey_closing(_rs[..., c], size=(11, 11)) for c in range(3)], -1)
 _rl = _rs.mean(-1)
+_rk = ndimage.grey_closing(_rl, size=(11, 11)) - _rl
 RING_A = np.zeros(A0.shape[:2], np.float32)
-RING_A[720:790, 1950:2140] = np.clip((ndimage.grey_closing(_rl, size=(11, 11)) - _rl - 5.0) / 12.0, 0, 1)[_rp:-_rp, _rp:-_rp]
-A[720:790, 1950:2140] = _rc[_rp:-_rp, _rp:-_rp]
-del _rs, _rc, _rl
+RING_A[720:790, 1950:2140] = np.clip((_rk - 5.0) / 12.0, 0, 1)[_rp:-_rp, _rp:-_rp]
+_lab, _n = ndimage.label(ndimage.binary_dilation(_rk > 2.0, iterations=2))
+_big = 1 + int(np.argmax(ndimage.sum(np.ones_like(_rl), _lab, range(1, _n + 1))))
+_hull = ndimage.binary_dilation(ndimage.binary_fill_holes(
+    ndimage.binary_dilation((_rk > 2.0) & (_lab == _big), iterations=3)), iterations=2)
+_rf = _rs.copy()
+for _r in np.flatnonzero(_hull.any(1)):
+    _c = np.flatnonzero(_hull[_r])
+    _a, _b = int(_c.min()), int(_c.max())
+    _t = ((np.arange(_a, _b + 1) - (_a - 2.5)) / (_b - _a + 5.0))[:, None]
+    _rf[_r, _a:_b + 1] = _rs[_r, _a - 4:_a].mean(0)[None] * (1 - _t) + _rs[_r, _b + 1:_b + 5].mean(0)[None] * _t
+A[720:790, 1950:2140] = _rf[_rp:-_rp, _rp:-_rp]
+del _rs, _rl, _rk, _lab, _hull, _rf
 mx = A.max(-1)
 BODY_COL = (A[..., 2] > A[..., 0] + 12) & (mx > 18)
 SHADE = np.clip(0.55 + 0.45 * np.clip(mx / 76.0, 0, 1.12), 0.42, 1.06)
@@ -632,9 +686,10 @@ def paint_belly():
     # over the rear door the dashed line leaves B and sweeps up into the shoulder line (connector below),
     # so it never ends in mid-panel
     keep = (flat > 0) & ~((P[:, 1] > BELLY_SPLIT) & (P[:, 1] < 1.62) & (P[:, 2] > 0.46))
-    # at the nose the dashed line does not run on across the bumper into the air intakes: it ends where the front
-    # connector leaves it and turns up behind the headlight (closed corner of the chart, see front_connector)
-    keep &= P[:, 1] >= FRONT_TURN_Y
+    # at the nose the dashed line does not run on along the bumper corner ahead of the front wheel (toward the air
+    # intakes): it ends in the front wheel opening; the front of the chart is closed by the cut line along the
+    # headlight (eyeliner_curve)
+    keep &= P[:, 1] >= FRONT_ARCH_Y
     # Whole dashes only. Around the tail the line crosses the notches of the black plastic lower-trim fins (no
     # bumper skin there: the separate ext_plastic part fills them) and passes behind the tow-strap tab; at the
     # wheel arches it runs off the lip. A dash that loses part of its length to any of these would show as a stub,
@@ -715,7 +770,7 @@ OUTER = None        # texels visible in at least one standard view
 
 
 BELLY_SPLIT = 0.86
-FRONT_TURN_Y = -1.86           # set from the front connector geometry (front_turn_y) before the belly is painted
+FRONT_ARCH_Y = -1.32           # middle of the front wheel opening at belly height (set by front_arch_y)
 
 
 REAR_K = 1.0                   # lateral stretch of the dash coordinate around the tail (set in paint_belly)
@@ -880,39 +935,371 @@ def belly_connector(side, a_pts, shoulder_C, y3=1.34):
     sweep(side, (py, pz), t0, s0, (y3, z3), (1.0, slope), s3, h0=0.12, h3=0.16, clip=shoulder_C)
 
 
-A_FRONT = (-1.45, 0.836)       # where the front connector hands over to the shoulder line
-FRONT_EXTRA = [(-1.80, 0.352), (-1.705, 0.42), (-1.668, 0.53), (-1.656, 0.64), (-1.645, 0.725), (-1.612, 0.790),
-               (-1.56, 0.823)]
-FRONT_YB = -1.90
+A_FRONT = (-1.45, 0.836)       # first point of the shoulder line's control polygon (front fender top)
 
 
-def front_turn_y():
-    """y where the front connector has left the belly dash line (centre lines < 4 mm apart before it), moved forward
-    into the middle of the nearest dash gap so neither line ends in a cut-off dash. The belly dashes stop there and
-    the connector starts there: the cut line turns up behind the headlight instead of running on into the intake."""
-    zb = float(b_curve(np.array([FRONT_YB]))[0][0]) + 0.022
-    C = catmull3([(FRONT_YB, zb)] + FRONT_EXTRA + [A_FRONT], 30)
-    k = int(np.argmax(C[:, 1] - zb > 0.004))
-    y_sep = float(C[k, 0])
-    ys = np.linspace(max(y_sep - DPER, FRONT_YB + 0.005), y_sep, 241)
-    pts = snap([(y, zb) for y in ys], "side", SIDE_PARTS, "L")
-    loc = np.mod(belly_s(pts), DPER)
-    gap_mid = DASH[0] + DASH[1] / 2
-    return float(ys[np.argmin(np.abs(loc - gap_mid))])
+def front_arch_y():
+    """y of the middle of the front wheel opening at the height of the belly dash line (the largest gap in the body
+    surface there, measured on the posmap). The belly dash line is not painted ahead of it: in front of the front
+    wheel there is no dashed run on the bumper corner any more (the front of the chart is closed by the cut line
+    along the headlight, see eyeliner_curve)."""
+    m = COV.reshape(-1) & (PARTF >= 0) & (np.abs(POSF[:, 2] - 0.337) < 0.01) & (POSF[:, 0] > 0.5) & \
+        (POSF[:, 1] > -1.9) & (POSF[:, 1] < -0.7)
+    y = np.sort(POSF[m, 1])
+    k = int(np.argmax(np.diff(y)))
+    return float(0.5 * (y[k] + y[k + 1]))
 
 
-def front_connector(side, shoulder_C):
-    """Closes the chart at the front: the shoulder line turns down behind the headlight, between the lamp and
-    the front wheel arch, and merges into the belly dash on the front bumper corner (phase-matched)."""
-    yb = FRONT_YB
-    zb = float(b_curve(np.array([yb]))[0][0]) + 0.022
-    xb = snap([(yb, zb)], "side", SIDE_PARTS, side)[0, 0]
-    sb = float(belly_s(np.array([[xb, yb, zb]]))[0])
-    # ends exactly at the first shoulder point, in phase with the shoulder dashes (their arc length 0)
-    y1, z1 = A_FRONT
-    # (no clip: the part that still runs on the belly line is identical to it - same dash phase - and both start at
-    #  FRONT_TURN_Y, so the corner is one rounded turn and nothing is left running forward into the intake)
-    sweep(side, (yb, zb), (1.0, 0.0), sb, (y1, z1), (1.0, 0.25), 0.0, extra=FRONT_EXTRA, ymin=FRONT_TURN_Y)
+# -------- front cut line along the headlight («eyeliner»)
+# Seen from the side the shoulder line no longer drops vertically behind the headlight to the belly line: it leaves the
+# fender top in one smooth arc, comes down behind the lamp following its rear edge, runs forward along the lamp's
+# LOWER contour at a constant gap (like eyeliner under an eye, following the step behind the lamp's lower tooth) and
+# wraps round the front corner onto the bumper face, where it runs into the corner of the grille (the snout) with
+# one whole dash and the usual air - the line goes on «behind the snout» like the belly line behind the wheel arches.
+# The gap is computed, not drawn by eye: the lamp outline is taken from the kn5 (lamp meshes, rasterised with the
+# renderer's own cameras), the line centre is the iso-line of the on-surface distance to that outline.
+EYE_PARTS = ["front_bumper", "front_bumper_corner", "front_fender", "front_fender_top"]
+EYE_C = 0.050          # line centre -> lamp outline (m) under the lamp's outer part and behind it (side view air ~2-3 cm)
+EYE_C_IN = 0.040       # ... under the lamp's raised inner part (forward-facing: the side view sees that gap unshortened)
+EYE_RAMP = (90.0, 120.0)   # polar angle range (deg, around the lamp in front34_left) of the smooth step EYE_C -> EYE_C_IN
+EYE_BRANCH_Y = -1.30   # the arc leaves the shoulder line here (shoulder's outermost point on the fender top, at its
+#                        first control point behind A_FRONT); the shoulder line is not painted ahead of it any more
+EYE_END_CLEAR = 0.0335  # centre-line distance of the last dash end to the nearest other part (grille): cap air ~2.3 cm
+HL_CACHE = os.path.join(SCRATCH, "bc", "headlight_rims_v1.npz")
+HL_BOX = (0.40, 0.42, 1.38, 1.00, 0.98, 2.18)       # close-up box around the left lamp (renderer world: x, y up, z front)
+HL_VIEWS = ("side_left", "front", "front34_left")
+EYE = {}               # filled by paint_body: curves, phases, checks (for the report)
+LINE_CHECKS = []
+
+
+def headlight_rims():
+    """Outline of the left headlight as the renderer shows it, from the kn5: close-ups of the lamp in side_left, front
+    and front34_left (renderer cameras and z-buffer, opaque pass, 1600x900). Lamp = the 'lights' / 'reflector' meshes
+    of the front lamp plus the black / plastic housing triangles that lie entirely inside their box (+1 cm, +3.5 cm to
+    the rear for the housing tip). Returns the 3D points (posmap frame) of skin pixels that touch the lamp (rim_hl) or
+    any other part (rim_other: grille, intakes, trim, hood gap ...), and per view the lamp mask + camera (for the
+    visible-air report). Geometry only, cached in the scratchpad. The car is symmetric: the right side is mirrored."""
+    if os.path.exists(HL_CACHE):
+        d = np.load(HL_CACHE, allow_pickle=True)
+        return {k: d[k] for k in d.files}
+    sys.path.insert(0, os.path.join(LIV, "tools"))
+    import render_rs3 as R
+    sc = R.Scene(R.DEFAULT_KN5, SRC, interior=False)
+    to_pm = lambda p: np.stack([p[..., 0], -p[..., 2], p[..., 1] + 0.07237756], -1)
+    V = to_pm(sc.P[sc.T])
+    c = V.mean(1)
+    mat = np.array(sc.mat_names)[sc.TM]
+    front = (c[:, 1] < -1.45) & (c[:, 1] > -2.2) & (c[:, 2] > 0.5) & (c[:, 2] < 0.9) & (np.abs(c[:, 0]) > 0.3)
+    core = np.isin(mat, ["lights", "reflector"]) & front
+    lo, hi = V[core].reshape(-1, 3).min(0), V[core].reshape(-1, 3).max(0)
+    ax = np.abs(V[..., 0])
+    xl, xh = np.abs(V[core][..., 0]).min(), np.abs(V[core][..., 0]).max()
+    inb = (ax >= xl - 0.01) & (ax <= xh + 0.01) & (V[..., 1] >= lo[1] - 0.01) & (V[..., 1] <= hi[1] + 0.035) & \
+          (V[..., 2] >= lo[2] - 0.008) & (V[..., 2] <= hi[2] + 0.008)
+    is_hl = core | (np.isin(mat, ["black", "ext_plastic"]) & inb.all(1))
+    skin_mid = sc.mat_names.index("skin")
+    W, H = 1600, 900
+    out = dict(hl_tris=np.array(int(is_hl.sum())))
+    rim_h, rim_o = [], []
+    for v in HL_VIEWS:
+        eye, f, rgt, up = R.view_camera(v)
+        rel = sc.P - eye
+        Dv = rel @ f
+        cx_, cy_ = rel @ rgt / Dv, rel @ up / Dv
+        blo, bhi = np.array(HL_BOX[:3]), np.array(HL_BOX[3:])
+        corners = np.array([[(blo, bhi)[i][0], (blo, bhi)[j][1], (blo, bhi)[k][2]]
+                            for i in (0, 1) for j in (0, 1) for k in (0, 1)])
+        rc = corners - eye
+        dc = rc @ f
+        ux, uy = rc @ rgt / dc, rc @ up / dc
+        fpx = min(W * 0.86 / (ux.max() - ux.min()), H * 0.86 / (uy.max() - uy.min()))
+        mx, my = (ux.min() + ux.max()) / 2, (uy.min() + uy.max()) / 2
+        X = (cx_ - mx) * fpx + W / 2
+        Y = -(cy_ - my) * fpx + H / 2
+        opaque = ~sc.is_glass[sc.TM] & sc.tri_ok
+        gid = np.nonzero(opaque)[0]
+        zb, tid, B1, B2 = R.rasterize(X, Y, Dv, sc.T[opaque], sc.bias[sc.TM][opaque], W, H, None)
+        tid = np.where(tid >= 0, gid[np.maximum(tid, 0)], -1)
+        hit = tid >= 0
+        lab = np.zeros(W * H, np.int8)               # 0 none, 1 skin, 2 lamp, 3 any other part
+        lab[hit] = 3
+        lab[hit & (sc.TM[np.maximum(tid, 0)] == skin_mid)] = 1
+        lab[hit & is_hl[np.maximum(tid, 0)]] = 2
+        tri = sc.T[np.maximum(tid, 0)]
+        p = sc.P[tri[:, 0]] * (1 - B1 - B2)[:, None] + sc.P[tri[:, 1]] * B1[:, None] + sc.P[tri[:, 2]] * B2[:, None]
+        pm = to_pm(p).reshape(H, W, 3).astype(np.float32)
+        lab = lab.reshape(H, W)
+        sk = lab == 1
+        for k_, acc in ((2, rim_h), (3, rim_o)):
+            nb = ndimage.binary_dilation(lab == k_, iterations=2) & sk
+            acc.append(pm[nb])
+        out["mask_" + v] = np.packbits(lab == 2)
+        out["cam_" + v] = np.array([*to_pm(eye[None])[0], *to_pm(f[None])[0] - np.array([0, 0, 0.07237756]),
+                                    *(to_pm(rgt[None])[0] - np.array([0, 0, 0.07237756])),
+                                    *(to_pm(up[None])[0] - np.array([0, 0, 0.07237756])), mx, my, fpx, W, H])
+    out["rim_hl"] = np.concatenate(rim_h)
+    out["rim_other"] = np.concatenate(rim_o)
+    os.makedirs(os.path.dirname(HL_CACHE), exist_ok=True)
+    np.savez_compressed(HL_CACHE, **out)
+    return out
+
+
+class _OuterSurf:
+    """Outer (renderer-visible) skin of EYE_PARTS on one side, for gluing 3D curve points onto the mesh."""
+    def __init__(self, side):
+        idx = cand(EYE_PARTS, side)
+        self.idx = idx[OUTER[idx] & (POSF[idx, 1] < -1.25)]
+        self.P = POSF[self.idx]
+        self.N = NRMF[self.idx]
+        self.tree = cKDTree(self.P)
+
+    def snap(self, pts, k=6):
+        out = np.atleast_2d(np.asarray(pts, float)).copy()
+        for _ in range(3):
+            _, j = self.tree.query(out, k=k)
+            q = self.P[j].mean(1)
+            n = self.N[j].mean(1)
+            n /= np.linalg.norm(n, axis=1, keepdims=True)
+            out = out - ((out - q) * n).sum(1, keepdims=True) * n
+        return out
+
+
+def _resample(C, step=0.002):
+    s = arclen(C)
+    t = np.arange(0, s[-1], step)
+    return np.stack([np.interp(t, s, C[:, k]) for k in range(3)], 1)
+
+
+def eyeliner_curve(shoulder_C):
+    """Centre line of the front cut line on the LEFT side (dense, 2 mm), starting on the shoulder line at
+    EYE_BRANCH_Y (tangent-continuous) and ending at the grille corner. Returns (C, S_B): S_B = shoulder arc length
+    (dash coordinate) at the branch point."""
+    from scipy.interpolate import splprep, splev
+    rim = headlight_rims()
+    surf = _OuterSurf("L")
+    th, to = cKDTree(rim["rim_hl"]), cKDTree(rim["rim_other"])
+    dh = th.query(surf.P)[0]
+    # iso-lines of the distance to the lamp outline; their outer branch ordered by the polar angle around the lamp in
+    # the front34_left view (image y down: 90 deg = straight below the lamp)
+    e, f, rgt, up, mx, my, fpx, Ws, Hs = VISD["cam"]["front34_left"]
+
+    def proj(Q):
+        rel = Q - e
+        dv = rel @ f
+        return ((rel @ rgt) / dv - mx) * fpx + Ws / 2, -((rel @ up) / dv - my) * fpx + Hs / 2
+
+    hx, hy = proj(rim["rim_hl"])
+    cx, cy = hx.mean(), hy.mean()
+
+    def contour(c, a0=-12.0, a1=135.0, step=1.5):
+        m = np.abs(dh - c) < 0.001
+        Q = surf.P[m]
+        X, Y = proj(Q)
+        ang = np.degrees(np.arctan2(Y - cy, X - cx))
+        rad = np.hypot(X - cx, Y - cy)
+        pts, angs = [], []
+        for a in np.arange(a0, a1, step):
+            s_ = (ang >= a) & (ang < a + step)
+            if s_.sum() < 3:
+                continue
+            k_ = rad[s_] > rad[s_].max() - 4
+            pts.append(np.median(Q[s_][k_], 0))
+            angs.append(a + step / 2)
+        return np.array(pts), np.array(angs)
+
+    O1, a1 = contour(EYE_C)
+    O2, a2 = contour(EYE_C_IN)
+    # behind and under the lamp's outer part: EYE_C; under its raised inner part a smooth step down to EYE_C_IN
+    ra = np.arange(EYE_RAMP[0], 128.0, 1.5)
+    at = lambda O, a: np.stack([np.interp(ra, a, O[:, k]) for k in range(3)], 1)
+    tr = np.clip((ra - EYE_RAMP[0]) / (EYE_RAMP[1] - EYE_RAMP[0]), 0, 1)[:, None]
+    tr = tr * tr * (3 - 2 * tr)
+    ramp = surf.snap(at(O1, a1) * (1 - tr) + at(O2, a2) * tr)
+    sel = (a1 > -4) & (a1 < EYE_RAMP[0])
+    body = np.vstack([O1[sel], ramp])
+    inner = np.concatenate([np.zeros(sel.sum(), bool), ra > 99])
+    # end: the inner run carried straight on toward the grille corner until the dash end would come closer than
+    # EYE_END_CLEAR to the next part
+    a_, b_ = body[-8], body[-1]
+    dv = (b_ - a_) / np.linalg.norm(b_ - a_)
+    E = b_
+    for t in np.arange(0, 0.10, 0.0025):
+        p = surf.snap(b_ + dv * t)[0]
+        if to.query(p)[0] < EYE_END_CLEAR:
+            break
+        E = p
+    # branch on the shoulder line (its own dense curve, so the dash coordinate continues exactly)
+    S_sh = arclen(shoulder_C)
+    ib = int(np.argmin(np.abs(shoulder_C[:, 1] - EYE_BRANCH_Y)))
+    PB = shoulder_C[ib].copy()
+    back = [shoulder_C[min(ib + 20, len(shoulder_C) - 1)], shoulder_C[min(ib + 10, len(shoulder_C) - 1)]]
+    # two guide points on the outer surface between the branch and the top of the descent (on the chord, glued on)
+    top = list(surf.snap(np.array([PB + (body[0] - PB) * t for t in (0.35, 0.70)])))
+    G = np.vstack(back + [PB] + top + list(body) + [E])
+    w = np.ones(len(G))
+    w[:3] = 40.0
+    w[3:5] = 6.0
+    w[5:5 + len(body)][inner] = 4.0
+    w[-1] = 40.0
+    for _ in range(8):
+        # smoothing B-spline through the guide points (flowing line), then glued to the surface; where it comes closer
+        # to the lamp than the target - 4 mm (3 cm at the outer lower corner, which the arc rounds) the guide points
+        # nearby get more weight
+        tck, _u = splprep(G.T, w=w, s=0.0002 * len(G), k=3)
+        C = np.array(splev(np.linspace(0, 1, 3000), tck)).T
+        k0 = int(np.argmin(np.linalg.norm(C - PB, axis=1)))
+        C = _resample(surf.snap(C[k0:]), 0.002)
+        d_ = th.query(C)[0]
+        s_ = arclen(C)
+        corner = (C[:, 1] < -1.70) & (C[:, 1] > -1.86) & (C[:, 2] < 0.64)
+        lim = np.where(corner, 0.040, np.where(C[:, 0] < 0.60, EYE_C_IN - 0.004, EYE_C - 0.004))
+        bad = (d_ < lim) & (s_ > 0.2)
+        if not bad.any():
+            break
+        w[np.unique(cKDTree(G).query(C[bad])[1])] *= 2.5
+    C[0] = PB
+    return C, float(S_sh[ib])
+
+
+def paint_eyeliner(C, side, S_B, k):
+    """Dashed, constant 2.2 cm width, dash coordinate S_B - k*arc (continues the shoulder line's dashes through the
+    branch; k stretches the dashes by a few percent so the last one ends exactly at the end of the curve)."""
+    S = arclen(C)
+    idx = cand(EYE_PARTS, side)
+    P = POSF[idx]
+    lo, hi = C.min(0) - 0.03, C.max(0) + 0.03
+    m = np.all((P >= lo) & (P <= hi), axis=1)
+    idx, P = idx[m], P[m]
+    d, j = cKDTree(C).query(P, k=1, distance_upper_bound=0.03)
+    ok = np.isfinite(d)
+    idx, d, j = idx[ok], d[ok], j[ok]
+    s = S_B - k * S[j]
+    dash_line(idx, s, d, 0.011, DASH[0], DASH[1], INK)
+    loc = np.mod(s, DPER)
+    along = np.where(loc < DASH[0], 0.0, np.minimum(loc - DASH[0], DPER - loc))
+    return idx[np.sqrt(along ** 2 + d ** 2) < 0.011]
+
+
+def front_line_report():
+    """front cut line along the headlight: whole dashes, air to the lamp / other parts / the labels nearby"""
+    for s in ("L", "R"):
+        e = EYE[s]
+        r = eyeliner_checks(e["C"], s, e["S_B"], e["k"], e["ink"])
+        lab = {"ЛОПАТКА": f"label_lopatka_{s}", "ПЯТАЧОК": "label_pyatachok", "ШЕЙКА": "label_sheika_hood",
+               "Симкарт hood tag": "simkart_hood"}
+        tree = cKDTree(POSF[e["ink"]])
+        r["label_air_cm"] = {k: round(float(tree.query(POSF[PAINTED[v]])[0].min()) * 100, 1)
+                             for k, v in lab.items() if len(PAINTED.get(v, ())) > 0}
+        if len(r["label_air_cm"]) < len(lab) or min(r["label_air_cm"].values()) < 2.0:
+            r["status"] = "FAIL"
+        LINE_CHECKS.append(r)
+        print(f"   front cut line {s}: {r}", flush=True)
+
+
+def eyeliner_checks(C, side, S_B, k, ink):
+    """Whole dashes only: every dash of the line is checked in three strips across its width (centre, +-6 mm) for
+    holes in the outer skin (> 1.2 cm = cut by a seam / opening) and, in each of the 9 standard views that faces it,
+    for being partly hidden behind another part. Plus the air to the lamp (3D, along the surface) and to every other
+    part, and the visible air to the lamp in the side, front 3/4 and front close-ups (mirrored for the right side)."""
+    S = arclen(C)
+    s = S_B - k * S
+    loc = np.mod(s, DPER)
+    body = loc < DASH[0]
+    runs = np.split(np.arange(len(C)), np.flatnonzero(np.diff(body.astype(int))) + 1)
+    dashes = [r for r in runs if body[r[0]]]
+    surf = _OuterSurf(side)
+    T = np.gradient(C, S, axis=0)
+    T /= np.linalg.norm(T, axis=1, keepdims=True)
+    Nn = surf.N[surf.tree.query(C)[1]]
+    lat = np.cross(Nn, T)
+    lat /= np.linalg.norm(lat, axis=1, keepdims=True)
+    trunc, hid = [], []
+    for i, r in enumerate(dashes):
+        if i == 0 and r[0] == 0:
+            continue                       # the dash through the branch: half of it is the shoulder line's
+        worst = 0.0
+        for off in (-0.006, 0.0, 0.006):
+            q = surf.snap(C[r] + lat[r] * off)
+            dd = surf.tree.query(q)[0]
+            hole = dd > 0.0025
+            if hole.any():
+                runs_h = np.split(np.flatnonzero(hole), np.flatnonzero(np.diff(np.flatnonzero(hole)) > 1) + 1)
+                worst = max(worst, max(len(h) for h in runs_h) * 0.002)
+        if worst > 0.012:
+            trunc.append(i)
+    did = np.full(len(C), -1)
+    for i, r in enumerate(dashes):
+        did[r] = i
+    near = np.flatnonzero(did >= 0)
+    did = did[near[np.abs(near[None, :] - np.arange(len(C))[:, None]).argmin(1)]]   # caps belong to their dash
+    dash_of = did[cKDTree(C).query(POSF[ink])[1]]
+    for v in VIEWS9:
+        e = VISD["cam"][v][0]
+        dv = e[None, :] - POSF[ink]
+        dv /= np.linalg.norm(dv, axis=1, keepdims=True)
+        # (texels seen at more than ~66 deg incidence are left out: where the line wraps away from a camera - the
+        #  part under the lamp seen from straight above - the last slivers graze the lamp's lower lip)
+        fc = np.einsum("ij,ij->i", dv, NRMF[ink]) > 0.4
+        if fc.sum() == 0:
+            continue
+        hb = hidden_by_part(POSF[ink[fc]], v)
+        dk = dash_of[fc]
+        for dsh in np.unique(dk):
+            nh, ns = int((hb & (dk == dsh)).sum()), int((~hb & (dk == dsh)).sum())
+            if nh > 3 and ns > 25:
+                hid.append((int(dsh), v))
+    rim = headlight_rims()
+    sg = 1.0 if side == "L" else -1.0
+    Pm = POSF[ink] * np.array([sg, 1, 1])                     # (right side mirrored onto the left close-ups)
+    dl = cKDTree(rim["rim_hl"]).query(Pm)[0]
+    do = cKDTree(rim["rim_other"]).query(Pm)[0]
+    jc = cKDTree(C).query(POSF[ink])[1]
+    # segments: «behind» = from the top of the arc behind the lamp down to its lower outer corner, «under» = along
+    # the lower contour to the end (the curve is past the corner once it runs forward of y -1.77 below z 0.62)
+    under = (C[jc, 1] < -1.77) & (C[jc, 2] < 0.62)
+    behind = (S[jc] > 0.25) & ~under
+    after = behind | under
+    sa = S[jc]
+    mins3 = []
+    for b0 in np.arange(0.0, S[-1] - 0.06, 0.06):         # narrowest air on the paint per 6 cm, along the lamp
+        m = (sa >= b0) & (sa < b0 + 0.06)
+        if m.sum() > 20 and dl[m].min() < 0.07:
+            mins3.append(float(dl[m].min()))
+    res = dict(side=side, dashes=len(dashes), stretch=round(k, 4), length_cm=round(float(S[-1]) * 100, 1),
+               truncated=trunc, hidden=hid, air_3d_cm=[round(min(mins3) * 100, 1), round(max(mins3) * 100, 1)],
+               air_other_cm=round(float(do.min()) * 100, 1))
+    vis_air = {}
+    for v in HL_VIEWS:
+        cam = rim["cam_" + v]
+        e, f, rgt, up = cam[0:3], cam[3:6], cam[6:9], cam[9:12]
+        mx, my, fpx, Wc, Hc = cam[12:17]
+        Wc, Hc = int(Wc), int(Hc)
+        mask = np.unpackbits(rim["mask_" + v])[:Wc * Hc].reshape(Hc, Wc).astype(bool)
+        edt = ndimage.distance_transform_edt(~mask)
+        stdv = {"front": "front"}.get(v, v if side == "L" else v.replace("left", "right"))
+        vis = VISD["vis"][stdv][ink] & after
+        if vis.sum() == 0:
+            continue
+        rel = Pm - e
+        dv = rel @ f
+        X = ((rel @ rgt) / dv - mx) * fpx + Wc / 2
+        Y = -((rel @ up) / dv - my) * fpx + Hc / 2
+        xi = np.clip(X.astype(int), 0, Wc - 1)
+        yi = np.clip(Y.astype(int), 0, Hc - 1)
+        g = edt[yi, xi] * dv / fpx
+        # the air seen along the lamp: the narrowest air in every 6 cm of line, over the stretch where the line runs
+        # alongside the lamp in this view (air < 6 cm), the last 6 cm (the run into the grille corner) left out
+        sa = S[jc]
+        mins = []
+        for b0 in np.arange(0.0, S[-1] - 0.06, 0.06):
+            m = vis & (sa >= b0) & (sa < b0 + 0.06)
+            if m.sum() > 20 and g[m].min() < 0.06:
+                mins.append(float(g[m].min()))
+        if mins:
+            vis_air[v] = [round(min(mins) * 100, 1), round(max(mins) * 100, 1)]
+    res["visible_air_cm"] = vis_air
+    res["status"] = "OK" if not trunc and not hid else "FAIL"
+    return res
 
 
 def dash_line(idx, s, d, half_w, on, off, col, phase=0.0):
@@ -1096,10 +1483,31 @@ def decal(name, art, center, normal, up, ppm, parts, side=None, depth_tol=0.09, 
         CHECKS.append(_check(name, art, a[..., 3], c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_tol,
                              check_angle, painted, parts, side, min_clear_cm, obstacle_check, kind, keepout,
                              occl_views))
+    if kind == "number":       # what lies under the plate: another driver's digits are painted on the same plate later
+        NUM_UNDER[name] = (sel[keep], CAN[sel[keep]].copy())
     blend(sel[keep], rgb[keep], al[keep])
     if kind in ("logo", "text", "number"):
         INK_LAYER[painted] = 1.0
+    PAINTED[name] = painted
     return painted
+
+
+PAINTED = {}          # decal name -> painted texels (for the clearance report of the front cut line)
+NUM_UNDER = {}        # number decal name -> (texels under the plate, design colour there before the plate)
+NUM_JOBS = []         # body number plates as placed: repainted with each driver's own number (paint_numbers)
+
+
+def paint_numbers(num):
+    """Paint race number `num` on every body number plate: same plates, same placements and frames as fitted (the
+    plate's outline does not depend on the digits), only the digits change. The colour under each plate is put
+    back first, so nothing of the previous digits remains."""
+    global RACE_NUM
+    RACE_NUM = num
+    for j in NUM_JOBS:
+        sel, before = NUM_UNDER[j["name"]]
+        CAN[sel] = before
+        decal(j["name"], j["make_art"](j["size"]), j["c"], j["n"], j["u"], check=False, **j["kw"])
+        assert np.array_equal(NUM_UNDER[j["name"]][0], sel), j["name"]
 
 
 def view_occlusion(painted, views):
@@ -1146,6 +1554,10 @@ def _check(name, art, alpha, c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_t
     # texture-space: painted texels inside zone mask; clearance to mask edge (px -> cm) and to cut lines
     res = dict(name=name, kind=kind, parts=parts, side=side, size_cm=[round(wm * 100, 1), round(hm * 100, 1)],
                coverage=round(covered, 4), edge_clear_cm=round(clear_edge, 1), max_tilt_deg=round(tilt, 1))
+    # (max_tilt_deg = largest angle between the projection axis and the surface normal under the art: how far the
+    #  surface turns away from the projection, i.e. a distortion measure - not a rotation. The rotation of the art
+    #  in the view that faces it is level_deg.)
+    res["level_deg"], res["level_rows_deg"], res["level_view"] = _level(idx, sa, sb, good, n, wm, hm)
     if len(painted):
         zedt = zone_edt(parts)
         inside = (zedt[painted] > 0).mean()
@@ -1184,6 +1596,27 @@ def _check(name, art, alpha, c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_t
         fails.append(f"distortion risk (tilt {tilt:.1f} > {tmax})")
     res["status"] = "OK" if not fails else "FAIL: " + "; ".join(fails)
     return res
+
+
+def _level(idx, sa, sb, good, n, wm, hm):
+    """Measured rotation of the art in the view that faces it (side / top / front / rear, by the dominant axis of the
+    projection normal), from the position map: a straight-line fit through the surface texels of three art rows
+    (at +35 %, 0 and -35 % of the half height, central 90 % of the width) gives each row's slope in that view.
+    Side / front / rear views: rise over run (0 = parallel to the ground); top view: the row's fore-aft drift over
+    its run across the car (0 = square across the car). Returns (largest |angle| with its sign, the three row angles,
+    view), degrees."""
+    ax = int(np.argmax(np.abs(n)))
+    h_ax, v_ax = {0: (1, 2), 1: (0, 2), 2: (0, 1)}[ax]
+    view = {0: "side", 1: "rear" if n[1] > 0 else "front", 2: "top"}[ax]
+    P = POSF[idx]
+    rows = []
+    for f in (0.35, 0.0, -0.35):
+        k = good & (np.abs(sb - f * hm / 2) < 0.0015) & (np.abs(sa) <= 0.45 * wm)
+        if k.sum() < 12 or np.ptp(P[k, h_ax]) < 0.25 * wm:
+            continue
+        rows.append(round(math.degrees(math.atan(np.polyfit(P[k, h_ax], P[k, v_ax], 1)[0])), 2))
+    worst = max(rows, key=abs) if rows else None
+    return worst, rows, view
 
 
 _zedt = {}
@@ -1288,10 +1721,13 @@ def decal_fit(name, make_art, sizes, make_cands, **kw):
     art, ok, best, rep_ = res[pick]
     kw2 = {k: v for k, v in kw.items() if k not in ("tilt_gate", "line_min", "air", "deco_min")}
     print(f"   fit {name}: size {sizes[pick]} m -> {'OK' if ok else 'NO FIT'} tilt={rep_['max_tilt_deg']} "
+          f"level={rep_.get('level_deg')}({rep_.get('level_view')}) "
           f"edge={rep_['edge_clear_cm']} mask={rep_.get('mask_clear_cm')} line={rep_.get('line_clear_cm')} "
           f"decals={rep_.get('decal_clear_cm')}", flush=True)
     c, n, u = best
     decal(name, art, c, n, u, **kw2)
+    if kw.get("kind") == "number":
+        NUM_JOBS.append(dict(name=name, make_art=make_art, size=sizes[pick], c=c, n=n, u=u, kw=kw2))
     return sizes[pick], best
 
 
@@ -1388,11 +1824,11 @@ def paint_audi_rings():
 def paint_body():
     print("base: pearl pink, holo belly band, keylines, butcher lines ...")
     paint_pearl()
-    global FRONT_TURN_Y, OUTER
+    global FRONT_ARCH_Y, OUTER
     VISD.update(view_visibility())
     OUTER = np.logical_or.reduce([VISD["vis"][v] for v in VIEWS9])
-    FRONT_TURN_Y = front_turn_y()
-    print(f"   front turn of the belly cut line at y = {FRONT_TURN_Y:.3f}")
+    FRONT_ARCH_Y = front_arch_y()
+    print(f"   belly cut line ends in the front wheel opening (y = {FRONT_ARCH_Y:.3f})")
     paint_belly()
 
     # --- shoulder cut line along the Audi tornado crease (headlight -> tail light), both sides
@@ -1405,15 +1841,36 @@ def paint_body():
     A_PTS = [A_FRONT, (-1.30, 0.845), (-1.05, 0.853), (-0.90, 0.857), (-0.60, 0.862),
              (0.00, 0.866), (0.60, 0.867), (0.92, 0.867), (1.06, 0.867), (1.30, 0.868), (1.60, 0.868), (1.86, 0.867)]
     shoulder = {}
+    # front cut line along the headlight (left side computed, right side = its mirror image glued onto the right skin)
+    c3L = snap(A_PTS, "side", SIDE_PARTS, "L")
+    eyeL, S_BL = eyeliner_curve(dense_curve(c3L, SIDE_PARTS, "L", "side"))
     for s in ("L", "R"):
         c3 = snap(A_PTS, "side", SIDE_PARTS, s)
-        C = curve_line(c3, SIDE_PARTS, s, 0.011, INK, dash=DASH, resnap_mode="side")
+        Csh = dense_curve(c3, SIDE_PARTS, s, "side")
+        if s == "L":
+            eye, S_B = eyeL, S_BL
+        else:
+            ib = int(np.argmin(np.abs(Csh[:, 1] - EYE_BRANCH_Y)))
+            S_B = float(arclen(Csh)[ib])
+            eye = _resample(_OuterSurf("R").snap(eyeL * np.array([-1.0, 1.0, 1.0])), 0.002)
+            EYE["mirror_start_dev_cm"] = round(float(np.linalg.norm(eye[0] - Csh[ib])) * 100, 2)
+            eye[0] = Csh[ib]
+        # the shoulder line ends at the branch (its dashes ahead of it, toward A_FRONT, are not painted any more)
+        C = curve_line(c3, SIDE_PARTS, s, 0.011, INK, dash=DASH, resnap_mode="side", trim=(-1.0, S_B))
         shoulder[s] = C
         belly_connector(s, A_PTS, C)
-        front_connector(s, C)
+        L_eye = float(arclen(eye)[-1])
+        n_eye = int(round((L_eye - S_B) / DPER))
+        k_eye = (S_B + n_eye * DPER) / L_eye            # the last dash ends exactly at the end of the line
+        ink = paint_eyeliner(eye, s, S_B, k_eye)
+        EYE[s] = dict(C=eye, S_B=S_B, k=k_eye, n=n_eye, ink=ink)
+        print(f"   front cut line {s}: leaves the shoulder line at y {eye[0, 1]:.3f} (dash coordinate {S_B:.3f}), "
+              f"{L_eye * 100:.1f} cm, {n_eye} dash periods, stretch {k_eye:.4f}, ends at "
+              f"({eye[-1, 0]:+.3f}, {eye[-1, 1]:.3f}, {eye[-1, 2]:.3f})", flush=True)
         # chrome keyline above the whole shoulder line (6 mm half width), white core with grey edges
-        kl = snap([(y, z + 0.021) for y, z in A_PTS], "side", SIDE_PARTS, s)
-        # (tapers to a point at the front, where the cut line turns down behind the headlight, and into the tail lamp)
+        # (tapers to a point at the front, where the cut line turns down behind the headlight - the branch point,
+        #  A_PTS[1] - and into the tail lamp)
+        kl = snap([(y, z + 0.021) for y, z in A_PTS[1:]], "side", SIDE_PARTS, s)
         curve_line(kl, SIDE_PARTS, s, 0.0072, (176, 172, 190), resnap_mode="side", taper=(0.30, 0.12))
         curve_line(kl, SIDE_PARTS, s, 0.0045, (252, 250, 255), resnap_mode="side", taper=(0.30, 0.12))
 
@@ -1479,6 +1936,42 @@ def side_cands(ys, zs, parts, s, w):
             mn = mean_normal(c, parts, s, max(0.05, min(0.25, w / 2)))
             for nv in ((sg, 0.0, 0.0), (mn[0], 0.0, mn[2]), (mn[0], mn[1], 0.0)):
                 out.append((c, nv, (0, 0, 1)))
+    return out
+
+
+def level_frame(c, parts, side, w, h):
+    """Projection frame for a side plate of w x h m centred at c, computed from the position map.
+    The art's horizontal axis must follow the car (world +-y) with no z component in the side views, so art up =
+    world +z: then r = up x n is horizontal whatever the normal, and every art row is level. The normal is fitted to
+    the panel under the footprint: in plan it is square to the panel (the panel's run x(y) is fitted - the door is
+    ~1 deg off the car axis), and its elevation is the middle of the elevations of the surface normals under the
+    footprint, which halves the largest angle between the projection and the surface (least distortion: the door rolls
+    in ~18 deg toward the shoulder crease under the plate's top edge and is ~-3 deg at its bottom).
+    Returns (normal, up)."""
+    sg = 1 if side == "L" else -1
+    idx = cand(parts, side)
+    P, Nn = POSF[idx], NRMF[idx]
+    rel = P - np.asarray(c, float)
+    k = (np.abs(rel[:, 1]) <= w / 2) & (np.abs(rel[:, 2]) <= h / 2) & (np.abs(rel[:, 0]) < 0.09)
+    A = np.stack([P[k, 1], P[k, 2], P[k, 2] ** 2, np.ones(int(k.sum()))], 1)
+    a = float(np.linalg.lstsq(A, P[k, 0], rcond=None)[0][0])           # dx/dy of the panel under the plate
+    t = np.array((a, 1.0, 0.0)) / math.hypot(a, 1.0)
+    nh = np.array((sg, 0.0, 0.0)) - t * (sg * t[0])
+    nh /= np.linalg.norm(nh)
+    el = np.arctan2(Nn[k, 2], Nn[k] @ nh)
+    th = 0.5 * (float(el.min()) + float(el.max()))
+    return tuple(nh * math.cos(th) + np.array((0.0, 0.0, math.sin(th)))), (0.0, 0.0, 1.0)
+
+
+def level_side_cands(ys, zs, parts, s, w, h):
+    """Side-plate candidates (centres on the panel) with the computed level frame of each (see level_frame)."""
+    out = []
+    for y in ys:
+        for z in zs:
+            p = surf_point("side", y, z, parts, s)
+            c = (p[0], y, z)
+            n, u = level_frame(c, parts, s, w, h)
+            out.append((c, n, u))
     return out
 
 
@@ -1679,9 +2172,12 @@ def side_decals(s):
 
     fd, rd, rf, fl, sl = ["front_door"], ["rear_door"], ["rear_fender"], ["front_door_low"], ["sill"]
     kw = dict(ppm=PPM, side=s)
-    # race number plate – front door; >= 6 cm clear pink to the shoulder line above and the belly line below
-    _, nb = decal_fit(f"number_door_{s}", lambda w: number_plate(px(w), px(w * 0.674)), [0.46, 0.45, 0.44, 0.42],
-                      lambda w: sc((-0.52, -0.54, -0.50), (0.645, 0.635, 0.655), fd, w),
+    # race number plate – front door; >= 6 cm clear pink to the shoulder line above and the belly line below.
+    # Level with the ground: projected with the frame computed from the position map (level_frame: art up = world
+    # +z, horizontal axis along the car with no z component); its measured rotation in the side view is level_deg.
+    # Size stays the approved 0.42 m plate (the shoulder and belly lines leave exactly room for it with 6 cm air).
+    _, nb = decal_fit(f"number_door_{s}", lambda w: number_plate(px(w), px(w * 0.674)), [0.42],
+                      lambda w: level_side_cands((-0.52, -0.54, -0.50), (0.645, 0.635, 0.655), fd, s, w, w * 0.674),
                       parts=fd, kind="number", line_min=6.0, air=2.0, **kw)
     ny_ = nb[0][1]
     # main partner Симкарт – front door, behind the number (>= 7 cm air to the plate, inside the door)
@@ -2045,7 +2541,7 @@ NAME_SCALE = 0.85       # side-window name plate: 15 % smaller than the 386 x 82
 _NAME_POS = {}
 
 
-def glass_sticker(driver):
+def glass_sticker(driver, num):
     g = Image.open(os.path.join(SRC, "glass_sticker.dds")).convert("RGBA")
     S = 4                                     # draw at 4x, downsample at the end (crisp small text)
     G = Image.new("RGBA", (1024 * S, 1024 * S), (0, 0, 0, 0))
@@ -2067,7 +2563,8 @@ def glass_sticker(driver):
     # front number: windscreen passenger corner. Rotation computed from the glass mesh (Circle.077): -9.5 deg puts
     # the plate's top / bottom edges exactly level in 3D (the zone map's -8.8 is the mean over the zone, 0.7 deg off)
     ws_box = [590, 308, 845, 532]
-    gplace(G, "ws_number", number_plate(150 * S, 110 * S), k(ws_box), rot=glass_level_rot("Circle.077", ws_box), edge=S)
+    gplace(G, "ws_number", number_plate(150 * S, 110 * S, num), k(ws_box), rot=glass_level_rot("Circle.077", ws_box),
+           edge=S)
 
     # rear window banner: Симкарт on night band, chrome edge (reads from behind)
     d.rectangle(k([135, 168, 864, 253]), fill=NIGHT + (255,))
@@ -2084,7 +2581,7 @@ def glass_sticker(driver):
     # third behind the blade, which made it look sheared. Largest plate (same 150:108 proportions) that is >= 6 px
     # inside both the disc and the visible part in rear / rear 3/4 views: 130x94 centred (672, 628).
     rw_box = [586, 547, 878, 818]
-    gplace(G, "rw_number", number_plate(130 * S, 94 * S), k(rw_box), cx=672 * S, cy=628 * S,
+    gplace(G, "rw_number", number_plate(130 * S, 94 * S, num), k(rw_box), cx=672 * S, cy=628 * S,
            rot=glass_level_rot("Circle.038", rw_box), edge=S)
 
     # side windows: driver name + Russian flag on a burgundy strip (lower part of the rear door window)
@@ -2185,10 +2682,56 @@ def save_dxt5(im, path):
         fh.write(struct.pack("<I", 0))
 
 
-DRIVERS = [("Pozdnyakov_00", ("Станислав", "Поздняков")), ("Konopelko_00", ("Матвей", "Конопелько"))]
+NUMBERS = {"Pozdnyakov": "23", "Konopelko": "00"}      # race number per driver (Конопелько: still 00 for now)
+NAMES = {"Pozdnyakov": ("Станислав", "Поздняков"), "Konopelko": ("Матвей", "Конопелько")}
+# skin folder = Surname_Number (also the zip name, ui_skin.json skinname, renders/<skin>, gear/out/<skin>)
+DRIVERS = [(f"{k}_{NUMBERS[k]}", NAMES[k]) for k in ("Pozdnyakov", "Konopelko")]
+
+
+def skin_number(folder):
+    return NUMBERS[folder.split("_")[0]]
+
+
+def number_air(w, h, num, unit_per_px):
+    """Digits of `num` on a w x h px plate (number_digits): scale, ink size (outline + shadow incl.) and the air from the
+    ink to the inner edge of the plate's fill, left / right / top / bottom, in the given unit per px."""
+    d, x, y, k = number_digits(w, h, num)
+    ys, xs = np.nonzero(np.asarray(d.getchannel("A")) > 128)
+    bw = max(5, int(h * 0.045))
+    e = bw + max(2, bw // 3)
+    x0, x1, y0, y1 = x + xs.min(), x + xs.max(), y + ys.min(), y + ys.max()
+    f = lambda v: round(float(v) * unit_per_px, 1)
+    return dict(num=num, scale=round(k, 4), ink=[f(x1 - x0 + 1), f(y1 - y0 + 1)],
+                air=dict(L=f(x0 - e), R=f(w - 1 - e - x1), T=f(y0 - e), B=f(h - 1 - e - y1)))
+
+
+NUM_NOTES = []
+
+# gear textures made by gear/make_caliper.py, make_gear.py, make_crew.py: every file of gear/out/<skin>/ goes into the
+# skin folder (and so into its zip) as is. Both caliper files are needed: caliper.dds keeps the stock alpha 0 and only
+# shows pink together with the white caliper_detail.dds.
+GEAR_OUT = os.path.join(HERE, "gear", "out")
+GEAR_REQUIRED = ("caliper.dds", "caliper_detail.dds",
+                 "2016_Suit_DIFF.dds", "DRIVER_Suit.dds", "2016_Gloves_DIFF.dds", "DRIVER_Gloves.dds",
+                 "HELMET_2012.dds", "HELMET_2012_Glass.dds",
+                 "ac_crew.dds", "Crew_HELMET_Color.dds", "Brands_Crew.dds", "Meccanico_Gadgets.png")
+
+
+def copy_gear(folder, od):
+    """Byte-for-byte copy of every file in gear/out/<folder>/ into the skin folder od."""
+    src = os.path.join(GEAR_OUT, folder)
+    have = sorted(f for f in os.listdir(src) if os.path.isfile(os.path.join(src, f))) if os.path.isdir(src) else []
+    missing = [f for f in GEAR_REQUIRED if f not in have]
+    if missing:
+        raise SystemExit(f"gear/out/{folder}: missing {', '.join(missing)}")
+    for f in have:
+        shutil.copyfile(os.path.join(src, f), os.path.join(od, f))
+    print(f"   gear -> {folder}/: {len(have)} files ({', '.join(have)})")
 
 
 def main():
+    global RACE_NUM
+    RACE_NUM = skin_number(DRIVERS[0][0])          # the body is fitted / checked with the first driver's number
     paint_body()
     print("decals ...")
     for s in ("L", "R"):
@@ -2196,46 +2739,73 @@ def main():
     top_decals()
     rear_front_decals()
     paint_audi_rings()
+    front_line_report()
 
-    out = A0.copy().reshape(-1, 3)
     pm = PAINTF
-    out[pm] = CAN[pm] * SHADE.reshape(-1)[pm, None]
-    skin = Image.fromarray(np.clip(out.reshape(N, N, 3), 0, 255).astype(np.uint8))
-    skin.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "texture_preview.png"))
-
     for folder, drv in DRIVERS:
+        num = skin_number(folder)
+        if num != RACE_NUM:                  # same plates and placements, this driver's digits
+            paint_numbers(num)
+        out = A0.copy().reshape(-1, 3)
+        out[pm] = CAN[pm] * SHADE.reshape(-1)[pm, None]
+        skin = Image.fromarray(np.clip(out.reshape(N, N, 3), 0, 255).astype(np.uint8))
+        if folder == DRIVERS[0][0]:
+            skin.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "texture_preview.png"))
         od = os.path.join(HERE, folder)
         os.makedirs(od, exist_ok=True)
         save_dxt5(skin, os.path.join(od, "Skin.dds"))
         n_before = len(GCHECKS)
-        gl = glass_sticker(drv)
-        if folder != DRIVERS[0][0]:          # second car: identical layout, keep only its name checks
-            mine = [dict(g, name=g["name"] + "@" + folder) for g in GCHECKS[n_before:] if g["name"].startswith("name_")]
+        gl = glass_sticker(drv, num)
+        if folder != DRIVERS[0][0]:          # second car: identical layout, keep its name and number checks
+            mine = [dict(g, name=g["name"] + "@" + folder) for g in GCHECKS[n_before:]
+                    if g["name"].startswith("name_") or g["name"].endswith("_number")]
             del GCHECKS[n_before:]
             GCHECKS.extend(mine)
         save_dxt5(gl, os.path.join(od, "glass_sticker.dds"))
         if folder == DRIVERS[0][0]:
             gl.save(os.path.join(HERE, "glass_preview.png"))
         json.dump({"skinname": folder, "drivername": f"{drv[0]} {drv[1]}", "country": "Russia",
-                   "team": "Команда ЭДМ", "number": "00", "priority": 1},
+                   "team": "Команда ЭДМ", "number": num, "priority": 1},
                   open(os.path.join(od, "ui_skin.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-        livery_icon(od)
+        livery_icon(od, num)
+        copy_gear(folder, od)
         with zipfile.ZipFile(os.path.join(HERE, folder + ".zip"), "w", zipfile.ZIP_DEFLATED) as z:
+            for f in sorted(os.listdir(od)):
+                z.write(os.path.join(od, f), folder + "/" + f)
+        # digits on every plate of this car (body: cm, glass: px of the 1024 glass_sticker; icon: px of 185)
+        plates = [(j["name"], px(j["size"]), j["make_art"](j["size"]).height, 100.0 / PPM, "cm") for j in NUM_JOBS]
+        plates += [("ws_number", 600, 440, 0.25, "px"), ("rw_number", 520, 376, 0.25, "px"), ("livery_icon", 480, 320, 0.25, "px")]
+        for nm, w_, h_, upp, unit in plates:
+            NUM_NOTES.append(dict(skin=folder, plate=nm, unit=unit, plate_size=[round(w_ * upp, 1), round(h_ * upp, 1)],
+                                  this=number_air(w_, h_, num, upp), ref=number_air(w_, h_, NUM_REF, upp)))
+    # team zip: both skin folders at its root
+    with zipfile.ZipFile(os.path.join(os.path.dirname(HERE), "butcher_chrome.zip"), "w", zipfile.ZIP_DEFLATED) as z:
+        for folder, _ in DRIVERS:
+            od = os.path.join(HERE, folder)
             for f in sorted(os.listdir(od)):
                 z.write(os.path.join(od, f), folder + "/" + f)
     rep = []
     for r in CHECKS:
         rep.append(f"{r['status']:<6} {r['name']:<26} {str(r['size_cm']):<14} cov={r['coverage']:.3f} "
-                   f"edge={r['edge_clear_cm']:>5}cm tilt={r['max_tilt_deg']:>5}° in_mask={r.get('in_zone_mask')} "
+                   f"edge={r['edge_clear_cm']:>5}cm tilt={r['max_tilt_deg']:>5}° level={r.get('level_deg')}°({r.get('level_view')}) "
+                   f"in_mask={r.get('in_zone_mask')} "
                    f"mask_clear={r.get('mask_clear_cm')}cm lines={r.get('line_clear_cm')}cm"
                    + (f" decals={r.get('decal_clear_cm')}cm hidden={r['hidden_frac']}" if "hidden_frac" in r else ""))
-    for r in GCHECKS:  # glass checks of the first car (second car differs only in the name text)
+    for r in GCHECKS:  # glass checks of the first car + the name / number checks of the second (same layout)
         extra = ""
         if "visible_glass_clear_px" in r:
             extra = (f" size={r['size_px']}px centre={r['centre_px']} rot={r['rot_deg']}deg"
                      f" visible_glass_clear={r['visible_glass_clear_px']}px/{r['visible_glass_clear_mm']}mm")
         rep.append(f"{r['status']:<6} glass:{r['name']:<20} box={r['box']} art={r['art_bbox']} clear={r['clear_px']}px"
                    + extra)
+    for r in LINE_CHECKS:        # front cut line along the headlight
+        va = ", ".join(f"{v} {a[0]}-{a[1]}" for v, a in r["visible_air_cm"].items())
+        a3 = f"{r['air_3d_cm'][0]}-{r['air_3d_cm'][1]}"
+        rep.append(f"{r['status']:<6} line:headlight_{r['side']:<14} {r['dashes']} whole dashes, stretch {r['stretch']}, "
+                   f"{r['length_cm']} cm; air to the lamp outline on the paint (narrowest per 6 cm): {a3} cm; visible air along the "
+                   f"lamp in the close-ups (narrowest per 6 cm, cm): {va}; other parts >= {r['air_other_cm']} cm; labels "
+                   + ", ".join(f"{k} {v}" for k, v in r["label_air_cm"].items()) + " cm"
+                   + ("" if r["status"] == "OK" else f"; truncated {r['truncated']} hidden {r['hidden']}"))
     for r in BELLY_DROPPED:      # belly cut-line dashes left out whole instead of showing as stubs
         rep.append(f"INFO   line:belly dash {r['dash']}{r['side']:<3} left out whole ({r['why']}) at x={r['x']:+.3f} "
                    f"y={r['y']:+.3f}")
@@ -2247,19 +2817,26 @@ def main():
                    + ", ".join(f"{g['kind']} {g['width_cm']} cm @ y {g['y']:+.3f}" for g in r["logos"]))
     for r in URL_NOTES:
         rep.append("INFO   url:" + r)
+    for r in NUM_NOTES:
+        t, f = r["this"], r["ref"]
+        a = lambda d: f"L {d['air']['L']} R {d['air']['R']} T {d['air']['T']} B {d['air']['B']}"
+        rep.append(f"INFO   number {r['skin']} «{t['num']}» {r['plate']} plate {r['plate_size'][0]} x {r['plate_size'][1]} "
+                   f"{r['unit']}: digits {t['ink'][0]} x {t['ink'][1]} {r['unit']} at the «{f['num']}» scale "
+                   f"({t['scale']}), air to the plate {a(t)} {r['unit']}"
+                   + ("" if t['num'] == f['num'] else f" («{f['num']}»: digits {f['ink'][0]} x {f['ink'][1]}, air {a(f)})"))
     txt = "\n".join(rep)
     print(txt)
     with open(os.path.join(HERE, "check_report.txt"), "w") as fh:
         fh.write(txt + "\n")
     json.dump(dict(skin=CHECKS, glass=GCHECKS, belly_dropped=BELLY_DROPPED, line_notes=LINE_NOTES, sill_row=SILL_LOG,
-                   url_notes=URL_NOTES), open(os.path.join(HERE, "check_report.json"), "w"),
+                   url_notes=URL_NOTES, front_cut_line=LINE_CHECKS, numbers=NUM_NOTES), open(os.path.join(HERE, "check_report.json"), "w"),
               ensure_ascii=False, indent=1, default=str)
 
     print("done")
 
 
-def livery_icon(od):
-    """185x185 livery swatch: pink field, holo lower band with chrome keyline, dashed cut line, chrome 00."""
+def livery_icon(od, num):
+    """185x185 livery swatch: pink field, holo lower band with chrome keyline, dashed cut line, chrome race number."""
     S = 4
     w = 185 * S
     im = Image.new("RGBA", (w, w), tuple(int(v) for v in PIG) + (255,))
@@ -2271,7 +2848,7 @@ def livery_icon(od):
     while x < w:
         d.rounded_rectangle([x, w - w // 3 - 22 * S, x + 22 * S, w - w // 3 - 16 * S], radius=3 * S, fill=INK + (255,))
         x += 34 * S
-    p = number_plate(120 * S, 80 * S)
+    p = number_plate(120 * S, 80 * S, num)
     im.alpha_composite(p, ((w - p.width) // 2, 16 * S))
     im.alpha_composite(sparkle(14 * S), (w - 46 * S, 8 * S))
     im.convert("RGB").resize((185, 185), Image.LANCZOS).save(os.path.join(od, "livery.png"))

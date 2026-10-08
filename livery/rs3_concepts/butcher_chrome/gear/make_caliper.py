@@ -5,7 +5,7 @@ Recolours the caliper texture embedded in the .kn5 (caliper.dds, 256x256 DXT5 wi
 and writes it as a skin-folder override, together with the caliper's detail/maps texture:
     out/<skin>/caliper.dds                (256x256 DXT5, 9 mips, ORIGINAL alpha = 0 on every texel)
     out/<skin>/caliper_detail.dds         (4x4, 3 mips: one white texel, written as DXT5)
-    identical files for Pozdnyakov_00 and Konopelko_00
+    identical files for Pozdnyakov_23 and Konopelko_00
 
 How it works
   * the original is a grey baked-AO map (R=G=B), no lettering at all; the shading of each texel is kept:
@@ -49,7 +49,7 @@ import render_rs3  # noqa: E402
 
 KN5 = render_rs3.DEFAULT_KN5
 TEX = "caliper.dds"
-SKINS = ("Pozdnyakov_00", "Konopelko_00")
+SKINS = ("Pozdnyakov_23", "Konopelko_00")
 
 # palette (butcher_chrome/make_skin.py): PIG (242,158,178) body, INK (96,18,42), INK_D (40,10,22)
 PIG = np.array((242, 158, 178), np.float32)

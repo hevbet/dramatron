@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Preview sheet for the pink calipers -> gear/caliper_preview.png
 
-  1. flat caliper.dds: original (embedded in the kn5) vs new (gear/out/Pozdnyakov_00/caliper.dds)
+  1. flat caliper.dds: original (embedded in the kn5) vs new (gear/out/Pozdnyakov_23/caliper.dds)
   2. wheel close-ups (front/rear, both sides) rendered with tools/render_rs3.py --ks-detail from a test skin
-     = copy of butcher_chrome/Pozdnyakov_00 + the new caliper.dds + caliper_detail.dds
+     = copy of butcher_chrome/Pozdnyakov_23 + the new caliper.dds + caliper_detail.dds
   3. full side_left / side_right of the same test skin
   4. the AC detail multiply (render_rs3 --ks-detail): original / pink with the stock detail / final
 
@@ -23,7 +23,7 @@ sys.path.insert(0, HERE)
 import make_caliper as MC  # noqa: E402
 
 BC = os.path.dirname(HERE)
-SKIN = os.path.join(BC, "Pozdnyakov_00")
+SKIN = os.path.join(BC, "Pozdnyakov_23")
 RENDER = "/home/user/dramatron/livery/tools/render_rs3.py"
 WORK = "/tmp/claude-0/-home-user-dramatron/2c81f51a-52a4-58df-8bc9-3f535a44fd37/scratchpad/gear_cal"
 FONTS = "/home/user/dramatron/livery/fonts"
@@ -87,8 +87,8 @@ def main():
     a = ap.parse_args()
     W = a.work
     os.makedirs(W, exist_ok=True)
-    final = os.path.join(HERE, "out", "Pozdnyakov_00", MC.TEX)
-    detail = os.path.join(HERE, "out", "Pozdnyakov_00", MC.DETAIL)
+    final = os.path.join(HERE, "out", "Pozdnyakov_23", MC.TEX)
+    detail = os.path.join(HERE, "out", "Pozdnyakov_23", MC.DETAIL)
     test, test_stock = os.path.join(W, "test_skin"), os.path.join(W, "test_skin_stockdetail")
 
     if not a.skip_render:
@@ -124,7 +124,7 @@ def main():
     d.text((PAD, y), "СУППОРТЫ  ·  Butcher Chart Chrome", font=F_T(46), fill=PIG)
     y += 64
     d.text((PAD, y), "caliper.dds 256×256 DXT5, 9 mips, alpha = original + caliper_detail.dds 4×4 white — same "
-           "files for Pozdnyakov_00 and Konopelko_00; all 4 calipers share one UV", font=F_L(22), fill=DIM)
+           "files for Pozdnyakov_23 and Konopelko_00; all 4 calipers share one UV", font=F_L(22), fill=DIM)
     y += 46
 
     # row 1: flat before / after + swatches / notes
@@ -163,7 +163,7 @@ def main():
     y = max(y + T, yy) + PAD
 
     # row 2: wheel close-ups
-    d.text((PAD, y), "wheel close-ups (test skin = Pozdnyakov_00 + caliper.dds + caliper_detail.dds, render_rs3 --fit --ks-detail)", font=F_T(30),
+    d.text((PAD, y), "wheel close-ups (test skin = Pozdnyakov_23 + caliper.dds + caliper_detail.dds, render_rs3 --fit --ks-detail)", font=F_T(30),
            fill=FG)
     y += 46
     cw = (SW - PAD * 5) // 4

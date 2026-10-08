@@ -40,7 +40,7 @@ OUT = os.path.join(HERE, "out")
 sys.path.insert(0, os.path.join(LIV, "br03_pro"))
 import lib as blib  # noqa: E402  (arka_logo, simkart_logo)
 
-DRIVERS = [("Pozdnyakov_00", ("Станислав", "Поздняков")), ("Konopelko_00", ("Матвей", "Конопелько"))]
+DRIVERS = [("Pozdnyakov_23", ("Станислав", "Поздняков")), ("Konopelko_00", ("Матвей", "Конопелько"))]
 
 # ---------------------------------------------------------------- palette (= make_skin.py)
 PIG = np.array((242, 158, 178), np.float32)
