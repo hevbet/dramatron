@@ -3487,7 +3487,7 @@ def side_decals(s):
     # (client round 3: >= 2 cm air to the door handle - the lever and its recess, y 0.86-1.04, z 0.79-0.825; the label
     #  used to run under the lever's front end: it goes lower / further forward, still level)
     decal_fit(f"label_koreika_{s}", lambda h: cut_label("КОРЕЙКА", px(h)),
-              [0.044, 0.040, 0.037, 0.034, 0.031],
+              [0.034, 0.031],                     # (the approved size: the move must not make it bigger)
               lambda h: sc((0.745, 0.735, 0.755, 0.725, 0.765, 0.775), (0.770, 0.762, 0.755, 0.748, 0.778, 0.785,
                                                                       0.740), rd, h * 6),
               parts=rd, kind="text", tilt_gate=10.0, line_min=1.0, deco_min=2.5, min_clear_cm=1.0,
