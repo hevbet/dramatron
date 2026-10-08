@@ -421,6 +421,65 @@ def vet_stamp(w, lines, col=STAMP, seed=7):
     return solid(m.point(lambda v: int(v * 0.9)), col)
 
 
+GOST_ANGLE = 15.0           # the hood stamp is struck at a jaunty angle (the one deliberate exception to level text)
+
+
+def gost_stamp(w, angle=GOST_ANGLE, col=STAMP, seed=11):
+    """Soviet / Russian meat-inspection stamp, w px across: an oval double ring in violet ink, «ГОСТ» big in the
+    middle, «ВЫСШИЙ СОРТ» along the top and «САРАТОВ · 64» along the bottom between the rings (each letter set on the
+    ellipse, upright to it), worn ink. Turned by `angle` degrees (CCW) as a whole - oval and letters keep their shape
+    (one rotation, no shear); the decal is then projected along the hood's own normal, so the oval stays an oval."""
+    S = 2
+    W, H = int(w * S), int(w * S * 0.66)
+    m = Image.new("L", (W, H), 0)
+    d = ImageDraw.Draw(m)
+    lw = max(4, W // 32)
+    d.ellipse([lw, lw, W - lw, H - lw], outline=255, width=lw)
+    k2 = int(H * 0.235)
+    d.ellipse([k2, k2, W - k2, H - k2], outline=255, width=max(3, lw * 2 // 3))
+    # «ГОСТ»: slab capitals fitted inside the inner oval
+    f = F_LABEL(int(H * 0.36))
+    t = text_mask("ГОСТ", f, track=0.04)
+    t = fit_box(t, int((W - 2 * k2) * 0.62), int((H - 2 * k2) * 0.56))
+    m.paste(Image.composite(Image.new("L", t.size, 255), Image.new("L", t.size, 0), t),
+            ((W - t.width) // 2, (H - t.height) // 2 + int(H * 0.01)), t)
+    # ring texts: per letter, centred on the mid-ellipse between the rings, rotated to the local tangent
+    a_m, b_m = (W / 2 - (lw * 1.5 + k2) / 2 - lw * 0.15), (H / 2 - (lw * 1.5 + k2) / 2 - lw * 0.15)
+    fr = F_STAMP(int((k2 - lw * 1.5) * 0.68))
+
+    def arc_text(txt, top):
+        ws = [fr.getlength(ch) for ch in txt]
+        gap = fr.size * 0.08
+        total = sum(ws) + gap * (len(txt) - 1)
+        # arc length along the mid-ellipse, parametrised by angle
+        th = np.linspace(-math.pi, math.pi, 4001)
+        ex, ey = a_m * np.cos(th), b_m * np.sin(th)
+        sl = np.concatenate([[0], np.cumsum(np.hypot(np.diff(ex), np.diff(ey)))])
+        mid = float(np.interp(-math.pi / 2 if top else math.pi / 2, th, sl))
+        pos = mid - total / 2 if top else mid + total / 2
+        for ch, cw in zip(txt, ws):
+            c_ = pos + cw / 2 if top else pos - cw / 2
+            t_ = float(np.interp(c_, sl, th))
+            x_, y_ = W / 2 + a_m * math.cos(t_), H / 2 + b_m * math.sin(t_)
+            tx, ty = -a_m * math.sin(t_), b_m * math.cos(t_)        # tangent (image y down)
+            rot = -math.degrees(math.atan2(ty, tx)) + (0 if top else 180)
+            g = Image.new("L", (int(fr.size * 1.6), int(fr.size * 1.6)), 0)
+            ImageDraw.Draw(g).text((g.width / 2, g.height / 2), ch, font=fr, fill=255, anchor="mm")
+            g = g.rotate(rot, resample=Image.BICUBIC)
+            m.paste(255, (int(x_ - g.width / 2), int(y_ - g.height / 2)), g)
+            pos = pos + cw + gap if top else pos - cw - gap
+    arc_text("ВЫСШИЙ СОРТ", True)
+    arc_text("САРАТОВ · 64", False)
+    rng = np.random.default_rng(seed)
+    noise = Image.fromarray(((rng.random((H, W)) > 0.22) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.3))
+    blot = Image.fromarray((np.clip(0.75 + 0.35 * ndimage.gaussian_filter(rng.random((H, W)), 18) * 3 - 0.5, 0.55, 1)
+                            * 255).astype(np.uint8))
+    m = ImageChops.multiply(ImageChops.multiply(m, noise.point(lambda v: 255 if v > 110 else int(v * 1.6))), blot)
+    out = solid(m.point(lambda v: int(v * 0.92)), col).rotate(angle, resample=Image.BICUBIC, expand=True)
+    out = out.resize((max(1, out.width // S), max(1, out.height // S)), Image.LANCZOS)
+    return out.crop(out.getbbox())
+
+
 def url_pair(h, col=INK, two_lines=False):
     """«simkarting.ru ◆ karting64.ru»: both web addresses in the partner face (Exo 2 ExtraBold Italic), same size, one
     baseline, a small ink diamond between them (Exo 2 has no ◆ glyph, so it is drawn: 0.64 x-height, centred on the
@@ -977,7 +1036,6 @@ OUTER = None        # texels visible in at least one standard view
 FRONT_ARCH_Y = -1.32           # middle of the front wheel opening at belly height (set by front_arch_y)
 
 
-BELLY_SPLIT = 0.86
 REAR_K = 1.0                   # lateral stretch of the dash coordinate around the tail (set in paint_belly)
 
 
@@ -1099,52 +1157,6 @@ def dash_owner(s):
 def _wrap(v):
     """wrap a dash-phase difference into [-DPER/2, DPER/2)"""
     return (v + DPER / 2) % DPER - DPER / 2
-
-
-def sweep(side, P0, t0, s_start, P3, t3, s_end, h0=0.10, h3=0.09, clip=None, extra=None, ymin=None):
-    """Dashed cubic sweep in the side (y,z) plane from P0 (tangent t0, dash coordinate s_start) to P3 (tangent t3).
-    The dash coordinate is stretched by a few percent so it arrives at P3 exactly in phase with s_end: where the
-    sweep merges into another dashed line, the dashes coincide instead of doubling into a blob.
-    `clip` = (n,3) centre-line of the line it merges into; sweep paint closer than 1.6 cm to it is dropped."""
-    t0 = np.asarray(t0, float) / np.linalg.norm(t0)
-    t3 = np.asarray(t3, float) / np.linalg.norm(t3)
-    P0, P3 = np.asarray(P0, float), np.asarray(P3, float)
-    ctrl = [P0, P0 + t0 * h0] + ([np.asarray(e, float) for e in extra] if extra else []) + [P3 - t3 * h3, P3]
-    if extra:
-        pts2 = catmull3([tuple(c) for c in [P0] + [np.asarray(e, float) for e in extra] + [P3]], 30)
-    else:
-        tt = np.linspace(0, 1, 60)[:, None]
-        q0, q1, q2, q3 = ctrl
-        pts2 = ((1 - tt) ** 3) * q0 + 3 * ((1 - tt) ** 2) * tt * q1 + 3 * (1 - tt) * tt ** 2 * q2 + tt ** 3 * q3
-    c3 = snap([tuple(q) for q in pts2], "side", SIDE_PARTS, side)
-    C = catmull3(c3, 60)
-    C = snap([(p[1], p[2]) for p in C], "side", SIDE_PARTS, side, exact=True)
-    C[:, 0] = ndimage.uniform_filter1d(C[:, 0], 9, mode="nearest")
-    L = float(np.sum(np.linalg.norm(np.diff(C, axis=0), axis=1)))
-    delta = L + _wrap(s_end - s_start - L)
-    curve_line(c3, SIDE_PARTS, side, 0.011, INK, dash=DASH, phase=s_start, resnap_mode="side",
-               scale=delta / L, clip=clip, ymin=ymin)
-    return C
-
-
-def belly_connector(side, a_pts, shoulder_C, phase=0.0, y3=1.34):
-    """Dashed sweep that carries the belly cut line from the rear-door flare up into the shoulder line
-    (tangent-continuous at the start, merges into the shoulder line tangentially well behind the rear-door gap),
-    dash phase continuous at both ends."""
-    y0 = BELLY_SPLIT
-    z0, dz0 = b_curve(np.array([y0]))
-    k0 = math.sqrt(1 + dz0[0] ** 2)
-    # point on the dashed centre line (2.2 cm perpendicular above B) and its tangent
-    py, pz = y0 - 0.022 * dz0[0] / k0, z0[0] + 0.022 / k0
-    t0 = np.array([1.0, dz0[0]])
-    ay, az = np.array(a_pts).T
-    z3 = float(np.interp(y3, ay, az))
-    slope = (np.interp(y3 + 0.02, ay, az) - np.interp(y3 - 0.02, ay, az)) / 0.04
-    x0 = snap([(py, pz)], "side", SIDE_PARTS, side)[0, 0]
-    s0 = float(belly_s(np.array([[x0, py, pz]]))[0])
-    S = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(shoulder_C, axis=0), axis=1))])
-    s3 = float(np.interp(y3, shoulder_C[:, 1], S)) + phase
-    return sweep(side, (py, pz), t0, s0, (y3, z3), (1.0, slope), s3, h0=0.12, h3=0.16, clip=shoulder_C)
 
 
 # -------- the shoulder cut line's path: the Audi «tornado» crease, extracted from the mesh (not drawn by eye)
@@ -1876,12 +1888,12 @@ def eyeliner_dash(L, a_n, SB):
     """Dash coordinate along the front cut line (decreasing from SB at the branch, where it continues the shoulder
     line's dashes): two stretches k1 (branch -> neck) and k2 (neck -> centreline), each as close to 1 as possible, that
     put the middle of a gap on the neck point a_n and the middle of a dash on the end (the centreline). Returns
-    (k1, k2, s_neck, s_end)."""
+    (k1, k2, s_neck, s_end). The neck point gets the middle of a dash (narrowed there, see eyeliner_width)."""
     best = None
-    gap_mid, dash_mid = DASH[0] + DASH[1] / 2, DASH[0] / 2
-    base_n = math.floor((SB - a_n - gap_mid) / DPER)
+    dash_mid = DASH[0] / 2
+    base_n = math.floor((SB - a_n - dash_mid) / DPER)
     for i in range(base_n - 2, base_n + 3):
-        s_n = gap_mid + i * DPER
+        s_n = dash_mid + i * DPER          # (a dash centred in the neck: the line visibly runs through it, narrowed)
         k1 = (SB - s_n) / a_n
         base_e = math.floor((s_n - (L - a_n) - dash_mid) / DPER)
         for j in range(base_e - 2, base_e + 3):
@@ -1893,7 +1905,19 @@ def eyeliner_dash(L, a_n, SB):
     return best[1:]
 
 
-def paint_eyeliner(C, side, sd, drop=()):
+def eyeliner_width(C, side):
+    """dash half width along the front cut line: 1.1 cm, narrowed smoothly (down to 0.6 cm) where the lamp or the grille
+    is closer than the half width + 0.8 cm - the 3.4 cm neck between them - so no dash is left out there"""
+    rim = headlight_rims()
+    nr = nose_rims()
+    sgv = np.array([1.0 if side == "L" else -1.0, 1.0, 1.0])
+    d = cKDTree(np.vstack([rim["rim_hl"], nr["rim_hl"], nr["rim_gr"]])).query(C * sgv)[0]
+    raw = np.clip(d - 0.008, 0.006, 0.011)
+    hw = ndimage.gaussian_filter1d(ndimage.minimum_filter1d(raw, 25, mode="nearest"), 8.0, mode="nearest")
+    return np.minimum(hw, raw + 0.0005)
+
+
+def paint_eyeliner(C, side, sd, drop=(), hw=None):
     """Dashed, constant 2.2 cm width, dash coordinate sd (per curve point). Painted on the half of the car of `side`
     (x >= 0 / x < 0), so the two mirrored halves meet on the centreline. Dashes listed in `drop` (index floor(sd /
     DPER)) are left out whole. Returns the painted texels."""
@@ -1909,13 +1933,14 @@ def paint_eyeliner(C, side, sd, drop=()):
     ok = np.isfinite(d)
     idx, d, j = idx[ok], d[ok], j[ok]
     s = sd[j]
+    h = np.full(len(j), 0.011) if hw is None else hw[j]
     if len(drop):
         keep = ~np.isin(dash_owner(s), list(drop))
-        idx, d, s = idx[keep], d[keep], s[keep]
-    dash_line(idx, s, d, 0.011, DASH[0], DASH[1], INK)
+        idx, d, s, h = idx[keep], d[keep], s[keep], h[keep]
+    dash_line(idx, s, d, h, DASH[0], DASH[1], INK)
     loc = np.mod(s, DPER)
     along = np.where(loc < DASH[0], 0.0, np.minimum(loc - DASH[0], DPER - loc))
-    return idx[np.sqrt(along ** 2 + d ** 2) < 0.011]
+    return idx[np.sqrt(along ** 2 + d ** 2) < h]
 
 
 def front_line_report():
@@ -1923,8 +1948,9 @@ def front_line_report():
     the labels nearby"""
     for s in ("L", "R"):
         e = EYE[s]
-        r = eyeliner_checks(e["C"], s, e["sd"], e["ink"], e["drop"])
+        r = eyeliner_checks(e["C"], s, e["sd"], e["ink"], e["drop"], eyeliner_width(e["C"], s))
         r.update(stretch=[round(e["k1"], 4), round(e["k2"], 4)], neck_cm=e["neck_cm"], seam_cm=e["seam_cm"],
+                 hw_min_cm=e["hw_min_cm"],
                  r_min_cm=e["r_min_cm"],
                  guide_dev_cm=e["dev_cm"], dropped=sorted(e["drop"]))
         lab = {"ЛОПАТКА": f"label_lopatka_{s}", "ПЯТАЧОК": "label_pyatachok", "ШЕЙКА": "label_sheika_hood",
@@ -1938,7 +1964,7 @@ def front_line_report():
         print(f"   front cut line {s}: {r}", flush=True)
 
 
-def eyeliner_checks(C, side, sd, ink, drop=()):
+def eyeliner_checks(C, side, sd, ink, drop=(), hw=None):
     """Whole dashes only: every painted dash of the line is checked in three strips across its width (centre, +-6 mm)
     for holes in the outer skin (> 1.2 cm = cut by a seam / opening) and, in each standard view that faces it (all
     but the far side's: from there the lamp / grille neck is seen round the corner, across the grille frame that
@@ -1963,8 +1989,9 @@ def eyeliner_checks(C, side, sd, ink, drop=()):
         if r[0] == 0:
             continue                       # the dash through the branch: half of it is the shoulder line's
         worst = 0.0
-        for off in (-0.006, 0.0, 0.006):
-            q = surf.snap(C[r] + lat[r] * off)
+        hr = (np.full(len(r), 0.011) if hw is None else hw[r])[:, None]
+        for off in (-0.55, 0.0, 0.55):              # (centre and +-55 % of the local half width)
+            q = surf.snap(C[r] + lat[r] * off * hr)
             dd = surf.tree.query(q)[0]
             hole = dd > 0.0025
             if hole.any():
@@ -2524,19 +2551,19 @@ def paint_greenhouse():
     return out
 
 
-# -------- chrome keyline beside the cut line: a constant offset of it, on one side, never across another cut line
+# -------- chrome keyline beside the cut line: a constant offset of it, on one side, one continuous accompanying line
 # The keyline is painted as the band of skin at KEY_OFF (3D distance, i.e. along the surface for these small offsets)
 # from the cut line's centre curve, on its upper side along the shoulder - the same side all the way (the side of
-# the lamp where the line turns down behind and under it, the hood side over the grille). Wherever the band would come
-# closer than KEY_AIR_LINE to another cut line (the hood line's T-junction, the pillar lines) or than KEY_AIR_PART to
-# a part that is not body (lamps, grille - the neck between them), it is left out, and it ends before that with a
-# taper + fade over KEY_FADE (no blunt end): it never touches or crosses another line.
+# the lamp where the line turns down behind and under it, the hood side over the grille). Client (late item 10): it runs
+# on continuously from the tail lamp along the shoulder, the fender and round the headlight to the nose; where it meets
+# or crosses another dashed cut line it is simply interrupted, with the same fixed air KEY_AIR_LINE (~2 cm) from its
+# paint to that line's paint before and after, with round ends, and resumes on the same path. The only other break is
+# the 3.4 cm neck between the lamp and the grille, where there is no room beside the (narrowed) dash: it stops
+# KEY_AIR_PART from the lamp / grille.
 KEY_OFF = 0.022             # keyline centre -> cut-line centre (m)
 KEY_HW = ((0.0072, (176, 172, 190)), (0.0045, (252, 250, 255)))     # grey edge, white core: half widths, colours
-KEY_FADE = 0.05             # taper + fade length at every end
-KEY_AIR_LINE = 0.02         # air from the keyline's paint to any other cut line's paint
-KEY_AIR_PART = 0.015        # air from the keyline's paint to a lamp / the grille / other non-body parts
-KEY_MIN_PIECE = 2 * 0.05 + 0.10   # shortest piece of keyline left between two gaps (m)
+KEY_AIR_LINE = 0.02         # air from the keyline's paint to any other cut line's paint (each side of a crossing)
+KEY_AIR_PART = 0.008        # air from the keyline's paint to a lamp / the grille
 KEY_LOG = []
 
 
@@ -2552,8 +2579,8 @@ def _arc_dist_to(mask, S):
 
 def paint_keyline(C, side, others, open_start=False):
     """Keyline beside the cut-line centre curve C (ordered; its first point is the centreline end of the nose line
-    when open_start: there the mirrored keyline of the other side carries on, no fade). others: centre curves of the
-    cut lines that meet C (T-junctions)."""
+    when open_start: there the mirrored keyline of the other side carries on). others: centre curves of the cut lines
+    that meet / cross it."""
     sg = 1.0 if side == "L" else -1.0
     parts = SIDE_PARTS + EYE_PARTS + NOSE_PARTS
     S = arclen(C)
@@ -2574,29 +2601,23 @@ def paint_keyline(C, side, others, open_start=False):
     mid = int(np.argmin(np.abs(C[:, 1])))                 # on the door: the keyline is ABOVE the shoulder line
     lat *= np.sign(lat[mid, 2])
     K = C + lat * KEY_OFF                                 # (keyline centre, for the clearance tests)
-    gap = np.zeros(len(C), bool)
+    hw0 = KEY_HW[0][0]
+    gap_line = np.zeros(len(C), bool)
     for O in others:
-        gap |= cKDTree(O).query(K)[0] < KEY_HW[0][0] + KEY_AIR_LINE + 0.011
+        gap_line |= cKDTree(O).query(K)[0] < hw0 + KEY_AIR_LINE + 0.011
     sgv = np.array([sg, 1.0, 1.0])
     rim = headlight_rims()
     nr = nose_rims()
-    parts_pts = np.vstack([rim["rim_hl"], rim["rim_other"], nr["rim_hl"], nr["rim_gr"], nr["rim_ot"]]) * sgv
+    lamps = np.vstack([rim["rim_hl"], nr["rim_hl"], nr["rim_gr"]]) * sgv
     tl = taillamp_points()
-    parts_pts = np.vstack([parts_pts, tl[tl[:, 0] * sg > 0]])
-    near_part = cKDTree(parts_pts).query(K)[0] < KEY_HW[0][0] + KEY_AIR_PART
-    gap |= near_part
-    # a piece of keyline between two gaps shorter than KEY_MIN_PIECE (two fades + 10 cm at full width) would read as a
-    # stray dash: it is left out too
-    runs = np.split(np.arange(len(C)), np.flatnonzero(np.diff(gap.astype(int))) + 1)
-    for r in runs:
-        if not gap[r[0]] and r[0] > 0 and r[-1] < len(C) - 1 and S[r[-1]] - S[r[0]] < KEY_MIN_PIECE:
-            gap[r] = True
+    lamps = np.vstack([lamps, tl[tl[:, 0] * sg > 0]])
+    gap_part = cKDTree(lamps).query(K)[0] < hw0 + KEY_AIR_PART
+    gap = gap_line | gap_part
     ends = gap.copy()
     if not open_start:
         ends[0] = True
     ends[-1] = True
-    f = np.clip(_arc_dist_to(ends, S) / KEY_FADE, 0, 1)
-    f = f * f * (3 - 2 * f)
+    f = _arc_dist_to(ends, S)                       # arc distance to the nearest interruption / end
     f[gap] = 0.0
     d, j = cKDTree(C).query(P, k=1, distance_upper_bound=KEY_OFF + 0.012)
     ok = np.isfinite(d)
@@ -2604,20 +2625,24 @@ def paint_keyline(C, side, others, open_start=False):
     ok[ok] &= f[j[ok]] > 0
     ii, dd, fj = idx[ok], d[ok], f[j[ok]]
     for hw, col in KEY_HW:
-        # tapers to 2.5 mm half width, then fades out in opacity (a ragged sliver would stair-step on the texel grid)
-        h = np.maximum(hw * fj, min(hw, 0.0025))
-        fade = np.clip(hw * fj / min(hw, 0.0025), 0, 1)
-        blend(ii, col, smoothstep_aa(np.abs(dd - KEY_OFF), h) * fade, obstacle=True)
-    # report: the pieces of keyline (arc ranges) and the gaps with their reason
+        # round ends: within hw of an interruption the half width follows a half circle of radius hw
+        h = np.where(fj < hw, np.sqrt(np.clip(hw * hw - (hw - fj) ** 2, 0, None)), hw)
+        blend(ii, col, smoothstep_aa(np.abs(dd - KEY_OFF), h), obstacle=True)
     on = f > 0
     runs = np.split(np.arange(len(C)), np.flatnonzero(np.diff(on.astype(int))) + 1)
     pieces = [(round(float(S[r[0]]), 3), round(float(S[r[-1]]), 3)) for r in runs if on[r[0]]]
-    KEY_LOG.append(dict(side=side, length_cm=round(float(S[-1]) * 100, 1), pieces_m=pieces,
+    gaps = []
+    for r in runs:
+        if not on[r[0]] and 0 < r[0] and r[-1] < len(C) - 1:
+            why = "crossing line" if gap_line[r].any() else "lamp / grille neck"
+            gaps.append(dict(at_m=round(float(S[r[0]]), 3), len_cm=round(float(S[r[-1]] - S[r[0]]) * 100, 1), why=why,
+                             y=round(float(C[r[len(r) // 2], 1]), 3)))
+    KEY_LOG.append(dict(side=side, length_cm=round(float(S[-1]) * 100, 1), pieces_m=pieces, gaps=gaps,
                         air_line_min_cm=round(float(min([cKDTree(O).query(K[on])[0].min() for O in others] + [9.9])
-                                                      - 0.011 - KEY_HW[0][0]) * 100, 1),
-                        air_part_min_cm=round(float(cKDTree(parts_pts).query(K[on])[0].min() - KEY_HW[0][0]) * 100, 1)))
-    print(f"   keyline {side}: {len(pieces)} pieces {pieces} (arc m from the nose centreline), air to other lines "
-          f">= {KEY_LOG[-1]['air_line_min_cm']} cm, to parts >= {KEY_LOG[-1]['air_part_min_cm']} cm", flush=True)
+                                                      - 0.011 - hw0) * 100, 1),
+                        air_part_min_cm=round(float(cKDTree(lamps).query(K[on])[0].min() - hw0) * 100, 1)))
+    print(f"   keyline {side}: {len(pieces)} pieces {pieces}, interruptions {gaps}, air to other lines "
+          f">= {KEY_LOG[-1]['air_line_min_cm']} cm, to lamps / grille >= {KEY_LOG[-1]['air_part_min_cm']} cm", flush=True)
 
 
 def eyeliner_tight_dashes(C, side, sd, air=0.005):
@@ -3072,12 +3097,13 @@ def paint_body():
         shoulder[s] = C
         SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
         Se = arclen(eye)
-        k1, k2, s_n, s_e = eyeliner_dash(float(Se[-1]), E["a_gap"], S_B + phase)
-        sd = np.where(Se <= E["a_gap"], S_B + phase - k1 * Se, s_n - k2 * (Se - E["a_gap"]))
-        drop = eyeliner_tight_dashes(eye, s, sd)
-        ink = paint_eyeliner(eye, s, sd, drop)
+        k1, k2, s_n, s_e = eyeliner_dash(float(Se[-1]), E["a_neck"], S_B + phase)
+        sd = np.where(Se <= E["a_neck"], S_B + phase - k1 * Se, s_n - k2 * (Se - E["a_neck"]))
+        hw = eyeliner_width(eye, s)
+        drop = set()                       # (no dash is left out: the neck dash is narrowed instead)
+        ink = paint_eyeliner(eye, s, sd, drop, hw)
         EYE[s] = dict(C=eye, sd=sd, k1=k1, k2=k2, ink=ink, drop=drop, neck_cm=E["neck_cm"], r_min_cm=E["r_min_cm"],
-                      dev_cm=E["dev_cm"], seam_cm=E["seam_cm"])
+                      dev_cm=E["dev_cm"], seam_cm=E["seam_cm"], hw_min_cm=round(float(hw.min()) * 200, 2))
         CREASE[s]["off_cm"] = crease_offset_cm(C[np.searchsorted(arclen(C), S_B):], s)
         print(f"   shoulder line {s}: on the crease from y {C[np.searchsorted(arclen(C), S_B), 1]:.3f} to "
               f"{C[-1, 1]:.3f} (last dash end {SH_REAR_AIR * 100:.1f} cm from the tail lamp), phase {phase:.4f}; "
@@ -3251,8 +3277,9 @@ def raf_pill(D):
 PEARL_PAD = (250, 244, 250)
 
 
-def sill_art(kind, H):
-    """Sill-row logo on its backer, scaled uniformly to the common outer height H (m)."""
+def sill_art(kind, H, flip=False):
+    """Sill-row logo on its backer, scaled uniformly to the common outer height H (m). flip: KARTING64 mirrored (its
+    kart faces the car's nose on the LEFT side; the art has no lettering, so mirroring is allowed)."""
     if kind == "raf":                # deep-ink pill: emblem + «РАФ» at the BR ENGINEERING cap height (raf_pill)
         a = raf_pill(px(H))
     elif kind == "breng":            # white on a deep-ink pill (unchanged treatment)
@@ -3260,7 +3287,7 @@ def sill_art(kind, H):
     elif kind == "driveoil":         # the brand's own orange plate (as behind the rear wheel)
         a = asset_driveoil(px(H))
     elif kind == "karting64":        # kart artwork only, pearl pad (unchanged treatment)
-        a = pill(asset_karting64(px(H - 0.012)), px(0.010), px(0.006), PEARL_PAD, line=INK_D)
+        a = pill(asset_karting64(px(H - 0.012), flip=flip), px(0.010), px(0.006), PEARL_PAD, line=INK_D)
     else:
         raise ValueError(kind)
     return fit_h(a, px(H))
@@ -3379,6 +3406,8 @@ def sill_row(s):
     sd = "left" if s == "L" else "right"
     for k, a, r in zip(b["kinds"], b["arts"], b["res"]):
         c, n, u = r[s][1]
+        if k == "karting64" and s == "L":      # (the kart faces forward on both sides: mirrored on the left)
+            a = sill_art(k, b["H"], flip=True)
         decal(f"sill_{k}_{s}", a, c, n, u, ppm=PPM, side=s, parts=sl, min_clear_cm=1.0,
               occl_views=[f"side_{sd}", f"front34_{sd}", f"rear34_{sd}"])
 
@@ -3436,7 +3465,7 @@ def side_decals(s):
     # width that keeps >= 1.5 cm to the arch lip, the panel edges, the band's keyline and the dashed line
     rq = ["rear_fender"]
     sd_ = "left" if s == "L" else "right"
-    decal_fit(f"k64_driveoil_flare_{s}", flare_pair, [0.21, 0.20, 0.19, 0.18, 0.17, 0.16, 0.15],
+    decal_fit(f"k64_driveoil_flare_{s}", lambda w: flare_pair(w, flip=(s == "L")), [0.21, 0.20, 0.19, 0.18, 0.17, 0.16, 0.15],
               lambda w: level_side_cands((1.835, 1.83, 1.84, 1.825, 1.845, 1.82), (0.485, 0.475, 0.495, 0.465),
                                          rq, s, w, flare_pair(w).height / PPM),
               parts=rq, tilt_gate=12.0, line_min=1.5, air=1.5, min_clear_cm=1.5, deco_min=4.0, depth_tol=0.03,
@@ -3452,9 +3481,10 @@ def side_decals(s):
 FLARE_GAP = 0.025          # gap between KARTING64 and DriveOil in the flare pair (m)
 
 
-def flare_pair(w):
-    """KARTING64 pad over the DriveOil plate, both scaled uniformly to the same width w (m)."""
-    k = fit_w(k64_pad(px(0.06)), px(w))
+def flare_pair(w, flip=False):
+    """KARTING64 pad over the DriveOil plate, both scaled uniformly to the same width w (m); flip: the kart mirrored so
+    it faces the car's nose (left side)."""
+    k = fit_w(k64_pad(px(0.06), flip=flip), px(w))
     d = fit_w(asset_driveoil(px(0.06)), px(w))
     return stack([k, d], px(FLARE_GAP))
 
@@ -3502,21 +3532,30 @@ def top_decals():
                                                    (0.745, 0.740, 0.750, 0.735, 0.730, 0.755, 0.725), ff, s, h * 7),
                   ppm=PPM, parts=ff, side=s, kind="text", tilt_gate=10.0, line_min=1.5, deco_min=3.0, min_clear_cm=1.0)
     # Roof – one reading direction for the whole roof: everything reads from BEHIND (TV helicopter / following
-    # car), digit tops toward the nose. Order: number > region > stamp.
+    # car), digit tops toward the nose. The meat stamp moved to the hood (gost_hood, below), so the race
+    # number plate takes the roof: the largest plate (one uniform scale, same 1 : 0.70 proportions) that keeps >= 2 cm to
+    # the closed roof loop line and to the Саратовская область block (placed after it, nudged back if needed).
     roof = ["roof"]
-    decal_fit("number_roof", lambda w: number_plate(px(w), px(w * 0.70)), [0.74, 0.72, 0.70, 0.66],
-              lambda w: top_cands((0.0,), (0.40, 0.42, 0.38, 0.44), roof, (0, -1, 0), normal="z"),
-              ppm=PPM, parts=roof, kind="number", air=6.0, line_min=6.0)
-    decal_fit("stamp_vyrezka_roof", lambda w: vet_stamp(px(w), ["ВЫСШИЙ СОРТ", "ВЫРЕЗКА", "ГОСТ · 64 · САРАТОВ"]),
-              [0.32, 0.30, 0.28],
-              lambda w: top_cands((0.0,), (-0.10, -0.09, -0.11, -0.08), roof, (0, -1, 0), normal="z"),
-              ppm=PPM, parts=roof, kind="text", line_min=1.5, deco_min=5.0)
+    decal_fit("number_roof", lambda w: number_plate(px(w), px(w * 0.70)),
+              [round(1.00 - 0.02 * i, 2) for i in range(14)],
+              lambda w: top_cands((0.0,), (0.36, 0.34, 0.38, 0.32, 0.40, 0.30, 0.42), roof, (0, -1, 0), normal="z"),
+              ppm=PPM, parts=roof, kind="number", air=2.0, line_min=2.0, deco_min=2.0)
     reg = lambda h: row([asset_coat(px(h)), stack([ink_text("САРАТОВСКАЯ", F_TEAM(px(h * 0.31)), INK),
                                                     ink_text("ОБЛАСТЬ · 64", F_TEAM(px(h * 0.31)), INK)],
                                                    px(h * 0.07))], px(h * 0.2))
     decal_fit("saratov_roof", reg, [0.20, 0.19, 0.18, 0.17, 0.16, 0.15],
-              lambda h: top_cands((0.0,), (0.93, 0.92, 0.94, 0.91), roof, (0, -1, 0), normal="z"),
-              ppm=PPM, parts=roof, line_min=1.5, deco_min=5.0)
+              lambda h: top_cands((0.0,), (0.93, 0.95, 0.92, 0.97, 0.91, 0.99, 0.89), roof, (0, -1, 0), normal="z"),
+              ppm=PPM, parts=roof, line_min=2.0, deco_min=2.0)
+    # ГОСТ meat stamp (moved from the roof): oval double ring, violet worn ink, struck at GOST_ANGLE on a flat part of
+    # the hood beside the Симкарт tag, read from the front; 28-35 cm across (the largest that fits), projected along the
+    # hood's mean normal there (the oval keeps its shape), >= 2 cm from the Симкарт tag, ШЕЙКА, ПЯТАЧОК, every dashed
+    # line, and from the vent cut-out / hood edges
+    def gc(w):
+        return top_cands((0.40, 0.36, 0.44, -0.40, -0.36, -0.44), (-1.50, -1.45, -1.55, -1.60, -1.40, -1.65, -1.70), ["hood"],
+                         (0, 1, 0), r=0.15)
+    decal_fit("gost_hood", lambda w: gost_stamp(px(w)), [0.35, 0.34, 0.33, 0.32, 0.31, 0.30, 0.29, 0.28], gc,
+              ppm=PPM, parts=["hood"], kind="logo", depth_tol=0.05, min_clear_cm=2.0, air=2.0, line_min=2.0, deco_min=2.0,
+              occl_views=["front", "front34_left", "front34_right"])
     # Y2K sparkles (accents only, kept off logos and lines)
     for k, (xs, ys, rr, pp) in enumerate((((0.30, 0.32), (0.05, 0.0), 0.026, roof), ((-0.30, -0.32), (0.80, 0.84), 0.020, roof),
                                           ((0.37, 0.40), (-1.30, -1.26), 0.024, hood), ((-0.37, -0.40), (-1.62, -1.58), 0.018, hood))):
@@ -3595,8 +3634,58 @@ def rear_front_decals():
     decal_fit("label_pyatachok", lambda h: cut_label("ПЯТАЧОК", px(h), underline=False),
               [0.034, 0.032, 0.030, 0.028, 0.026, 0.024], pc, ppm=PPM, parts=hood, kind="text", min_clear_cm=0.8,
               check_angle=40, tilt_gate=10.0, line_min=2.0)          # >= 2 cm to the nose cut line over the grille
+    splitter_urls()
     # (front bumper corners: no Симкарт line - outboard of the intakes the corner is ~10 cm wide and turns > 40 deg,
     #  every candidate failed the flatness / edge gates)
+
+
+def splitter_urls():
+    """Front splitter (client): «simkarting.ru» and «karting64.ru» in the URL face (Exo 2 ExtraBold Italic, as on the
+    rear bumper), white, one on each side of the nose, mirror-symmetric, read left to right from the front. The carbon
+    blade itself (Circle.004_SUB0, ext_plastic.dds u 0..0.54) cannot carry them: that region of ext_plastic.dds is
+    shared with ~14 other meshes (the rear wing among them), so they go on the painted 'front_splitter' skin zone - the
+    bumper's lower lip just above the blade, left black as in the source; it faces forward only at |x| 0.45-0.85 (the
+    middle sits behind the grille's lower frame). One common size for both (the largest that passes on both sides:
+    flat within 12 deg, inside the lip, fully seen in the front and that side's 3/4 view), projected along a level
+    normal so the baseline is level."""
+    spl = np.flatnonzero((PARTF == PID["front_splitter"]) & COV.reshape(-1))
+    CAN[spl] = A0.reshape(-1, 3)[spl] / SHADE.reshape(-1)[spl, None]      # (unchanged black source under the URLs)
+    PAINTF[spl] = True
+    _idx_cache.clear()
+    sp = ["front_splitter"]
+
+    def cands(sg):
+        def f(h):
+            out = []
+            Q = POSF[cand(sp)]
+            for x in (0.62, 0.60, 0.64, 0.58, 0.66):
+                for z in (0.232, 0.228, 0.236, 0.224):
+                    m = (np.abs(Q[:, 0] - sg * x) < 0.006) & (np.abs(Q[:, 2] - z) < 0.004)
+                    if not m.any():
+                        continue
+                    c = (sg * x, float(Q[m][:, 1].min()), z)
+                    nv = mean_normal(c, sp, None, 0.08)
+                    nv[2] = 0.0
+                    out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 0, 1)))
+            return out
+        return f
+    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.05, min_clear_cm=0.8, tilt_gate=12.0, line_min=1.0,
+              deco_min=2.0)
+    sizes = [0.040, 0.038, 0.036, 0.034, 0.032, 0.030, 0.028, 0.026, 0.024, 0.022]
+    art = lambda txt: (lambda h: ink_text(txt, F_SPON(px(h * 1.35)), WHITE))
+    jobs = (("url_splitter_R", SIMKART_URL, -1, "front34_right"), ("url_splitter_L", K64_URL, 1, "front34_left"))
+    fits = [fit_search(nm, art(t), sizes, cands(sg), occl_views=["front", v], **kw) for nm, t, sg, v in jobs]
+    h = min(f[0] for f in fits)
+    for (nm, t, sg, v), f in zip(jobs, fits):
+        sz, ok, best, a_, rep = fit_search(nm, art(t), [x for x in sizes if x <= h], cands(sg), occl_views=["front", v],
+                                           **kw)
+        c, n, u = best
+        decal(nm, a_, c, n, u, occl_views=["front", v], **{k: v_ for k, v_ in kw.items()
+                                                             if k not in ("tilt_gate", "line_min", "deco_min")})
+        print(f"   {nm}: «{t}» {sz * 100:.1f} cm type -> {'OK' if ok else 'NO FIT'} tilt={rep['max_tilt_deg']} "
+              f"edge={rep['edge_clear_cm']} hidden={rep.get('hidden_frac')}", flush=True)
+    URL_NOTES.append(f"front splitter lip: «{SIMKART_URL}» right / «{K64_URL}» left, one size, white (the blade's "
+                     f"ext_plastic.dds region is shared with other meshes: no texture override)")
 
 
 # ================================================================= glass_sticker.dds (1024, alpha kept)
@@ -3837,10 +3926,10 @@ def endplate_layout():
     return {nm: (float(hp), r[0], r[1], r[2], box[nm]) for nm, r in res.items()}
 
 
-def k64_pad(h):
+def k64_pad(h, flip=False):
     """KARTING64 artwork (kart, pilot, RU-flag stripes; no lettering) on the pearl pad of the sill row, pad height h px
     (same proportions as the sill pad: art 75 % of the pad height, 21 % / 12.5 % padding)."""
-    return pill(asset_karting64(int(h * 0.75)), int(h * 0.208), int(h * 0.125), PEARL_PAD, line=INK_D)
+    return pill(asset_karting64(int(h * 0.75), flip=flip), int(h * 0.208), int(h * 0.125), PEARL_PAD, line=INK_D)
 
 
 NAME_SCALE = 0.85       # side-window name plate: 15 % smaller than the 386 x 82 px strip (same aspect ratio)
@@ -3951,8 +4040,9 @@ def glass_sticker(driver, num):
     # endplates: burgundy, holo band along both long edges, and ONLY the KARTING64 logo (kart artwork, no lettering)
     # on its pearl pad (the sill treatment), as large as the visible outer face allows (client: the Saratov flag + «64»
     # are gone). Both faces are mapped un-mirrored seen from outside (texture x = toward the rear on the left plate,
-    # toward the front on the right one, texture y = down; see endplate_faces), so the art goes on as drawn, not
-    # flipped, on both. Size and centre: the largest pad whose outline keeps >= EP_MARGIN px (~1.8 cm) from the edge
+    # toward the front on the right one, texture y = down; see endplate_faces): the kart artwork (drawn facing right)
+    # is mirrored on the left plate so it faces the car's nose on both. Size and centre: the largest pad whose outline
+    # keeps >= EP_MARGIN px (~1.8 cm) from the edge
     # of the visible face (the face's chamfered / rounded corners from the kn5 UVs) and from the holo bands.
     if not _EP_POS:
         _EP_POS.update(endplate_layout())
@@ -3964,7 +4054,8 @@ def glass_sticker(driver, num):
         d.rectangle(k([ex0, 764, ex1, 765]), fill=(250, 248, 255, 255))
         d.rectangle(k([ex0, 850, ex1, 851]), fill=(250, 248, 255, 255))
         hp, cx, cy, clr, box = _EP_POS[nm]
-        pad_ = k64_pad(hp * S)
+        # (the left plate's face runs toward the rear in texture x: the kart is mirrored there so it faces forward)
+        pad_ = k64_pad(hp * S, flip=(nm == "L"))
         gplace(G, f"endplate_k64_{nm}", pad_, k(box), cx=cx * S, cy=cy * S, edge=0)
         mm_px = 1000.0 / 570.0
         GCHECKS[-1].update(size_px=[round(pad_.width / S), round(pad_.height / S)],
@@ -4122,9 +4213,8 @@ def main():
     for r in LINE_CHECKS:        # front cut line along the headlight and across the nose
         rep.append(f"{r['status']:<6} line:front_{r['side']:<18} {r['dashes']} whole dashes, {r['length_cm']} cm to the "
                    f"centreline, stretch {r['stretch'][0]} / {r['stretch'][1]}, smallest turn radius {r['r_min_cm']} cm, "
-                   f"neck between lamp and grille {r['neck_cm']} cm wide (in a gap, whose middle is on the hood-corner shut "
-                   f"line {r['seam_cm']} cm further on), dashes left out "
-                   f"{r['dropped']}; air of the paint to the lamp {r['air_lamp_cm']} cm, grille {r['air_grille_cm']} cm, "
+                   f"neck between lamp and grille {r['neck_cm']} cm wide: a dash centred in it, narrowed smoothly to "
+                   f"{r['hw_min_cm']} cm, dashes left out {r['dropped']}; air of the paint to the lamp {r['air_lamp_cm']} cm, grille {r['air_grille_cm']} cm, "
                    f"other parts {r['air_other_cm']} cm; guide deviation (lamp gap / crease / grille gap) "
                    f"{r['guide_dev_cm']} cm; labels " + ", ".join(f"{k} {v}" for k, v in r["label_air_cm"].items()) + " cm"
                    + ("" if r["status"] == "OK" else f"; truncated {r['truncated']} hidden {r['hidden']}"))
@@ -4135,15 +4225,22 @@ def main():
                        f"flare top edge, S-blend {CREASE_BLEND[0]}..{CREASE_BLEND[1]}); centre line -> crease median "
                        f"{c['off_cm'][0]} cm, max {c['off_cm'][1]} cm; rear end y {c.get('y_end', 0):.3f} "
                        f"({SH_REAR_AIR * 100:.1f} cm from the tail lamp), dash phase {SH_PHASE.get(s_, 0):.4f}")
-    for r in PILLAR_LOG:
-        rep.append(f"INFO   line:{r['kind']}-pillar_{r['side']} {r['length_cm']} cm from the roof centreline to the "
-                   f"shoulder line at {r['junction']}, stretch {r['stretch']}, centreline on a {r['centre']}, "
-                   f"dashes left out (behind trims / frames) {r['dashes_left_out']}, air to frames / glass of the painted "
-                   f"dashes >= {r['air_frames_cm']} cm, smallest turn radius of the painted dashes {r['r_min_cm']} cm")
+    for r in GH_LOG:
+        rep.append(f"INFO   line:greenhouse one dashed line per side, hood centreline -> A-pillar (beside the windscreen, "
+                   f"{GH_GAP_WS * 100:.1f} cm) -> roof edge ({GH_GAP_SIDE * 100:.1f} cm from the side window) -> C-pillar "
+                   f"(beside the rear window, {GH_GAP_RW * 100:.1f} cm) -> trunk lid ({GH_GAP_TRUNK * 100:.2f} cm from the "
+                   f"rear window's lower edge) -> trunk centreline: {r['main_cm']} cm, stretches {r['main_stretch']} (a gap "
+                   f"centred on each wing stay), trunk centreline on a {r['trunk_centre']}, smallest turn radius "
+                   f"{r['r_main_cm']} cm; roof loop closed by the header ({GH_GAP_HEAD * 100:.1f} cm behind the windscreen, "
+                   f"{r['head_cm']} cm, turn radius {r['head_turn_r_cm']} cm, centre on a {r['head_centre']}) and the rear "
+                   f"cross line ({r['rear_cm']} cm, turn radius {r['rear_turn_r_cm']} cm, centre on a {r['rear_centre']}), "
+                   f"each joining the side line in a Y on its dashes; no dash left out - narrowest dash "
+                   f"{min(r['main_hw_min_cm'], r['head_hw_min_cm'], r['rear_hw_min_cm'])} cm wide; nothing meets the "
+                   f"shoulder line")
     for r in KEY_LOG:
-        rep.append(f"INFO   keyline:{r['side']} {r['length_cm']} cm of cut line, keyline pieces (m along it from the nose "
-                   f"centreline) {r['pieces_m']}; air to any other cut line >= {r['air_line_min_cm']} cm, to lamps / "
-                   f"grille >= {r['air_part_min_cm']} cm; every end tapered + faded over {KEY_FADE * 100:.0f} cm")
+        rep.append(f"INFO   keyline:{r['side']} {r['length_cm']} cm of cut line, one accompanying line: pieces (m along it from "
+                   f"the nose centreline) {r['pieces_m']}; interruptions {r['gaps']}; air of its paint to any other cut "
+                   f"line >= {r['air_line_min_cm']} cm, to lamps / grille >= {r['air_part_min_cm']} cm; round ends")
     for s_, r in SLOT_LOG.items():
         if r:
             rep.append(f"INFO   keyline:band_{s_} runs {SLOT_GAP * 100:.1f} cm under the black lower-trim fin's slot, "
@@ -4171,7 +4268,7 @@ def main():
     with open(os.path.join(HERE, "check_report.txt"), "w") as fh:
         fh.write(txt + "\n")
     json.dump(dict(skin=CHECKS, glass=GCHECKS, belly_dropped=BELLY_DROPPED, line_notes=LINE_NOTES, sill_row=SILL_LOG,
-                   url_notes=URL_NOTES, front_cut_line=LINE_CHECKS, pillar_lines=PILLAR_LOG, keylines=KEY_LOG,
+                   url_notes=URL_NOTES, front_cut_line=LINE_CHECKS, greenhouse_lines=GH_LOG, keylines=KEY_LOG,
                    shoulder_crease={k: dict(off_cm=v.get("off_cm"), y_end=v.get("y_end")) for k, v in CREASE.items()},
                    band_slot={k: (None if v is None else dict(y_range=v["y_range"], max_dip_cm=v["max_dip_cm"]))
                               for k, v in SLOT_LOG.items()},
