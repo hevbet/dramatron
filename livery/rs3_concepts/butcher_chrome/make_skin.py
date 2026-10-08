@@ -713,23 +713,39 @@ def smoothstep_aa(d, half_w, aa=0.0013):
 FLARE_KEY_IN = 0.0045       # keyline centre below the flare edge (m): its white core sits on the side-facing face
 FLARE_TE_IN = 0.0105        # keyline centre ahead of the flare's trailing edge (m)
 FLARE_DASH_END = 1.895      # the flare top (its step) ends here: no dashes behind it above the bumper strip
-DOOR_BAND_Z = 0.40          # level band edge along the sill / front door
+DOOR_BAND_Z = 0.40          # (old: level band edge along the front door - the band now follows the crease, see below)
+BAND_Y0 = -0.90             # client round 3 (A): the swoosh boundary follows the real body crease from just behind
+#                             the front wheel (the doors' lower feature line, rising gently into the rear flare's top
+#                             edge) - not a level line on the front door
+FAIR_TOL = 0.003            # the fair curve stays within 3 mm of the extracted ridge
 FLARE_LOG = {}
 
 
-def flare_edge(y0=0.0, y1=1.90, step=0.01, sigma=0.03):
-    """(ys, z) of the rear flare's edge on the left side: per 1 cm station the convex ridge (crease_section, > 3 deg/mm,
-    |x| 0.90-0.99) followed from the top of the arch (y 1.30) forward and back, smoothed (Gaussian, sigma 3 cm)."""
+def flare_edge(y0=BAND_Y0, y1=1.90, step=0.01):
+    """(ys, z) of the swoosh crease on the left side: per 1 cm station the convex ridge (crease_section, > 3 deg/mm,
+    |x| 0.86-0.99) followed from the top of the rear arch (y 1.30) forward and back - the wide-body rear flare's top
+    edge, and ahead of it the doors' lower feature line that leads into it (z 0.34 just behind the front wheel, rising
+    gently along the front and rear door, then up the flare's leading edge); then ONE fair curve through it: a
+    smoothing spline (no wobble), its smoothing chosen as the largest that keeps it within FAIR_TOL of the ridge.
+    Returns (ys, fair z, raw z)."""
+    from scipy.interpolate import UnivariateSpline
     ys = np.round(np.arange(y0, y1 + 1e-9, step), 3)
     peaks = []
     for y in ys:
-        zs, X, ok, de = crease_section(y, 1, zlo=0.30, zhi=0.90)
+        zs, X, ok, de = crease_section(y, 1, zlo=0.28, zhi=0.90)
         peaks.append([(float(zs[k]), float(X[k]), float(de[k])) for k in range(4, len(zs) - 4)
                       if ok[k - 4:k + 5].all() and de[k] > 1.0 and de[k] == de[k - 4:k + 5].max()])
-    z = _crease_track(ys, peaks, 1.30, (0.30, 0.86), (0.90, 0.99), 3.0, step_tol=0.02)
+    z = _crease_track(ys, peaks, 1.30, (0.30, 0.86), (0.86, 0.99), 2.0, step_tol=0.02)
     ok = np.isfinite(z)
     ys, raw = ys[ok], z[ok]
-    return ys, ndimage.gaussian_filter1d(raw, sigma / step, mode="nearest"), raw
+    fair = None
+    for sfac in (4e-6, 2e-6, 1e-6, 5e-7, 2.5e-7, 1.2e-7, 6e-8):
+        f = UnivariateSpline(ys, raw, k=5, s=sfac * len(ys))(ys)
+        fair = f
+        if np.abs(f - raw).max() <= FAIR_TOL:
+            break
+    FLARE_LOG.update(fair_dev_cm=round(float(np.abs(fair - raw).max()) * 100, 2), ridge_y=[float(ys[0]), float(ys[-1])])
+    return ys, fair, raw
 
 
 def flare_trailing_edge(z0=0.45, z1=0.79, step=0.02):
@@ -746,9 +762,7 @@ def flare_trailing_edge(z0=0.45, z1=0.79, step=0.02):
 
 def _band_pts():
     ys, zr, raw = flare_edge()
-    want = zr - FLARE_KEY_IN
-    eps = 0.012                                                    # smooth maximum: level door edge -> flare edge
-    zb = 0.5 * (DOOR_BAND_Z + want + np.sqrt((DOOR_BAND_Z - want) ** 2 + eps ** 2))
+    zb = zr - FLARE_KEY_IN                                         # (the keyline just under the crease, everywhere)
     zt, yt = flare_trailing_edge()
     yte = yt - FLARE_TE_IN
     # corner flare top -> trailing edge (which leans back toward the bottom) and trailing edge -> bumper strip at 0.45:
@@ -764,13 +778,15 @@ def _band_pts():
         r = poly[:-1] * 0.25 + poly[1:] * 0.75
         poly = np.vstack([poly[:1], np.stack([q, r], 1).reshape(-1, 2), poly[-1:]])
     poly = poly[np.concatenate([[True], np.diff(poly[:, 0]) > 1e-4])]          # (y strictly increasing for PCHIP)
-    k = (ys >= 0.10) & (ys < 1.70)
+    k = (ys < 1.70)
     mid = [(float(y), float(z)) for y, z in zip(ys[k][::2], zb[k][::2])]
     rear = [tuple(map(float, v)) for v in poly[::3]] + [(2.50, 0.45)]
     FLARE_LOG.update(edge_y=[float(ys[0]), float(ys[-1])], edge_z_top=round(float(zr.max()), 3),
                      smooth_dev_cm=round(float(np.abs(zr - raw).max()) * 100, 2), corner=[round(yx, 3), round(zx, 3)],
                      te=[(round(float(a), 3), round(float(b), 3)) for a, b in zip(zt, yt)])
-    front = [(-2.40, 0.315), (-1.72, 0.315), (-1.06, DOOR_BAND_Z), (-0.20, DOOR_BAND_Z), (0.0, DOOR_BAND_Z)]
+    # ahead of the crease's start (over the front wheel opening) the band edge eases to its height there
+    front = [(-2.40, 0.315), (-1.72, 0.315), (float(ys[0]) - 0.16, float(zb[0]))]
+    FLARE_LOG.update(start=[round(float(ys[0]), 3), round(float(zb[0] + FLARE_KEY_IN), 3)])
     return front + mid + rear
 
 
