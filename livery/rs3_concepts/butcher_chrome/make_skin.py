@@ -3515,15 +3515,41 @@ def top_cands(xs, ys, parts, up, normal="mean", side=None, r=0.10):
 
 
 def top_decals():
-    # Hood: Симкарт night plate (+ thin holo pinstripe), read from the front; clear of the bonnet vent cut-out
+    # Hood. The only flat part of the hood (normals within ~2 deg over 30 cm) is the strip between the hood cut line and
+    # the vent's ramp, |x| <= ~0.55, y -1.29 .. -1.45 (outboard of the bulge's creases and ahead of the ramp it turns
+    # 30+ deg). It now carries two things: the ГОСТ stamp (client) and the Симкарт plate - so the stamp goes first, on
+    # the car's left half of that strip, and the Симкарт plate is fitted after it, as large as possible with >= 2 cm air
+    # to the stamp (it moves a few cm to the right and may come out a little smaller than the 0.58 m it had).
     hood = ["hood"]
-    decal_fit("simkart_hood", lambda w: asset_simkart_tag(px(w), pin=True), [0.64, 0.62, 0.60, 0.58],
-              lambda w: top_cands((0.0,), (-1.43, -1.42, -1.44, -1.41, -1.45), hood, (0, 1, 0), r=0.15),
-              ppm=PPM, parts=hood, depth_tol=0.05, air=1.5, line_min=2.0)
     # ШЕЙКА: the neck cut between the hood cut line and the windscreen
     decal_fit("label_sheika_hood", lambda h: cut_label("ШЕЙКА", px(h)), [0.075, 0.070, 0.065, 0.060, 0.055, 0.050],
               lambda h: top_cands((0.0,), (-1.19, -1.18, -1.20, -1.17, -1.21), hood, (0, 1, 0), r=0.08),
               ppm=PPM, parts=hood, kind="text", tilt_gate=10.0, line_min=2.0)      # >= 2 cm air to the hood cut line
+    # ГОСТ meat stamp (moved from the roof): oval double ring, violet worn ink, struck at GOST_ANGLE on a flat part of
+    # the hood beside the Симкарт tag, read from the front; 28-30 cm across (the largest that fits), projected along the
+    # hood's mean normal there (the oval keeps its shape), >= 2 cm from the Симкарт tag, ШЕЙКА, ПЯТАЧОК, every dashed
+    # line, and from the vent cut-out / hood edges
+    def gc(w):
+        out = []
+        hi = cand(["hood"])
+        for x in (0.42, 0.43, 0.41, 0.44, 0.40, 0.45):
+            for y in (-1.38, -1.37, -1.39, -1.36, -1.40):
+                for sg in (1,):
+                    c = surf_point("top", sg * x, y, ["hood"])
+                    # the hood's own visible top skin around the centre (not its inner flanges under it)
+                    k = (np.linalg.norm(POSF[hi] - c, axis=1) < 0.08) & (NRMF[hi, 2] > 0.3) & OUTER[hi]
+                    nv = NRMF[hi[k]].mean(0)
+                    out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 1, 0)))
+        return out
+    decal_fit("gost_hood", lambda w: gost_stamp(px(w)), [0.30, 0.29, 0.28], gc,
+              ppm=PPM, parts=["hood"], kind="logo", depth_tol=0.015, min_clear_cm=2.0, air=2.0, line_min=2.0,
+              deco_min=2.0, occl_views=["front", "front34_left", "front34_right"])
+    # Симкарт night plate (+ thin holo pinstripe), read from the front, clear of the vent cut-out and the stamp
+    decal_fit("simkart_hood", lambda w: asset_simkart_tag(px(w), pin=True), [0.58, 0.57, 0.56, 0.55, 0.54, 0.53, 0.52,
+                                                                              0.51, 0.50],
+              lambda w: top_cands((-0.06, -0.05, -0.07, -0.04, -0.08, -0.03), (-1.43, -1.42, -1.44, -1.41, -1.45), hood,
+                                  (0, 1, 0), r=0.15),
+              ppm=PPM, parts=hood, depth_tol=0.05, air=1.5, line_min=2.0, deco_min=2.0)
     # ЛОПАТКА (shoulder): on the side face of the front fender behind the wheel arch, under the shoulder cut line
     # (which now runs on the flare's top edge, z ~0.80: the label's centre candidates are 2.5-4.5 cm lower than before).
     # (it used to sit on the fender top, which rises ~6 deg toward the windscreen: projected there the word followed
@@ -3551,26 +3577,6 @@ def top_decals():
     decal_fit("saratov_roof", reg, [0.20, 0.19, 0.18, 0.17, 0.16, 0.15],
               lambda h: top_cands((0.0,), (0.93, 0.95, 0.92, 0.97, 0.91, 0.99, 0.89), roof, (0, -1, 0), normal="z"),
               ppm=PPM, parts=roof, line_min=2.0, deco_min=2.0)
-    # ГОСТ meat stamp (moved from the roof): oval double ring, violet worn ink, struck at GOST_ANGLE on a flat part of
-    # the hood beside the Симкарт tag, read from the front; 28-35 cm across (the largest that fits), projected along the
-    # hood's mean normal there (the oval keeps its shape), >= 2 cm from the Симкарт tag, ШЕЙКА, ПЯТАЧОК, every dashed
-    # line, and from the vent cut-out / hood edges
-    def gc(w):
-        out = []
-        hi = cand(["hood"])
-        for x in (0.44, 0.42, 0.46, 0.40, 0.48, 0.38, 0.50):
-            for y in (-1.36, -1.34, -1.38, -1.32, -1.40, -1.30, -1.42, -1.45):
-                for sg in (1, -1):
-                    c = surf_point("top", sg * x, y, ["hood"])
-                    # the hood's own visible top skin around the centre (not its inner flanges under it)
-                    k = (np.linalg.norm(POSF[hi] - c, axis=1) < 0.08) & (NRMF[hi, 2] > 0.3) & OUTER[hi]
-                    nv = NRMF[hi[k]].mean(0)
-                    out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 1, 0)))
-        return out
-    decal_fit("gost_hood", lambda w: gost_stamp(px(w)), [0.35, 0.34, 0.33, 0.32, 0.31, 0.30, 0.29, 0.28, 0.27, 0.26,
-                                                          0.25, 0.24], gc,
-              ppm=PPM, parts=["hood"], kind="logo", depth_tol=0.015, min_clear_cm=2.0, air=2.0, line_min=2.0,
-              deco_min=2.0, occl_views=["front", "front34_left", "front34_right"])
     # Y2K sparkles (accents only, kept off logos and lines)
     for k, (xs, ys, rr, pp) in enumerate((((0.30, 0.32), (0.05, 0.0), 0.026, roof), ((-0.30, -0.32), (0.80, 0.84), 0.020, roof),
                                           ((0.37, 0.40), (-1.30, -1.26), 0.024, hood), ((-0.37, -0.40), (-1.62, -1.58), 0.018, hood))):

@@ -822,12 +822,12 @@
    ],
    "side": null,
    "size_cm": [
-    100.0,
-    70.0
+    102.0,
+    71.4
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 11.4,
-   "max_tilt_deg": 10.8,
+   "edge_clear_cm": 5.6,
+   "max_tilt_deg": 12.2,
    "level_deg": 0.01,
    "level_rows_deg": [
     0.0,
@@ -836,9 +836,9 @@
    ],
    "level_view": "top",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 3.9,
-   "line_clear_cm": 5.0,
-   "decal_clear_cm": 69.5,
+   "mask_clear_cm": 2.9,
+   "line_clear_cm": 3.9,
+   "decal_clear_cm": 68.8,
    "status": "OK"
   },
   {
@@ -865,7 +865,7 @@
    "in_zone_mask": 1.0,
    "mask_clear_cm": 19.9,
    "line_clear_cm": 17.8,
-   "decal_clear_cm": 12.3,
+   "decal_clear_cm": 11.5,
    "status": "OK"
   },
   {
@@ -876,30 +876,30 @@
    ],
    "side": null,
    "size_cm": [
-    26.0,
-    17.8
+    22.3,
+    15.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 13.9,
-   "max_tilt_deg": 28.0,
-   "level_deg": -0.21,
+   "edge_clear_cm": 12.1,
+   "max_tilt_deg": 29.2,
+   "level_deg": -0.02,
    "level_rows_deg": [
-    -0.21,
-    -0.2,
-    -0.18
+    -0.02,
+    -0.01,
+    0.02
    ],
    "level_view": "top",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 0.9,
-   "line_clear_cm": 12.9,
-   "decal_clear_cm": 0.0,
+   "mask_clear_cm": 3.7,
+   "line_clear_cm": 4.1,
+   "decal_clear_cm": 2.4,
    "hidden_frac": {
     "front": 0.0,
     "front34_left": 0.0,
     "front34_right": 0.0
    },
    "occl_ok": true,
-   "status": "FAIL: touches zone mask edge; distortion risk (tilt 28.0 > 15.0)"
+   "status": "FAIL: distortion risk (tilt 29.2 > 15.0)"
   },
   {
    "name": "tail_trunk",
@@ -1027,65 +1027,67 @@
    "name": "url_splitter_R",
    "kind": "text",
    "parts": [
+    "front_bumper",
     "front_splitter"
    ],
    "side": null,
    "size_cm": [
-    19.8,
-    3.0
+    12.5,
+    2.0
    ],
-   "coverage": 0.5287,
-   "edge_clear_cm": -0.2,
-   "max_tilt_deg": 11.8,
-   "level_deg": 0.05,
+   "coverage": 1.0,
+   "edge_clear_cm": 0.9,
+   "max_tilt_deg": 5.3,
+   "level_deg": 0.02,
    "level_rows_deg": [
-    0.04,
-    0.05,
-    0.01
+    0.0,
+    0.01,
+    0.02
    ],
    "level_view": "front",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 0.3,
-   "line_clear_cm": 7.9,
-   "decal_clear_cm": 68.6,
+   "mask_clear_cm": 2.0,
+   "line_clear_cm": 3.5,
+   "decal_clear_cm": 62.3,
    "hidden_frac": {
-    "front": 0.186,
-    "front34_right": 0.192
+    "front": 0.0,
+    "front34_right": 0.0
    },
-   "occl_ok": false,
-   "status": "FAIL: CLIPPED (footprint not fully on flat surface); edge clearance -0.2 cm < 0.8; touches zone mask edge; not fully visible in front,front34_right"
+   "occl_ok": true,
+   "status": "OK"
   },
   {
    "name": "url_splitter_L",
    "kind": "text",
    "parts": [
+    "front_bumper",
     "front_splitter"
    ],
    "side": null,
    "size_cm": [
-    18.3,
-    3.0
+    11.6,
+    2.0
    ],
-   "coverage": 0.5835,
-   "edge_clear_cm": -0.2,
-   "max_tilt_deg": 7.2,
-   "level_deg": -0.15,
+   "coverage": 1.0,
+   "edge_clear_cm": 1.1,
+   "max_tilt_deg": 5.3,
+   "level_deg": 0.03,
    "level_rows_deg": [
-    -0.15,
-    -0.08,
-    -0.02
+    0.03,
+    -0.02,
+    0.03
    ],
    "level_view": "front",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 0.3,
-   "line_clear_cm": 8.2,
-   "decal_clear_cm": 68.8,
+   "mask_clear_cm": 2.1,
+   "line_clear_cm": 3.5,
+   "decal_clear_cm": 62.3,
    "hidden_frac": {
-    "front": 0.163,
-    "front34_left": 0.167
+    "front": 0.0,
+    "front34_left": 0.0
    },
-   "occl_ok": false,
-   "status": "FAIL: CLIPPED (footprint not fully on flat surface); edge clearance -0.2 cm < 0.8; touches zone mask edge; not fully visible in front,front34_left"
+   "occl_ok": true,
+   "status": "OK"
   }
  ],
  "glass": [
@@ -1614,22 +1616,22 @@
  ],
  "url_notes": [
   "rear bumper: one line, 5.2 cm type",
-  "front splitter lip: «simkarting.ru» right / «karting64.ru» left, one size, white (the blade's ext_plastic.dds region is shared with other meshes: no texture override)"
+  "front splitter lip: «simkarting.ru» right / «karting64.ru» left, 1.4 cm type, white with a deep-ink edge (the blade's ext_plastic.dds region is shared with 14 other meshes: no texture override; the painted lip only faces forward at |x| 0.40-0.65)"
  ],
  "front_cut_line": [
   {
    "side": "L",
-   "dashes": 14,
+   "dashes": 13,
    "length_cm": 161.3,
    "truncated": [],
    "hidden": [],
    "air_lamp_cm": 1.0,
    "air_grille_cm": 0.8,
-   "air_other_cm": 0.0,
-   "status": "FAIL",
+   "air_other_cm": 1.3,
+   "status": "OK",
    "stretch": [
-    1.0507,
-    0.8714
+    0.9507,
+    1.0166
    ],
    "neck_cm": 3.4,
    "seam_cm": 1.6,
@@ -1642,8 +1644,8 @@
    },
    "dropped": [],
    "label_air_cm": {
-    "ЛОПАТКА": 33.0,
-    "ПЯТАЧОК": 7.1,
+    "ЛОПАТКА": 33.2,
+    "ПЯТАЧОК": 7.2,
     "ШЕЙКА": 84.6,
     "Симкарт hood tag": 50.6
    }
@@ -1656,11 +1658,11 @@
    "hidden": [],
    "air_lamp_cm": 1.0,
    "air_grille_cm": 0.8,
-   "air_other_cm": 0.0,
-   "status": "FAIL",
+   "air_other_cm": 1.2,
+   "status": "OK",
    "stretch": [
     1.0499,
-    0.8729
+    1.0184
    ],
    "neck_cm": 3.4,
    "seam_cm": 1.6,
@@ -1674,7 +1676,7 @@
    "dropped": [],
    "label_air_cm": {
     "ЛОПАТКА": 33.1,
-    "ПЯТАЧОК": 7.1,
+    "ПЯТАЧОК": 7.2,
     "ШЕЙКА": 84.6,
     "Симкарт hood tag": 50.7
    }
@@ -1692,11 +1694,11 @@
    "head_cm": 64.6,
    "head_stretch": 0.9564,
    "head_centre": "gap middle",
-   "head_turn_r_cm": 8.6,
+   "head_turn_r_cm": 7.5,
    "rear_cm": 69.9,
    "rear_stretch": 0.978,
    "rear_centre": "gap middle",
-   "rear_turn_r_cm": 2.9,
+   "rear_turn_r_cm": 16.0,
    "main_hw_min_cm": 1.53,
    "main_air_min_cm": 0.78,
    "head_hw_min_cm": 1.2,
@@ -1867,35 +1869,35 @@
    "plate": "number_roof",
    "unit": "cm",
    "plate_size": [
-    100.0,
-    70.0
+    102.0,
+    71.4
    ],
    "this": {
     "num": "23",
-    "scale": 0.6467,
+    "scale": 0.6466,
     "ink": [
-     70.8,
-     35.2
+     72.2,
+     35.8
     ],
     "air": {
-     "L": 9.6,
-     "R": 11.2,
-     "T": 13.2,
-     "B": 13.2
+     "L": 9.9,
+     "R": 11.5,
+     "T": 13.6,
+     "B": 13.5
     }
    },
    "ref": {
     "num": "00",
-    "scale": 0.6467,
+    "scale": 0.6466,
     "ink": [
-     77.2,
-     35.2
+     78.8,
+     35.8
     ],
     "air": {
-     "L": 6.5,
-     "R": 8.0,
-     "T": 13.2,
-     "B": 13.2
+     "L": 6.6,
+     "R": 8.1,
+     "T": 13.6,
+     "B": 13.5
     }
    }
   },
@@ -2089,35 +2091,35 @@
    "plate": "number_roof",
    "unit": "cm",
    "plate_size": [
-    100.0,
-    70.0
+    102.0,
+    71.4
    ],
    "this": {
     "num": "00",
-    "scale": 0.6467,
+    "scale": 0.6466,
     "ink": [
-     77.2,
-     35.2
+     78.8,
+     35.8
     ],
     "air": {
-     "L": 6.5,
-     "R": 8.0,
-     "T": 13.2,
-     "B": 13.2
+     "L": 6.6,
+     "R": 8.1,
+     "T": 13.6,
+     "B": 13.5
     }
    },
    "ref": {
     "num": "00",
-    "scale": 0.6467,
+    "scale": 0.6466,
     "ink": [
-     77.2,
-     35.2
+     78.8,
+     35.8
     ],
     "air": {
-     "L": 6.5,
-     "R": 8.0,
-     "T": 13.2,
-     "B": 13.2
+     "L": 6.6,
+     "R": 8.1,
+     "T": 13.6,
+     "B": 13.5
     }
    }
   },
