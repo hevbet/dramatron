@@ -2961,10 +2961,13 @@ def paint_keyline(C, side, others, open_start=False, hwd=None):
     ok[ok] &= ((P[ok] - C[j[ok]]) * lat[j[ok]]).sum(1) > 0
     ok[ok] &= f[j[ok]] > 0
     ii, dd, fj, oj, kj = idx[ok], d[ok], f[j[ok]], off[j[ok]], kf[j[ok]]
+    # round ends: within the outer half width of an interruption / end the half width follows a half circle of that
+    # radius - the white core scaled by the same profile, so both layers close in one clean cap (a core ending earlier
+    # than its grey edge read as a frayed tip)
+    r0 = hw0 * kj
+    cap = np.where(fj < r0, np.sqrt(np.clip(1.0 - ((r0 - fj) / np.maximum(r0, 1e-6)) ** 2, 0, None)), 1.0)
     for hw, col in KEY_HW:
-        hw = hw * kj
-        # round ends: within hw of an interruption the half width follows a half circle of radius hw
-        h = np.where(fj < hw, np.sqrt(np.clip(hw * hw - (hw - fj) ** 2, 0, None)), hw)
+        h = hw * kj * cap
         blend(ii, col, smoothstep_aa(np.abs(dd - oj), h), obstacle=True)
     on = f > 0
     runs = np.split(np.arange(len(C)), np.flatnonzero(np.diff(on.astype(int))) + 1)
@@ -3831,13 +3834,13 @@ def side_decals(s):
     # (round 3: the swoosh's keyline now runs on the doors' lower crease, z ~0.35 here - the brisket label sits in the
     #  strip under it, >= 2 cm from the keyline, as large as that leaves room for)
     decal_fit(f"label_grudinka_{s}", lambda h: cut_label("ГРУДИНКА", px(h), underline=False),
-              [0.060, 0.055, 0.050, 0.046, 0.042, 0.040, 0.038, 0.036, 0.034],
+              [0.040, 0.038, 0.036, 0.034],       # (0.040: the larger that fits on BOTH sides - one size for both)
               lambda h: sc((-0.50, -0.48, -0.53, -0.45), (0.300, 0.296, 0.292, 0.304, 0.288, 0.308), fl, h * 7),
               parts=fl, kind="text", tilt_gate=10.0, line_min=2.0, deco_min=4.0, **kw)
     # ham: the haunch in front of the rear wheel = the flat lower rear-door strip under the door crease (z 0.29-0.38,
     # same strip as ГРУДИНКА on the front door; the rear quarter behind the wheel is only 21 cm wide)
     decal_fit(f"label_okorok_{s}", lambda h: cut_label("ОКОРОК", px(h), underline=False),
-              [0.064, 0.060, 0.056, 0.052, 0.048, 0.044, 0.040],
+              [0.052, 0.048, 0.044, 0.040],       # (0.052: the larger that fits on BOTH sides - one size for both)
               lambda h: sc((0.60, 0.56, 0.64, 0.68), (0.330, 0.322, 0.314, 0.338), rd, h * 6),
               parts=rd, kind="text", tilt_gate=10.0, line_min=2.0, deco_min=4.0, min_clear_cm=1.5, **kw)
     # ---- partners on the holo band: dark / pearl backers so they read on the iridescence

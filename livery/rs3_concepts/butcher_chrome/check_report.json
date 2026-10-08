@@ -50,7 +50,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.5,
-   "line_clear_cm": 10.8,
+   "line_clear_cm": 14.3,
    "decal_clear_cm": 9.1,
    "status": "OK"
   },
@@ -77,7 +77,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 5.4,
-   "line_clear_cm": 9.0,
+   "line_clear_cm": 10.2,
    "decal_clear_cm": 8.7,
    "status": "OK"
   },
@@ -93,19 +93,21 @@
     5.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.2,
-   "max_tilt_deg": 10.0,
-   "level_deg": -0.03,
+   "edge_clear_cm": 3.9,
+   "max_tilt_deg": 4.7,
+   "level_deg": 0.02,
    "level_rows_deg": [
+    0.02,
     0.01,
-    -0.03,
-    0.02
+    -0.02
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.3,
-   "line_clear_cm": 8.4,
-   "decal_clear_cm": 3.2,
+   "mask_clear_cm": 4.3,
+   "line_clear_cm": 11.3,
+   "decal_clear_cm": 3.5,
+   "keepout_air_cm": 2.7,
+   "keepout_ok": true,
    "status": "OK"
   },
   {
@@ -116,11 +118,11 @@
    ],
    "side": "L",
    "size_cm": [
-    46.7,
-    6.0
+    33.3,
+    4.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.9,
+   "edge_clear_cm": 1.2,
    "max_tilt_deg": 0.0,
    "level_deg": 0.0,
    "level_rows_deg": [
@@ -130,9 +132,9 @@
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.9,
-   "line_clear_cm": 5.5,
-   "decal_clear_cm": 16.7,
+   "mask_clear_cm": 1.0,
+   "line_clear_cm": 2.0,
+   "decal_clear_cm": 19.2,
    "status": "OK"
   },
   {
@@ -143,23 +145,23 @@
    ],
    "side": "L",
    "size_cm": [
-    42.5,
-    6.4
+    34.2,
+    5.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.1,
-   "max_tilt_deg": 5.3,
-   "level_deg": -0.01,
+   "edge_clear_cm": 1.8,
+   "max_tilt_deg": 5.6,
+   "level_deg": -0.0,
    "level_rows_deg": [
     -0.0,
-    -0.01,
-    -0.0
+    -0.0,
+    0.0
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.2,
-   "line_clear_cm": 2.3,
-   "decal_clear_cm": 16.4,
+   "mask_clear_cm": 1.9,
+   "line_clear_cm": 2.2,
+   "decal_clear_cm": 18.5,
    "status": "OK"
   },
   {
@@ -170,23 +172,23 @@
    ],
    "side": "L",
    "size_cm": [
-    26.6,
-    7.4
+    20.0,
+    5.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.2,
-   "max_tilt_deg": 10.1,
-   "level_deg": 0.15,
+   "edge_clear_cm": 1.2,
+   "max_tilt_deg": 1.8,
+   "level_deg": 0.01,
    "level_rows_deg": [
-    0.15,
-    0.14,
-    0.14
+    0.01,
+    -0.0,
+    0.0
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.3,
-   "line_clear_cm": 3.2,
-   "decal_clear_cm": 13.6,
+   "mask_clear_cm": 1.3,
+   "line_clear_cm": 2.0,
+   "decal_clear_cm": 21.0,
    "status": "OK"
   },
   {
@@ -197,23 +199,23 @@
    ],
    "side": "L",
    "size_cm": [
-    19.0,
-    13.9
+    21.0,
+    15.1
    ],
    "coverage": 1.0,
    "edge_clear_cm": 1.6,
-   "max_tilt_deg": 3.7,
-   "level_deg": 0.01,
+   "max_tilt_deg": 3.5,
+   "level_deg": -0.01,
    "level_rows_deg": [
-    0.01,
+    -0.01,
     -0.01,
     0.01
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.2,
-   "line_clear_cm": 1.8,
-   "decal_clear_cm": 90.4,
+   "mask_clear_cm": 1.6,
+   "line_clear_cm": 1.9,
+   "decal_clear_cm": 88.1,
    "hidden_frac": {
     "side_left": 0.0,
     "rear34_left": 0.0
@@ -244,8 +246,8 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
-   "line_clear_cm": 14.6,
-   "decal_clear_cm": 4.2,
+   "line_clear_cm": 8.3,
+   "decal_clear_cm": 3.3,
    "hidden_frac": {
     "side_left": 0.0,
     "front34_left": 0.0,
@@ -277,8 +279,8 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.0,
-   "line_clear_cm": 14.4,
-   "decal_clear_cm": 4.1,
+   "line_clear_cm": 9.8,
+   "decal_clear_cm": 2.9,
    "hidden_frac": {
     "side_left": 0.0,
     "front34_left": 0.0,
@@ -310,8 +312,8 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.6,
-   "line_clear_cm": 14.6,
-   "decal_clear_cm": 6.0,
+   "line_clear_cm": 12.3,
+   "decal_clear_cm": 5.1,
    "hidden_frac": {
     "side_left": 0.0,
     "front34_left": 0.0,
@@ -343,8 +345,8 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.3,
-   "line_clear_cm": 27.0,
-   "decal_clear_cm": 10.4,
+   "line_clear_cm": 26.8,
+   "decal_clear_cm": 13.2,
    "hidden_frac": {
     "side_left": 0.0,
     "front34_left": 0.0,
@@ -403,7 +405,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.8,
-   "line_clear_cm": 10.3,
+   "line_clear_cm": 13.8,
    "decal_clear_cm": 9.1,
    "status": "OK"
   },
@@ -430,7 +432,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 5.6,
-   "line_clear_cm": 9.1,
+   "line_clear_cm": 10.1,
    "decal_clear_cm": 9.2,
    "status": "OK"
   },
@@ -442,23 +444,25 @@
    ],
    "side": "R",
    "size_cm": [
-    18.4,
-    4.9
+    20.6,
+    5.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.5,
-   "max_tilt_deg": 5.4,
-   "level_deg": -0.28,
+   "edge_clear_cm": 3.9,
+   "max_tilt_deg": 4.7,
+   "level_deg": 0.02,
    "level_rows_deg": [
-    -0.26,
-    -0.27,
-    -0.28
+    0.02,
+    0.01,
+    -0.01
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.6,
-   "line_clear_cm": 8.5,
-   "decal_clear_cm": 3.9,
+   "mask_clear_cm": 4.0,
+   "line_clear_cm": 11.3,
+   "decal_clear_cm": 3.5,
+   "keepout_air_cm": 2.6,
+   "keepout_ok": true,
    "status": "OK"
   },
   {
@@ -469,23 +473,23 @@
    ],
    "side": "R",
    "size_cm": [
-    46.7,
-    6.0
+    31.4,
+    4.0
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.6,
+   "edge_clear_cm": 1.4,
    "max_tilt_deg": 0.0,
-   "level_deg": 0.0,
+   "level_deg": -0.0,
    "level_rows_deg": [
+    -0.0,
     0.0,
-    0.0,
-    0.0
+    -0.0
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.8,
-   "line_clear_cm": 5.5,
-   "decal_clear_cm": 16.2,
+   "mask_clear_cm": 1.1,
+   "line_clear_cm": 2.0,
+   "decal_clear_cm": 18.8,
    "status": "OK"
   },
   {
@@ -496,23 +500,23 @@
    ],
    "side": "R",
    "size_cm": [
-    42.5,
-    6.4
+    36.8,
+    5.6
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.4,
-   "max_tilt_deg": 5.3,
-   "level_deg": -0.06,
+   "edge_clear_cm": 1.8,
+   "max_tilt_deg": 5.6,
+   "level_deg": -0.05,
    "level_rows_deg": [
-    -0.04,
-    -0.06,
-    -0.04
+    -0.05,
+    0.0,
+    0.05
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.5,
-   "line_clear_cm": 2.5,
-   "decal_clear_cm": 16.5,
+   "mask_clear_cm": 1.6,
+   "line_clear_cm": 2.0,
+   "decal_clear_cm": 18.4,
    "status": "OK"
   },
   {
@@ -523,23 +527,23 @@
    ],
    "side": "R",
    "size_cm": [
-    26.6,
-    7.4
+    20.0,
+    5.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.4,
-   "max_tilt_deg": 10.0,
+   "edge_clear_cm": 1.2,
+   "max_tilt_deg": 1.8,
    "level_deg": 0.01,
    "level_rows_deg": [
-    0.01,
-    0.01,
+    0.0,
+    -0.0,
     0.01
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.2,
-   "line_clear_cm": 3.2,
-   "decal_clear_cm": 13.4,
+   "mask_clear_cm": 1.0,
+   "line_clear_cm": 2.0,
+   "decal_clear_cm": 19.7,
    "status": "OK"
   },
   {
@@ -550,23 +554,23 @@
    ],
    "side": "R",
    "size_cm": [
-    19.0,
-    13.9
+    21.0,
+    15.1
    ],
    "coverage": 1.0,
    "edge_clear_cm": 1.6,
-   "max_tilt_deg": 3.7,
-   "level_deg": -0.02,
+   "max_tilt_deg": 3.5,
+   "level_deg": -0.01,
    "level_rows_deg": [
+    -0.01,
     0.0,
-    -0.02,
-    0.0
+    0.01
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.4,
-   "line_clear_cm": 1.8,
-   "decal_clear_cm": 91.5,
+   "mask_clear_cm": 1.6,
+   "line_clear_cm": 1.9,
+   "decal_clear_cm": 88.2,
    "hidden_frac": {
     "side_right": 0.0,
     "rear34_right": 0.0
@@ -597,8 +601,8 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.6,
-   "line_clear_cm": 14.6,
-   "decal_clear_cm": 4.3,
+   "line_clear_cm": 8.5,
+   "decal_clear_cm": 3.4,
    "hidden_frac": {
     "side_right": 0.0,
     "front34_right": 0.0,
@@ -630,8 +634,8 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.0,
-   "line_clear_cm": 14.4,
-   "decal_clear_cm": 4.2,
+   "line_clear_cm": 9.7,
+   "decal_clear_cm": 3.0,
    "hidden_frac": {
     "side_right": 0.0,
     "front34_right": 0.0,
@@ -663,8 +667,8 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.6,
-   "line_clear_cm": 14.5,
-   "decal_clear_cm": 6.0,
+   "line_clear_cm": 12.2,
+   "decal_clear_cm": 4.9,
    "hidden_frac": {
     "side_right": 0.0,
     "front34_right": 0.0,
@@ -696,8 +700,8 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 1.3,
-   "line_clear_cm": 27.0,
-   "decal_clear_cm": 11.4,
+   "line_clear_cm": 26.9,
+   "decal_clear_cm": 12.7,
    "hidden_frac": {
     "side_right": 0.0,
     "front34_right": 0.0,
@@ -741,23 +745,23 @@
    ],
    "side": null,
    "size_cm": [
-    26.9,
-    18.4
+    29.2,
+    20.0
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 11.8,
-   "max_tilt_deg": 4.6,
-   "level_deg": 0.01,
+   "edge_clear_cm": 11.0,
+   "max_tilt_deg": 8.2,
+   "level_deg": 0.02,
    "level_rows_deg": [
-    0.01,
-    -0.0,
-    0.01
+    -0.01,
+    0.0,
+    0.02
    ],
    "level_view": "top",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 3.5,
+   "mask_clear_cm": 2.8,
    "line_clear_cm": 3.6,
-   "decal_clear_cm": 17.2,
+   "decal_clear_cm": 16.3,
    "hidden_frac": {
     "front": 0.0,
     "front34_left": 0.0,
@@ -779,18 +783,18 @@
    ],
    "coverage": 1.0,
    "edge_clear_cm": 11.1,
-   "max_tilt_deg": 3.5,
-   "level_deg": 0.03,
+   "max_tilt_deg": 3.4,
+   "level_deg": -0.03,
    "level_rows_deg": [
     0.01,
-    -0.02,
-    0.03
+    -0.03,
+    0.02
    ],
    "level_view": "top",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.5,
+   "mask_clear_cm": 2.4,
    "line_clear_cm": 2.1,
-   "decal_clear_cm": 3.7,
+   "decal_clear_cm": 2.2,
    "status": "OK"
   },
   {
@@ -805,18 +809,18 @@
     4.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.4,
+   "edge_clear_cm": 1.6,
    "max_tilt_deg": 0.0,
-   "level_deg": 0.02,
+   "level_deg": 0.01,
    "level_rows_deg": [
-    0.0,
-    0.0,
-    0.02
+    0.01,
+    -0.0,
+    0.01
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.3,
-   "line_clear_cm": 1.9,
+   "mask_clear_cm": 1.7,
+   "line_clear_cm": 2.6,
    "decal_clear_cm": 19.6,
    "status": "OK"
   },
@@ -832,19 +836,19 @@
     4.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.4,
+   "edge_clear_cm": 1.6,
    "max_tilt_deg": 0.0,
-   "level_deg": 0.02,
+   "level_deg": 0.01,
    "level_rows_deg": [
+    0.0,
     0.01,
-    -0.0,
-    0.02
+    -0.0
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 1.3,
-   "line_clear_cm": 1.9,
-   "decal_clear_cm": 17.9,
+   "mask_clear_cm": 1.8,
+   "line_clear_cm": 3.0,
+   "decal_clear_cm": 18.0,
    "status": "OK"
   },
   {
@@ -870,8 +874,8 @@
    "level_view": "top",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.9,
-   "line_clear_cm": 3.9,
-   "decal_clear_cm": 68.8,
+   "line_clear_cm": 4.0,
+   "decal_clear_cm": 71.1,
    "status": "OK"
   },
   {
@@ -897,7 +901,7 @@
    "level_view": "top",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 19.9,
-   "line_clear_cm": 17.8,
+   "line_clear_cm": 10.6,
    "decal_clear_cm": 11.5,
    "status": "OK"
   },
@@ -924,8 +928,8 @@
    "level_view": "top",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 7.2,
-   "line_clear_cm": 16.7,
-   "decal_clear_cm": 93.8,
+   "line_clear_cm": 14.8,
+   "decal_clear_cm": 92.3,
    "keepout_ok": true,
    "hidden_frac": {
     "rear": 0.0,
@@ -1028,27 +1032,27 @@
    "kind": "text",
    "parts": [
     "front_bumper",
-    "front_splitter"
+    "front_bumper_corner"
    ],
    "side": null,
    "size_cm": [
-    12.5,
-    2.0
+    17.3,
+    2.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 0.9,
-   "max_tilt_deg": 5.3,
-   "level_deg": 0.02,
+   "edge_clear_cm": 3.2,
+   "max_tilt_deg": 11.8,
+   "level_deg": -0.01,
    "level_rows_deg": [
-    0.0,
-    0.01,
-    0.02
+    -0.0,
+    -0.01,
+    -0.0
    ],
-   "level_view": "front",
+   "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.0,
-   "line_clear_cm": 3.5,
-   "decal_clear_cm": 62.3,
+   "mask_clear_cm": 3.3,
+   "line_clear_cm": 7.8,
+   "decal_clear_cm": 70.2,
    "hidden_frac": {
     "front": 0.0,
     "front34_right": 0.0
@@ -1061,27 +1065,27 @@
    "kind": "text",
    "parts": [
     "front_bumper",
-    "front_splitter"
+    "front_bumper_corner"
    ],
    "side": null,
    "size_cm": [
-    11.6,
-    2.0
+    16.0,
+    2.8
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 1.1,
-   "max_tilt_deg": 5.3,
-   "level_deg": 0.03,
+   "edge_clear_cm": 3.3,
+   "max_tilt_deg": 11.8,
+   "level_deg": -0.02,
    "level_rows_deg": [
-    0.03,
     -0.02,
-    0.03
+    0.01,
+    -0.01
    ],
-   "level_view": "front",
+   "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 2.1,
-   "line_clear_cm": 3.5,
-   "decal_clear_cm": 62.3,
+   "mask_clear_cm": 3.5,
+   "line_clear_cm": 7.5,
+   "decal_clear_cm": 70.5,
    "hidden_frac": {
     "front": 0.0,
     "front34_left": 0.0
@@ -1475,69 +1479,83 @@
    "dash": 13,
    "side": "R",
    "why": "truncated",
-   "y": -0.859,
-   "x": -0.877
+   "y": -0.86,
+   "x": -0.967
   },
   {
    "dash": 13,
    "side": "L",
    "why": "truncated",
-   "y": -0.859,
-   "x": 0.877
+   "y": -0.86,
+   "x": 0.966
   },
   {
    "dash": 38,
    "side": "R",
    "why": "truncated",
-   "y": 1.894,
-   "x": -0.903
+   "y": 1.892,
+   "x": -0.901
   },
   {
    "dash": 38,
    "side": "L",
    "why": "truncated",
-   "y": 1.894,
-   "x": 0.903
+   "y": 1.892,
+   "x": 0.901
+  },
+  {
+   "dash": 42,
+   "side": "R",
+   "why": "beside the trim fin",
+   "y": 2.021,
+   "x": -0.787
+  },
+  {
+   "dash": 42,
+   "side": "L",
+   "why": "beside the trim fin",
+   "y": 2.021,
+   "x": 0.787
   },
   {
    "dash": 43,
    "side": "R",
-   "why": "truncated",
+   "why": "beside the trim fin",
    "y": 2.092,
    "x": -0.745
   },
   {
    "dash": 43,
    "side": "L",
-   "why": "truncated",
-   "y": 2.093,
-   "x": 0.745
+   "why": "beside the trim fin",
+   "y": 2.094,
+   "x": 0.744
   },
   {
    "dash": 44,
    "side": "R",
-   "why": "truncated",
+   "why": "beside the trim fin",
    "y": 2.139,
    "x": -0.697
   },
   {
    "dash": 44,
    "side": "L",
-   "why": "truncated",
+   "why": "beside the trim fin",
    "y": 2.14,
    "x": 0.697
   },
   {
    "dash": 45,
    "side": "R",
-   "why": "truncated",
+   "why": "beside the trim fin",
    "y": 2.207,
    "x": -0.58
   },
   {
    "dash": 45,
    "side": "L",
-   "why": "truncated",
+   "why": "beside the trim fin",
    "y": 2.207,
    "x": 0.58
   },
@@ -1546,11 +1564,11 @@
    "side": "R",
    "why": "hidden in rear,rear34_left,rear34_right",
    "y": 2.228,
-   "x": -0.519
+   "x": -0.518
   }
  ],
  "line_notes": [
-  "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 1.0302)"
+  "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 1.0310)"
  ],
  "sill_row": [
   {
@@ -1616,21 +1634,21 @@
  ],
  "url_notes": [
   "rear bumper: one line, 5.2 cm type",
-  "front splitter lip: «simkarting.ru» right / «karting64.ru» left, 1.4 cm type, white with a deep-ink edge (the blade's ext_plastic.dds region is shared with 14 other meshes: no texture override; the painted lip only faces forward at |x| 0.40-0.65)"
+  "front bumper, outer corner faces (|x| 0.910, z 0.455, mirror-symmetric): «simkarting.ru» right / «karting64.ru» left, 1.9 cm type, white with a deep-ink outline, baseline level in 3D (horizontal projection axis, world z up) - parallel to the intake top edge and the holo band edge beside it; nothing on the splitter lip any more (level it holds no box over ~2.5 cm; the blade's ext_plastic.dds region is shared with 14 other meshes, so no texture override)"
  ],
  "front_cut_line": [
   {
    "side": "L",
-   "dashes": 13,
+   "dashes": 14,
    "length_cm": 161.3,
    "truncated": [],
    "hidden": [],
    "air_lamp_cm": 1.0,
    "air_grille_cm": 0.8,
-   "air_other_cm": 1.3,
+   "air_other_cm": 1.1,
    "status": "OK",
    "stretch": [
-    0.9507,
+    1.0382,
     1.0166
    ],
    "neck_cm": 3.4,
@@ -1644,10 +1662,10 @@
    },
    "dropped": [],
    "label_air_cm": {
-    "ЛОПАТКА": 33.2,
+    "ЛОПАТКА": 31.2,
     "ПЯТАЧОК": 7.2,
-    "ШЕЙКА": 84.6,
-    "Симкарт hood tag": 51.1
+    "ШЕЙКА": 84.4,
+    "Симкарт hood tag": 51.2
    }
   },
   {
@@ -1661,7 +1679,7 @@
    "air_other_cm": 1.2,
    "status": "OK",
    "stretch": [
-    1.0499,
+    1.0382,
     1.0184
    ],
    "neck_cm": 3.4,
@@ -1675,100 +1693,109 @@
    },
    "dropped": [],
    "label_air_cm": {
-    "ЛОПАТКА": 33.1,
+    "ЛОПАТКА": 31.3,
     "ПЯТАЧОК": 7.2,
-    "ШЕЙКА": 84.6,
+    "ШЕЙКА": 84.5,
     "Симкарт hood tag": 50.4
    }
   }
  ],
  "greenhouse_lines": [
   {
-   "main_cm": 445.4,
+   "main_cm": 449.9,
    "main_stretch": [
-    1.0015,
-    0.8969
+    1.0588,
+    1.0363,
+    0.9983,
+    0.9956,
+    0.8949
    ],
+   "hood_seam_cm": 85.0,
    "trunk_centre": "dash middle",
-   "r_main_cm": 13.0,
-   "head_cm": 64.6,
-   "head_stretch": 0.9564,
+   "r_main_cm": 6.1,
+   "head_strip_cross_cm": 61.9,
+   "head_stretches": [
+    1.0,
+    0.9692
+   ],
+   "head_cm": 67.9,
+   "head_stretch": 0.9692,
    "head_centre": "gap middle",
-   "head_turn_r_cm": 7.5,
-   "rear_cm": 69.9,
-   "rear_stretch": 0.978,
-   "rear_centre": "gap middle",
-   "rear_turn_r_cm": 16.0,
-   "main_hw_min_cm": 1.53,
-   "main_air_min_cm": 0.78,
-   "head_hw_min_cm": 1.2,
-   "head_air_min_cm": -0.58,
-   "rear_hw_min_cm": 2.2,
-   "rear_air_min_cm": 3.9
+   "head_turn_r_cm": 5.5,
+   "rear_strip_cross_cm": 67.5,
+   "rear_stretches": [
+    1.0,
+    0.9781
+   ],
+   "rear_cm": 76.6,
+   "rear_stretch": 0.9781,
+   "rear_centre": "dash middle",
+   "rear_turn_r_cm": 7.3,
+   "main_hw_min_cm": 0.8,
+   "main_glass_clear_min_cm": 1.5,
+   "main_other_air_min_cm": 0.59,
+   "head_hw_min_cm": 0.88,
+   "head_glass_clear_min_cm": 2.14,
+   "head_other_air_min_cm": 0.01,
+   "rear_hw_min_cm": 0.84,
+   "rear_glass_clear_min_cm": 1.99,
+   "rear_other_air_min_cm": 0.29
   }
  ],
  "keylines": [
   {
    "side": "L",
-   "length_cm": 495.0,
+   "length_cm": 493.5,
    "pieces_m": [
     [
      0.0,
-     0.385
-    ],
-    [
-     0.513,
-     4.95
+     4.935
     ]
    ],
-   "gaps": [
-    {
-     "at_m": 0.387,
-     "len_cm": 12.4,
-     "why": "lamp / grille neck",
-     "y": -2.073
-    }
-   ],
+   "gaps": [],
+   "neck": {
+    "narrowed_cm": 15.6,
+    "width_min_cm": 0.44,
+    "offset_min_cm": 1.2,
+    "gap_to_dash_min_cm": 0.3,
+    "air_to_lamp_min_cm": 0.22
+   },
    "air_line_min_cm": 988.2,
-   "air_part_min_cm": 0.8
+   "air_part_min_cm": 0.3
   },
   {
    "side": "R",
-   "length_cm": 495.0,
+   "length_cm": 493.6,
    "pieces_m": [
     [
      0.0,
-     0.386
-    ],
-    [
-     0.513,
-     4.95
+     4.936
     ]
    ],
-   "gaps": [
-    {
-     "at_m": 0.388,
-     "len_cm": 12.3,
-     "why": "lamp / grille neck",
-     "y": -2.073
-    }
-   ],
+   "gaps": [],
+   "neck": {
+    "narrowed_cm": 15.3,
+    "width_min_cm": 0.44,
+    "offset_min_cm": 1.21,
+    "gap_to_dash_min_cm": 0.3,
+    "air_to_lamp_min_cm": 0.22
+   },
    "air_line_min_cm": 988.2,
-   "air_part_min_cm": 0.8
+   "air_part_min_cm": 0.3
   }
  ],
  "shoulder_crease": {
   "L": {
    "off_cm": [
     0.01,
-    0.37
+    1.39
    ],
    "y_end": 1.8549999999999296
   },
   "R": {
    "off_cm": [
     0.01,
-    0.37
+    1.38
    ],
    "y_end": 1.8549999999999296
   }
@@ -1779,14 +1806,14 @@
     1.98,
     2.2
    ],
-   "max_dip_cm": 2.41
+   "max_dip_cm": 2.42
   },
   "R": {
    "y_range": [
     1.98,
     2.2
    ],
-   "max_dip_cm": 2.41
+   "max_dip_cm": 2.42
   }
  },
  "numbers": [
