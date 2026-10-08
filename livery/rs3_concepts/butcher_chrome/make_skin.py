@@ -424,6 +424,9 @@ def vet_stamp(w, lines, col=STAMP, seed=7):
 GOST_ANGLE = 15.0           # the hood stamp is struck at a jaunty angle (the one deliberate exception to level text)
 
 
+GOST_OVAL = 1.0 - 2.0 / 32       # the stamp's oval (outer edge of its outer ring) across, per unit of gost_stamp's w
+
+
 def gost_stamp(w, angle=GOST_ANGLE, col=STAMP, seed=11):
     """Soviet / Russian meat-inspection stamp, w px across: an oval double ring in violet ink, «ГОСТ» big in the
     middle, «ВЫСШИЙ СОРТ» along the top and «САРАТОВ · 64» along the bottom between the rings (each letter set on the
@@ -2837,7 +2840,13 @@ def _check(name, art, alpha, c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_t
         fails.append("touches zone mask edge")
     if res.get("line_clear_cm", 99) < 0.8:
         fails.append("touches a cut line")
-    if keepout and len(painted):         # 3D keep-out (e.g. what the rear wing hides in the standard views)
+    if keepout and "pts" in keepout and len(painted):     # 3D air to a part standing out of the skin (door handle)
+        d_, _ = cKDTree(keepout["pts"]).query(POSF[painted[:: max(1, len(painted) // 20000)]], k=1)
+        res["keepout_air_cm"] = round(float(d_.min()) * 100, 1)
+        res["keepout_ok"] = bool(d_.min() * 100 >= keepout["min_cm"])
+        if not res["keepout_ok"]:
+            fails.append(f"{res['keepout_air_cm']} cm to {keepout.get('what', 'a keep-out')} < {keepout['min_cm']}")
+    elif keepout and len(painted):         # 3D keep-out (e.g. what the rear wing hides in the standard views)
         Pp = POSF[painted]
         ko = (Pp[:, 1].min() >= keepout.get("y_min", -9)) and (Pp[:, 1].max() <= keepout.get("y_max", 9)) and \
             (np.abs(Pp[:, 0]).max() <= keepout.get("x_abs_max", 9))
@@ -3173,6 +3182,19 @@ def side_cands(ys, zs, parts, s, w):
     return out
 
 
+def handle_pts(side):
+    """3D points of the rear door's handle (its lever, part 'door_handle') and of the recess round it: the rear-door
+    skin within 1.2 cm of the lever's outline (y 0.86-1.04, z 0.79-0.825)"""
+    sg = 1 if side == "L" else -1
+    h = np.flatnonzero((PARTF == PID["door_handle"]) & (sg * POSF[:, 0] > 0) & (POSF[:, 1] > 0.6))
+    H = POSF[h]
+    lo, hi = H.min(0) - 0.012, H.max(0) + 0.012
+    rd = cand(["rear_door"], side)
+    R_ = POSF[rd]
+    k = np.all((R_[:, 1:] >= lo[1:]) & (R_[:, 1:] <= hi[1:]), axis=1)
+    return np.vstack([H[:: max(1, len(H) // 4000)], R_[k][:: max(1, int(k.sum()) // 4000)]])
+
+
 def level_frame(c, parts, side, w, h):
     """Projection frame for a side plate of w x h m centred at c, computed from the position map.
     The art's horizontal axis must follow the car (world +-y) with no z component in the side views, so art up =
@@ -3462,10 +3484,14 @@ def side_decals(s):
     # ---- butcher cut labels (Podkova ExtraBold, ink), each centred in its cut, largest size that keeps air
     # (loin: the upper rear-door cut between Арка, the door handle (y 0.87-1.04, z 0.80-0.82), the swoosh and
     #  the shoulder line - the tightest cut on the car)
+    # (client round 3: >= 2 cm air to the door handle - the lever and its recess, y 0.86-1.04, z 0.79-0.825; the label
+    #  used to run under the lever's front end: it goes lower / further forward, still level)
     decal_fit(f"label_koreika_{s}", lambda h: cut_label("КОРЕЙКА", px(h)),
               [0.044, 0.040, 0.037, 0.034, 0.031],
-              lambda h: sc((0.775, 0.765, 0.785), (0.790, 0.782, 0.798), rd, h * 6),
-              parts=rd, kind="text", tilt_gate=10.0, line_min=1.0, deco_min=2.5, min_clear_cm=1.0, **kw)
+              lambda h: sc((0.745, 0.735, 0.755, 0.725, 0.765, 0.775), (0.770, 0.762, 0.755, 0.748, 0.778, 0.785,
+                                                                      0.740), rd, h * 6),
+              parts=rd, kind="text", tilt_gate=10.0, line_min=1.0, deco_min=2.5, min_clear_cm=1.0,
+              keepout=dict(pts=handle_pts(s), min_cm=2.0, what="the door handle"), **kw)
     decal_fit(f"label_grudinka_{s}", lambda h: cut_label("ГРУДИНКА", px(h), underline=False),
               [0.060, 0.055, 0.050, 0.046, 0.042, 0.038],
               lambda h: sc((-0.50, -0.48, -0.53), (0.316, 0.308, 0.324), fl, h * 7),
@@ -3550,8 +3576,8 @@ def top_decals():
     def gc(w):
         out = []
         hi = cand(["hood"])
-        for x in (0.42, 0.43, 0.41, 0.44, 0.40, 0.45):
-            for y in (-1.38, -1.37, -1.39, -1.36, -1.40):
+        for x in (0.42, 0.43, 0.41, 0.44, 0.40, 0.45, 0.39, 0.46):
+            for y in (-1.38, -1.37, -1.39, -1.36, -1.40, -1.35, -1.41):
                 for sg in (1,):
                     c = surf_point("top", sg * x, y, ["hood"])
                     # the hood's own visible top skin around the centre (not its inner flanges under it)
@@ -3559,7 +3585,9 @@ def top_decals():
                     nv = NRMF[hi[k]].mean(0)
                     out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 1, 0)))
         return out
-    decal_fit("gost_hood", lambda w: gost_stamp(px(w)), [0.30, 0.29, 0.28], gc,
+    # sizes: the oval's own long axis (the art is drawn GOST_OVAL of its unrotated width across, inset by the ring
+    # width, then turned and cropped - the old sizes were the art width, so the oval came out ~27 cm): 28-30 cm
+    decal_fit("gost_hood", lambda w: gost_stamp(px(w / GOST_OVAL)), [0.300, 0.295, 0.290, 0.285, 0.280], gc,
               ppm=PPM, parts=["hood"], kind="logo", depth_tol=0.015, min_clear_cm=2.0, air=2.0, line_min=2.0,
               deco_min=2.0, occl_views=["front", "front34_left", "front34_right"])
     # Симкарт night plate (+ thin holo pinstripe), read from the front, clear of the vent cut-out and the stamp
@@ -3678,64 +3706,90 @@ def rear_front_decals():
     #  every candidate failed the flatness / edge gates)
 
 
+SPL_X = (0.85, 0.93)         # front URLs: centre |x| range searched (the outer corner face of the bumper; a search over
+#                             |x| 0.55-0.93, z 0.355-0.52 - incl. the face above the outer intake - picked it: 1.9 cm type)
+SPL_Z = (0.40, 0.47)         # ... and centre height range (above the holo band)
+SPL_CACHE = {}
+
+
 def splitter_urls():
-    """Front splitter (client): «simkarting.ru» and «karting64.ru» in the URL face (Exo 2 ExtraBold Italic, as on the
-    rear bumper), white with a thin deep-ink edge, one on each side of the nose, mirror-symmetric, read left to right
-    from the front (simkarting.ru on the car's right). The carbon blade itself (Circle.004_SUB0, ext_plastic.dds
-    u 0..0.54, v -1..0) cannot carry them: rasterised, that region of ext_plastic.dds is shared with 14 other meshes
-    (the rear wing, the front lower grille piece, mirrors ...), so an override would print the URLs on those too. They
-    go on the painted fallback instead: the 'front_splitter' skin zone, the bumper's lower lip just above the blade
-    (left black as in the source), and the bumper's own lowest strip above it - in front view only the two wings at
-    |x| 0.40-0.65 face forward (under the grille the lip is ~1 cm tall, behind the grille's lower frame). One common
-    size for both (the largest that passes on both sides: flat within 15 deg, >= 0.8 cm inside the lip, fully seen in
-    the front and that side's 3/4 view), projected along a level normal (baseline level, upright)."""
-    spl = np.flatnonzero((PARTF == PID["front_splitter"]) & COV.reshape(-1))
-    CAN[spl] = A0.reshape(-1, 3)[spl] / SHADE.reshape(-1)[spl, None]      # (unchanged black source under the URLs)
-    PAINTF[spl] = True
-    _idx_cache.clear()
-    sp = ["front_bumper", "front_splitter"]
+    """Front URLs (client, round 3 item C): «simkarting.ru» and «karting64.ru» readable from the front and front 3/4.
+    The carbon blade (Circle.004_SUB0, ext_plastic.dds u 0..0.54, v -1..0) cannot carry them: that region of
+    ext_plastic.dds is shared with 14 other meshes (rear wing, lower grille piece, mirrors ...), so it is not
+    overridden. The painted lip above the blade (the 'front_splitter' zone and the bumper's lowest strip) is no option
+    either: level, it holds no box taller than ~2.5 cm (it slopes ~27 deg down outboard), so the URLs used to be
+    1.4 cm type on the holo there and read as artifacts. The largest level, forward-facing skin area of the front
+    lower bumper is the bumper face right above each outer intake (z ~0.46-0.53, ~25 cm wide between the intake's top
+    edge and the front cut line's keyline): the two URLs go there, mirror-symmetric left and right of the grille,
+    white with a deep-ink outline, projected along the car's forward axis with world z up (so the baseline is level
+    and upright in the front view), as large as passes the gates on both sides (flat, >= 1 cm to the intake edge,
+    >= 1.5 cm to the cut line / keyline, fully seen in front and that side's 3/4 view). simkarting.ru on the car's
+    right (reads first from the front)."""
+    sp = ["front_bumper", "front_bumper_corner"]
 
     def cands(sg):
         def f(h):
-            out = []
-            Q = POSF[cand(sp)]
-            for x in np.arange(0.50, 0.40, -0.02).tolist() + np.arange(0.52, 0.65, 0.02).tolist():
-                for z in (0.26, 0.25, 0.27, 0.24, 0.28, 0.23, 0.29, 0.22):
-                    m = (np.abs(Q[:, 0] - sg * x) < 0.006) & (np.abs(Q[:, 2] - z) < 0.004)
-                    if not m.any():
-                        continue
-                    c = (sg * x, float(Q[m][:, 1].min()), z)
-                    nv = mean_normal(c, sp, None, 0.06)
-                    nv[2] = 0.0
-                    out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 0, 1)))
-            return out
+            if (sg, "c") not in SPL_CACHE:
+                out = []
+                Q = POSF[cand(sp)]
+                Q = Q[(Q[:, 1] < -1.75)]
+                for x in np.arange(SPL_X[0], SPL_X[1] + 1e-6, 0.01):
+                    for z in np.arange(SPL_Z[0], SPL_Z[1] + 1e-6, 0.005):
+                        m = (np.abs(Q[:, 0] - sg * x) < 0.006) & (np.abs(Q[:, 2] - z) < 0.004)
+                        if not m.any():
+                            continue
+                        c = (sg * x, float(Q[m][:, 1].min()), float(z))
+                        nv = mean_normal(c, sp, None, 0.04)
+                        nv[2] = 0.0                       # level: horizontal projection axis, world z up
+                        out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 0, 1)))
+                SPL_CACHE[(sg, "c")] = out
+            return SPL_CACHE[(sg, "c")]
         return f
 
     def art(txt):
         def f(h):
-            m = pad(text_mask(txt, F_SPON(px(h * 1.35))), 6)
+            m = pad(text_mask(txt, F_SPON(px(h * 1.35))), 10)
             o = Image.new("RGBA", m.size, (0, 0, 0, 0))
-            o.alpha_composite(solid(grow(m, max(2, px(0.0012))), INK_D))
+            o.alpha_composite(solid(grow(m, max(3, px(0.0022))), INK_D))
             o.alpha_composite(solid(m, WHITE))
             return o.crop(o.getbbox())
         return f
-    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.05, min_clear_cm=0.8, tilt_gate=15.0, line_min=1.0,
-              deco_min=2.0)
-    sizes = [0.030, 0.028, 0.026, 0.024, 0.022, 0.020, 0.019, 0.018, 0.017, 0.016, 0.015, 0.014, 0.013, 0.012]
+    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.06, min_clear_cm=1.0, tilt_gate=12.0, line_min=1.5,
+              deco_min=3.0, check_angle=60)
+    sizes = [0.026, 0.024, 0.023, 0.022, 0.021, 0.020, 0.019, 0.018, 0.017, 0.016, 0.015, 0.014]
     jobs = (("url_splitter_R", SIMKART_URL, -1, "front34_right"), ("url_splitter_L", K64_URL, 1, "front34_left"))
     fits = [fit_search(nm, art(t), sizes, cands(sg), occl_views=["front", v], **kw) for nm, t, sg, v in jobs]
     h = min(f[0] for f in fits)
-    for (nm, t, sg, v), f in zip(jobs, fits):
-        sz, ok, best, a_, rep = fit_search(nm, art(t), [x for x in sizes if x <= h], cands(sg), occl_views=["front", v],
-                                           **kw)
-        c, n, u = best
-        decal(nm, a_, c, n, u, occl_views=["front", v], **{k: v_ for k, v_ in kw.items()
-                                                             if k not in ("tilt_gate", "line_min", "deco_min")})
-        print(f"   {nm}: «{t}» {sz * 100:.1f} cm type -> {'OK' if ok else 'NO FIT'} tilt={rep['max_tilt_deg']} "
-              f"edge={rep['edge_clear_cm']} hidden={rep.get('hidden_frac')}", flush=True)
-    URL_NOTES.append(f"front splitter lip: «{SIMKART_URL}» right / «{K64_URL}» left, {h * 100:.1f} cm type, white with a "
-                     f"deep-ink edge (the blade's ext_plastic.dds region is shared with 14 other meshes: no texture "
-                     f"override; the painted lip only faces forward at |x| 0.40-0.65)")
+    # one common size and one mirror-symmetric position: the (|x|, z) whose worse side scores best
+    kwd = {k: v_ for k, v_ in kw.items() if k not in ("tilt_gate", "line_min", "deco_min")}
+    score = {}
+    for nm, t, sg, v in jobs:
+        a_ = art(t)(h)
+        for c, n, u in cands(sg)(h):
+            r = decal(nm, a_, c, n, u, dry=True, occl_views=["front", v], **kwd)
+            ok, sc = _gates(r, kw, kw["tilt_gate"], kw["line_min"], 0.0)
+            ok = ok and r.get("decal_clear_cm", 99) >= kw["deco_min"]
+            key = (round(abs(c[0]), 3), round(c[2], 4))
+            score.setdefault(key, {})[sg] = (sc if ok else sc - 1000, (c, n, u))
+    pairs = [(min(d[-1][0], d[1][0]), k) for k, d in score.items() if len(d) == 2]
+    best_sc, key = max(pairs)
+    for nm, t, sg, v in jobs:
+        c, n, u = score[key][sg][1]
+        decal(nm, art(t)(h), c, n, u, occl_views=["front", v], **kwd)
+        rep = CHECKS[-1]
+        SPL_LOG[nm] = dict(c=[round(float(q), 4) for q in c], size=h, status=rep["status"])
+        print(f"   {nm}: «{t}» {h * 100:.1f} cm type at {np.round(c, 3)} -> {rep['status']} "
+              f"tilt={rep['max_tilt_deg']} edge={rep['edge_clear_cm']} line={rep.get('line_clear_cm')} "
+              f"hidden={rep.get('hidden_frac')}", flush=True)
+    URL_NOTES.append(f"front bumper, outer corner faces (|x| {key[0]:.3f}, z {key[1]:.3f}, mirror-symmetric): «{SIMKART_URL}» "
+                     f"right / «{K64_URL}» left, {h * 100:.1f} cm type, white with a deep-ink outline, baseline level in 3D "
+                     f"(horizontal projection axis, world z up) - parallel to the intake top edge and the holo band edge "
+                     f"beside it; "
+                     f"nothing on the splitter lip any more (level it holds no box over ~2.5 cm; the blade's "
+                     f"ext_plastic.dds region is shared with 14 other meshes, so no texture override)")
+
+
+SPL_LOG = {}
 
 
 # ================================================================= glass_sticker.dds (1024, alpha kept)
@@ -4252,7 +4306,8 @@ def main():
                    f"edge={r['edge_clear_cm']:>5}cm tilt={r['max_tilt_deg']:>5}° level={r.get('level_deg')}°({r.get('level_view')}) "
                    f"in_mask={r.get('in_zone_mask')} "
                    f"mask_clear={r.get('mask_clear_cm')}cm lines={r.get('line_clear_cm')}cm"
-                   + (f" decals={r.get('decal_clear_cm')}cm hidden={r['hidden_frac']}" if "hidden_frac" in r else ""))
+                   + (f" decals={r.get('decal_clear_cm')}cm hidden={r['hidden_frac']}" if "hidden_frac" in r else "")
+                   + (f" air_to_handle={r['keepout_air_cm']}cm" if "keepout_air_cm" in r else ""))
     for r in GCHECKS:  # glass checks of the first car + the name / number checks of the second (same layout)
         extra = ""
         if "visible_glass_clear_px" in r:
