@@ -2433,6 +2433,7 @@ def greenhouse_curves():
     # (along the roof the rail line runs in a ~4 cm channel between the side window's frame and the roof's side trim
     #  strip: in its middle where that is closer than GH_GAP_SIDE)
     do_ = np.minimum(cKDTree(cl["out"]).query(P, distance_upper_bound=0.08)[0], 0.08)
+    do_ = np.where((P[:, 1] > -0.16) & (P[:, 1] < 0.86), do_, 0.08)    # (only where the strip runs straight)
     S = _iso_guides(P, ds - np.minimum(np.minimum(GH_GAP_SIDE, dw + ds - half), 0.5 * (ds + do_)), 0.0,
                     L_ & (P[:, 0] > 0.45) & (P[:, 1] > -0.20) & (P[:, 1] < 1.08) & (P[:, 2] > 1.2),
                     lambda Q: Q[:, 1], np.arange(-0.20, 1.08, 0.02))
@@ -2450,6 +2451,16 @@ def greenhouse_curves():
     # lands on the rail line ahead of the corner (see below), like the header at the front corner
     Rc = _iso_guides(P, dr, GH_GAP_RW, L_ & (P[:, 1] < 1.26) & (P[:, 2] > 1.25), lambda Q: Q[:, 0],
                      np.arange(-0.12, GH_RC_X, 0.03))
+    # (each line crosses the centreline square to it - the right side is the mirror image: the guides near the
+    #  centreline are mirrored across it before fitting, so there is no V where the two halves meet)
+    mir = np.array([-1.0, 1.0, 1.0])
+
+    def mirror_start(G):
+        k = (G[:, 0] > 0.003) & (G[:, 0] < 0.15)
+        return np.vstack([(G[k] * mir)[::-1], G[G[:, 0] >= -0.003]])
+    Hd, Rc = mirror_start(Hd), mirror_start(Rc)
+    kt_ = (CT[:, 0] > 0.003) & (CT[:, 0] < 0.15)
+    CT = np.vstack([CT[CT[:, 0] >= -0.003], (CT[kt_] * mir)[::-1]])
     G = np.vstack([hood, foot[::-1], A, S, CT])
     grp = np.concatenate([np.full(len(hood), 0), np.full(len(foot), 1), np.full(len(A), 1), np.full(len(S), 2),
                           np.full(len(CT), 3)])
