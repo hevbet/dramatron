@@ -759,7 +759,10 @@ def paint_belly():
     dist_e = (P[:, 2] - ze) / k                     # signed distance to the band edge / keyline (+ above)
     dout = np.stack([P[:, 0], P[:, 1] - np.clip(P[:, 1], -1.7, 1.7), np.zeros(len(P))], 1)
     dout /= np.maximum(np.linalg.norm(dout, axis=1, keepdims=True), 1e-6)
-    outward = (NRMF[idx] * dout).sum(1) > -0.2
+    facing = (NRMF[idx] * dout).sum(1)
+    outward = facing > -0.2        # keyline: not on the inner faces of the flares / arch returns
+    facing_out = facing > 0.5      # dashes: only on skin that faces out of the car - not on inner faces, the flares'
+    #                                up-facing tops or the rear step face of the flare (iso-height lines smear there)
     dist = (P[:, 2] - z) / k                        # signed perpendicular distance to B (+ above)
     # holo band below B: iridescent field from world position, slightly brighter toward the top edge
     # ~2.5 full spectrum cycles along one side
@@ -789,7 +792,7 @@ def paint_belly():
     # over the rear door the dashed line leaves B and sweeps up into the shoulder line (belly_connector), so it never
     # ends in mid-panel; behind the arch it comes back out of the lip with the band edge. Keyline and dashes only on
     # skin that faces out of the car (not on the inner faces of the flares / arch returns, which share the height)
-    keep = (flat > 0) & ~((P[:, 1] > BELLY_SPLIT) & (P[:, 1] < 1.45) & (P[:, 2] > 0.46)) & outward
+    keep = (flat > 0) & ~((P[:, 1] > BELLY_SPLIT) & (P[:, 1] < 1.45) & (P[:, 2] > 0.46)) & facing_out
     # at the nose the dashed line does not run on along the bumper corner ahead of the front wheel (toward the air
     # intakes): it ends in the front wheel opening; the front of the chart is closed by the cut line along the
     # headlight (eyeliner_curve)
