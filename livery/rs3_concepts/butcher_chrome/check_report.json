@@ -1876,20 +1876,6 @@
    "why": "truncated",
    "y": -0.86,
    "x": 0.966
-  },
-  {
-   "dash": 35,
-   "side": "R",
-   "why": "truncated",
-   "y": 1.601,
-   "x": -0.937
-  },
-  {
-   "dash": 35,
-   "side": "L",
-   "why": "truncated",
-   "y": 1.601,
-   "x": 0.937
   }
  ],
  "line_notes": [
@@ -2170,21 +2156,15 @@
   },
   {
    "line": "belly_rear_L",
-   "length_cm": 36.0,
+   "length_cm": 41.3,
    "dashes": 4,
    "truncated": [],
    "hidden_by_part": [],
-   "partly_hidden_by_body": [
-    [
-     38,
-     "rear",
-     59
-    ]
-   ],
+   "partly_hidden_by_body": [],
    "start": [
-    0.936,
-    1.62,
-    0.809
+    0.941,
+    1.545,
+    0.812
    ],
    "end": [
     0.759,
@@ -2192,7 +2172,7 @@
     0.887
    ],
    "air_to_lamp_cm": 2.6,
-   "stretch": 1.0072,
+   "stretch": 1.037,
    "T": [
     0.759,
     1.846,
@@ -2259,21 +2239,15 @@
   },
   {
    "line": "belly_rear_R",
-   "length_cm": 36.1,
+   "length_cm": 41.3,
    "dashes": 4,
    "truncated": [],
    "hidden_by_part": [],
-   "partly_hidden_by_body": [
-    [
-     38,
-     "rear",
-     59
-    ]
-   ],
+   "partly_hidden_by_body": [],
    "start": [
-    -0.936,
-    1.62,
-    0.809
+    -0.941,
+    1.545,
+    0.812
    ],
    "end": [
     -0.759,
@@ -2281,7 +2255,7 @@
     0.887
    ],
    "air_to_lamp_cm": 2.6,
-   "stretch": 1.0072,
+   "stretch": 1.037,
    "T": [
     -0.759,
     1.846,
@@ -2572,7 +2546,7 @@
     0.675
    ],
    "status": "OK",
-   "text_cap_cm": 0.71,
+   "text_cap_cm": 1.15,
    "line_clear_cm": 12.5,
    "decal_clear_cm": 2.7,
    "edge_clear_cm": 2.3,
@@ -2593,7 +2567,7 @@
     0.675
    ],
    "status": "OK",
-   "text_cap_cm": 0.71,
+   "text_cap_cm": 1.15,
    "line_clear_cm": 12.5,
    "decal_clear_cm": 2.7,
    "edge_clear_cm": 2.4,
@@ -2693,13 +2667,13 @@
   "tail-lamp loop_L: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [2.46, 3.18] cm min / median), down the rear bumper (riser at |x| 0.45) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (113.5 cm, 9 whole dashes, stretches [0.9966, 1.0, 1.0832, 0.9094, 0.9183, 0.9916])",
   "front_L: starts as the shoulder line's continuation (above) - behind and under the lamp, along the bumper crease, up the lamp / grille neck, over the grille - and ends on the car's centreline x = 0 in the middle of a dash shared with the mirrored right half - CLOSED; it carries the T of the belly line's front closure (below)",
   "greenhouse_L: starts on the hood centreline (meets the right half there), runs the A-pillar, the roof edge, the C-pillar and the trunk lid to the trunk centreline (meets the right half on the middle of a dash) - CLOSED loop round the greenhouse; the windscreen header and the rear-window cross line join it in Y junctions on its dashes, each crossing the roof to the other side - the roof is a closed cut zone",
-  "belly / swoosh_L: FRONT end - CLOSED: ahead of the front wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises beside the outer intake (4 cm from its wall) to the front cut line under the headlight, which it meets in a T: its last dash ends on the middle of a front-line dash at [0.847, -1.885, 0.553] (46.4 cm, 4 whole dashes); REAR end - CLOSED: from y +1.62 on the rear flare's top step it leaves the flare edge at y +1.70, crosses the step diagonally and lands on the tail-lamp loop in front of the lamp in a T on the middle of a loop dash at [0.759, 1.846, 0.887] (36.0 cm, stretch 1.0072); the recess under / behind the flare stays plain pink (the line runs on the flare's step and the body above it, never down the recess)",
+  "belly / swoosh_L: FRONT end - CLOSED: ahead of the front wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises beside the outer intake (4 cm from its wall) to the front cut line under the headlight, which it meets in a T: its last dash ends on the middle of a front-line dash at [0.847, -1.885, 0.553] (46.4 cm, 4 whole dashes); REAR end - CLOSED: from y +1.546 (the middle of one of its gaps) on the rear flare's top step it leaves the flare edge at y +1.70, crosses the step diagonally and lands on the tail-lamp loop in front of the lamp in a T on the middle of a loop dash at [0.759, 1.846, 0.887] (41.3 cm, stretch 1.037); the recess under / behind the flare stays plain pink (the line runs on the flare's step and the body above it, never down the recess)",
   "rear bumper_L: from the centreline (one dash centred on x = 0, shared with the other half) outboard along the bumper to |x| 0.274, where it turns up into the tail-lamp loop's riser (same line, same dashes) - CONNECTED (its old ends beside the trim fins, with dashes left out there, are gone)",
   "shoulder_R: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued)",
   "tail-lamp loop_R: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [2.46, 3.18] cm min / median), down the rear bumper (riser at |x| 0.45) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (113.8 cm, 9 whole dashes, stretches [0.996, 1.0, 1.0832, 0.9094, 0.9183, 0.9796])",
   "front_R: starts as the shoulder line's continuation (above) - behind and under the lamp, along the bumper crease, up the lamp / grille neck, over the grille - and ends on the car's centreline x = 0 in the middle of a dash shared with the mirrored right half - CLOSED; it carries the T of the belly line's front closure (below)",
   "greenhouse_R: starts on the hood centreline (meets the right half there), runs the A-pillar, the roof edge, the C-pillar and the trunk lid to the trunk centreline (meets the right half on the middle of a dash) - CLOSED loop round the greenhouse; the windscreen header and the rear-window cross line join it in Y junctions on its dashes, each crossing the roof to the other side - the roof is a closed cut zone",
-  "belly / swoosh_R: FRONT end - CLOSED: ahead of the front wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises beside the outer intake (4 cm from its wall) to the front cut line under the headlight, which it meets in a T: its last dash ends on the middle of a front-line dash at [-0.847, -1.885, 0.553] (46.6 cm, 4 whole dashes); REAR end - CLOSED: from y +1.62 on the rear flare's top step it leaves the flare edge at y +1.70, crosses the step diagonally and lands on the tail-lamp loop in front of the lamp in a T on the middle of a loop dash at [-0.759, 1.846, 0.887] (36.1 cm, stretch 1.0072); the recess under / behind the flare stays plain pink (the line runs on the flare's step and the body above it, never down the recess)",
+  "belly / swoosh_R: FRONT end - CLOSED: ahead of the front wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises beside the outer intake (4 cm from its wall) to the front cut line under the headlight, which it meets in a T: its last dash ends on the middle of a front-line dash at [-0.847, -1.885, 0.553] (46.6 cm, 4 whole dashes); REAR end - CLOSED: from y +1.546 (the middle of one of its gaps) on the rear flare's top step it leaves the flare edge at y +1.70, crosses the step diagonally and lands on the tail-lamp loop in front of the lamp in a T on the middle of a loop dash at [-0.759, 1.846, 0.887] (41.3 cm, stretch 1.037); the recess under / behind the flare stays plain pink (the line runs on the flare's step and the body above it, never down the recess)",
   "rear bumper_R: from the centreline (one dash centred on x = 0, shared with the other half) outboard along the bumper to |x| 0.274, where it turns up into the tail-lamp loop's riser (same line, same dashes) - CONNECTED (its old ends beside the trim fins, with dashes left out there, are gone)"
  ],
  "shoulder_crease": {
