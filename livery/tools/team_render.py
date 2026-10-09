@@ -16,35 +16,44 @@ The first skin is car A, the second car B.  Driver names and numbers for the tit
 contact sheet come from each folder's ui_skin.json.
 
 Views (each one has its own car layout, camera and look; the hero car is the one nearest the camera):
-  front34_pair  low camera (0.85 m) and long lens (~85 mm equivalent), car A hero in front, car B
-                beside and ahead of it, turned a little so its door number shows
+  front34_pair  eye-level camera (1.7 m), ~50 mm lens: car A hero on the right third, car B behind
+                it on the left (turned a little so its door number shows); the cars fill ~60 % of the
+                frame height with ~10 % headroom
   rear34_pair   the same from the rear, car B hero
-  side_pair     elevated long-lens profile, the two cars stacked in two rows (B behind and above A)
-  top_pair      plan view with a soft drop shadow
+  side_pair     true profile at bumper height (0.62 m), long lens (~115 mm): car A in front, car B
+                behind it and half a car ahead (its door number clear of car A)
+  top_pair      plan view straight down (90 degrees), the cars parallel in echelon
   custom        --camera az,el,dist[,target] (az from the car front towards the car left) or --eye/--target
 --gap/--stagger replace the preset layouts with two parallel cars (gap centre to centre, stagger front to back).
 
-Scene: dark glossy studio floor (planar mirror reflection weighted by Fresnel, blurred more the
-higher the reflected point is above the floor, faded towards the camera; soft contact shadows and
-occlusion from a height field of the cars) in a near-black cyclorama with a soft light pool behind
-the cars, a touch of coloured haze and a vignette.  Light rig (procedural environment, rotated with
-the camera like a photographer's rig): a long overhead softbox with a hot core and two lengthwise
-overhead strips, a high side strip on each side (one clean streak along the shoulder line), magenta
-and teal kickers behind the cars (rim light on roof, wing and silhouettes), a dim backdrop panel and
-front fill.  Diffuse light: order-2 spherical harmonics x per-vertex directional occlusion (128
-shadow maps), the overhead part with a near-field fall-off so the lower body darkens.  Reflections
-are per pixel and analytic (crisp softbox edges), with specular occlusion interpolated between the
-visibility directions.  Paint: pearl base (hue flop towards violet at grazing angles, violet-white
-sheen) under a Fresnel clearcoat; the holographic regions of the livery (found in the texture) turn
-their hue with the view angle and reflect like a tinted metal film.  DRL, projector and tail lamps
-are emissive.  The car further from the camera is exposed --back-ev lower and blurred by the depth
-of field (--dof).  Textures are sampled trilinearly from mip pyramids padded outside the UV islands.
-Post: SSAA (--ss) with a float downsample, bloom, ACES tone mapping, dithering before quantising.
---title adds the team band at the bottom.  --fast skips the visibility precomputation (previews).
+Scene: glossy black studio floor (planar mirror reflection weighted by Fresnel, sharp at the contact
+and blurred with the height of the reflected point, faded towards the camera) with a soft light pool
+under the cars, contact shadows and an occlusion footprint (height field of the cars), in a near-black
+cyclorama with a maroon-pink back glow, a dashed light line on the back wall (the butcher-chart motif),
+a touch of coloured haze and a vignette.  Light rig (procedural environment rotated with the camera
+like a photographer's rig; every light a hard-edged rectangle with a gradient): a long overhead
+softbox, two long horizontal light-line strips behind the cars (the crisp streaks along hood, roof and
+trunk), a side strip on each side (one clean streak along the shoulder line), a front three-quarter
+key, cyan and magenta rim strips low behind the cars (rim light on roof line, wing and tyres), a
+ceiling cove (gradient reflections on glass and the horizontal panels), a dim backdrop panel and a
+front fill; the top view adds floor-standing reflector panels for the glass.  Diffuse light: order-2
+spherical harmonics x per-vertex directional occlusion (128 shadow maps), the overhead part with a
+near-field fall-off.  Reflections are per pixel and analytic, with specular occlusion interpolated
+between the visibility directions.  Paint: pearl pink (a slight hue flop, neutral sheen, so the pink
+stays the same in every view) under a Fresnel clearcoat; the holographic regions of the livery (found
+in the texture) keep their designed rainbow and shift it a little with the view angle, with a
+soft-clamped tinted film reflection.  Painted rims get extra fill so white rims read white.  DRL,
+projector and tail lamps are emissive and bloom.  The car further from the camera is exposed --back-ev
+lower and slightly blurred by the depth of field (--dof).  Textures: anisotropic filtering (up to 8
+taps along the footprint) over mip pyramids padded outside the UV islands; alpha-tested decals test
+the filtered alpha.  Smoothed shading normals on the body.  Post: SSAA (--ss) with a triangle-filter
+float downsample (no ringing), bloom, ACES tone mapping, dithering before quantising.
+--title adds the team band at the bottom (overlaid on the floor).  --fast skips the visibility
+precomputation (previews).  sheet.png: the views without the band, cropped to the cars.
 
 Cost: per layout the visibility (128 shadow maps) takes ~0.5-1 min on 4 CPUs (--cache keeps it between
-runs); a 2400x1350 view at --ss 2 renders in ~2-3 min (+2 min with depth of field), the four views in
-parallel (--jobs 4) in ~5.5 min, peak ~2 GB per worker (~3.2 GB with depth of field).
+runs); the four 2400x1350 views at --ss 2 in parallel (--jobs 4) take ~6-7 min, peak ~2.5 GB per worker
+(~3.5 GB with depth of field).
 
 World space = AC/kn5: x = car LEFT, y = up, z = FRONT.  Writes <view>.png and sheet.png.
 """
@@ -77,35 +86,54 @@ TEAM_LINE = ("КОМАНДА ЭДМ", "BUTCHER CHART CHROME")
 ALL_VIEWS = ["front34_pair", "rear34_pair", "side_pair", "top_pair"]
 CAPTIONS = {"front34_pair": "Три четверти спереди", "rear34_pair": "Три четверти сзади",
             "side_pair": "Профиль", "top_pair": "Вид сверху", "custom": "Свой ракурс"}
+
+
+def _behind(az_deg, left, deeper):
+    """Offset (x, z) of a second car seen `left` m to the left of the hero on screen and `deeper` m further
+    from a camera at azimuth az_deg."""
+    a = math.radians(az_deg)
+    return (round(-left * math.cos(a) - deeper * math.sin(a), 3), round(left * math.sin(a) - deeper * math.cos(a), 3))
+
+
+_F34 = _behind(34.0, 2.5, 3.6)
+_R34 = _behind(214.0, 2.5, 3.6)
 # cars: (x, z, yaw degrees; + turns the nose towards +x) for car A and car B.
 # camera: az degrees from the car front (+z) towards the car left (+x); eye_h camera height (m) or el
 # (degrees above the target); dist horizontal distance (m) from the layout centre (long lens when large).
-# dof: depth of field strength; back_ev: exposure of the car further away; floor_alb: floor diffuse albedo
-# in the light pool; refl: floor reflection weight (x Fresnel)
+# margins: framing (left, right, top, bottom) fractions of the frame (the bottom one leaves room for the
+# floor reflection and the title band).  dof: depth of field strength; back_ev: exposure of the car further
+# away; floor_alb: floor diffuse albedo in the light pool; refl: floor reflection weight (x Fresnel);
+# line_h: height (m) of the dashed light line on the back wall (None: no line)
 PRESETS = {
-    "front34_pair": dict(az=37.0, eye_h=0.85, dist=16.0, ty=0.62, cars=((1.45, -0.35, 0.0), (-2.75, -0.95, -8.0)),
-                         dof=0.55, back_ev=-0.5, exposure=1.0, floor_alb=0.05, refl=0.42),
-    "rear34_pair": dict(az=217.0, eye_h=0.90, dist=16.0, ty=0.66, cars=((3.15, 1.10, -8.0), (-1.45, 0.35, 0.0)),
-                        dof=0.55, back_ev=-0.5, exposure=1.0, floor_alb=0.05, refl=0.42),
-    "side_pair": dict(az=82.0, el=16.5, dist=22.0, ty=0.55, cars=((2.5, -0.9, 0.0), (-2.5, 0.9, 0.0)),
-                      dof=0.0, back_ev=-0.25, exposure=1.0, floor_alb=0.06, refl=0.42),
-    "top_pair": dict(az=-90.0, el=80.0, dist=15.0, ty=0.3, cars=((1.25, 0.45, 0.0), (-1.25, -0.45, 0.0)),
-                     dof=0.0, back_ev=0.0, exposure=1.0, floor_alb=0.11, refl=0.30),
+    "front34_pair": dict(az=34.0, eye_h=1.7, dist=10.0, ty=0.6, cars=((0.0, 0.0, 0.0), (_F34[0], _F34[1], -8.0)),
+                         margins=(0.04, 0.04, 0.10, 0.30), dof=0.30, back_ev=-0.3, exposure=1.0, floor_alb=0.16,
+                         refl=0.55),
+    "rear34_pair": dict(az=214.0, eye_h=1.7, dist=10.0, ty=0.6, cars=((_R34[0], _R34[1], -8.0), (0.0, 0.0, 0.0)),
+                        margins=(0.04, 0.04, 0.10, 0.30), dof=0.30, back_ev=-0.3, exposure=1.0, floor_alb=0.16,
+                        refl=0.55),
+    "side_pair": dict(az=90.0, eye_h=0.62, dist=26.0, ty=0.6, cars=((1.6, -1.3, 0.0), (-1.6, 1.3, 0.0)),
+                      margins=(0.04, 0.04, 0.22, 0.36), dof=0.0, back_ev=-0.2, exposure=1.0, floor_alb=0.16,
+                      refl=0.40, line_h=0.95),
+    "top_pair": dict(az=-90.0, el=90.0, dist=15.0, ty=0.3, cars=((1.175, 0.7, 0.0), (-1.175, -0.7, 0.0)),
+                     margins=(0.08, 0.08, 0.06, 0.13), dof=0.0, back_ev=0.0, exposure=1.0, floor_alb=0.14,
+                     refl=0.30),
 }
-CUSTOM = dict(ty=0.62, cars=((1.225, 0.4, 0.0), (-1.225, -0.4, 0.0)), dof=0.0, back_ev=0.0, exposure=1.0,
-              floor_alb=0.05, refl=0.42)
+CUSTOM = dict(ty=0.62, cars=((1.225, 0.4, 0.0), (-1.225, -0.4, 0.0)), margins=(0.06, 0.06, 0.12, 0.27), dof=0.0,
+              back_ev=0.0, exposure=1.0, floor_alb=0.16, refl=0.5)
 
 # ---------------------------------------------------------------- materials
 # kd diffuse weight | cc clearcoat weight (Schlick F0 0.04, lobe cc_s rad) | sp dielectric spec weight
 # (Schlick F0 0.04, lobe sp_s rad, tinted by the base colour by sp_tint) | mt metallic weight
-# (F0 = base colour lifted by mt_lift, lobe mt_s rad)
-MAT_DEFAULT = dict(kd=1.0, cc=0.0, cc_s=0.02, sp=0.0, sp_s=0.3, sp_tint=0.0, mt=0.0, mt_s=0.2, mt_lift=0.0)
+# (F0 = base colour lifted by mt_lift, lobe mt_s rad) | fill: extra diffuse light (wheels deep in the arches
+# get a photographer's fill) | occ_min: floor of the diffuse occlusion
+MAT_DEFAULT = dict(kd=1.0, cc=0.0, cc_s=0.02, sp=0.0, sp_s=0.3, sp_tint=0.0, mt=0.0, mt_s=0.2, mt_lift=0.0,
+                   fill=1.0, occ_min=0.0)
 MATS = {
-    "skin": dict(cc=1.0, cc_s=0.006, sp=0.45, sp_s=0.22, sp_tint=0.6),       # pearl base + clearcoat
+    "skin": dict(cc=1.0, cc_s=0.010, sp=0.40, sp_s=0.22, sp_tint=0.5),       # pearl base + clearcoat
     "glass_sticker": dict(cc=0.15, cc_s=0.04),
     "ext_sticker": dict(cc=0.45, cc_s=0.03),
-    "caliper": dict(cc=1.0, cc_s=0.03),
-    "rim": dict(kd=0.95, mt=0.15, mt_s=0.16, mt_lift=0.08, cc=0.7, cc_s=0.03),    # painted rims
+    "caliper": dict(cc=1.0, cc_s=0.03, fill=1.4, occ_min=0.3),
+    "rim": dict(kd=1.0, mt=0.04, mt_s=0.16, mt_lift=0.05, cc=0.6, cc_s=0.03, fill=1.9, occ_min=0.5),  # painted rims
     "ture": dict(sp=0.6, sp_s=0.40),
     "brakedisc": dict(kd=0.5, mt=0.6, mt_s=0.30, mt_lift=0.3),
     "chrome": dict(kd=0.05, mt=1.0, mt_s=0.012, mt_lift=0.55),
@@ -113,11 +141,11 @@ MATS = {
     "lights": dict(kd=0.5, mt=0.65, mt_s=0.06, mt_lift=0.35, cc=1.0, cc_s=0.004),
     "reflector": dict(kd=0.5, mt=0.65, mt_s=0.06, mt_lift=0.35, cc=1.0, cc_s=0.004),
     "exhaust": dict(kd=0.4, mt=0.7, mt_s=0.2, mt_lift=0.3),
-    "ext_carbon": dict(cc=0.45, cc_s=0.04),
+    "ext_carbon": dict(cc=0.55, cc_s=0.03),
     "glassblack": dict(cc=1.0, cc_s=0.006),
-    "ext_plastic": dict(sp=0.8, sp_s=0.22),
-    "pl_black": dict(sp=0.8, sp_s=0.25),
-    "black": dict(sp=0.4, sp_s=0.35),
+    "ext_plastic": dict(sp=0.8, sp_s=0.20),
+    "pl_black": dict(sp=0.8, sp_s=0.22),
+    "black": dict(sp=0.5, sp_s=0.30),
     "reshotka": dict(sp=0.6, sp_s=0.30),
     "ext_metal": dict(kd=0.7, mt=0.3, mt_s=0.28, mt_lift=0.1),
     "screw": dict(kd=0.5, mt=0.6, mt_s=0.2, mt_lift=0.3),
@@ -129,13 +157,16 @@ MATS = {
 GLASS_T = {"window": (0.16, 0.17, 0.19), "lens": (0.80, 0.80, 0.82), "lights_glass": (0.62, 0.07, 0.08)}
 GLASS_F0 = 0.045
 DIFFUSE_GAIN = 0.62
-OCC_RAD = np.array([0.012, 0.008, 0.010], np.float32)   # what an occluded reflection sees (car body, dark)
+OCC_RAD = np.array([0.012, 0.009, 0.010], np.float32)   # what an occluded reflection sees (car body, dark)
 # emissive lamps by kn5 node name (linear radiance): daytime running lights, projectors, tail and brake lamps
 EMIT = {"LIGHT_DRL": (9.0, 9.3, 10.5), "LIGHT_FRONT.001": (1.4, 1.35, 1.25), "LIGHT_FRONT": (1.0, 0.97, 0.9),
-        "LIGHT_TAIL": (7.5, 0.55, 0.40), "LIGHT_BRAKE": (3.5, 0.25, 0.18)}
+        "LIGHT_TAIL": (9.0, 0.70, 0.50), "LIGHT_BRAKE": (4.5, 0.30, 0.22)}
 PEARL_HUE = 338.0                       # hue of the pearl pink (degrees) for the flop mask
-PEARL_SHEEN = np.array([0.93, 0.86, 1.0], np.float32)
+PEARL_FLOP_DEG = -7.0                   # pearl hue shift at grazing angles (small: the pink must match across views)
+PEARL_SHEEN = np.array([1.0, 0.93, 0.96], np.float32)    # neutral-warm pearl sheen
 NEAR_TOP_H = 4.0                        # height of the overhead softbox for its near-field fall-off (m)
+MAX_ANISO = 8
+LOD_BIAS = 0.0
 
 
 def srgb_to_lin(c):
@@ -222,6 +253,28 @@ def load_geometry(path, interior=True):
     return textures, mats, meshes
 
 
+def smooth_normals(P, VN, verts, radius=0.03, sigma=0.015, min_dot=0.985):
+    """Spatially smoothed shading normals for the body panels: every vertex averages the normals of the
+    vertices within `radius` (gaussian weights) that point within ~10 degrees of its own, so small mesh
+    ripples and seam mismatches do not wobble the thin softbox streaks while real creases stay crisp."""
+    from scipy.spatial import cKDTree
+    pts = P[verts]; nrm = VN[verts].astype(np.float64)
+    tree = cKDTree(pts)
+    pairs = tree.query_pairs(radius, output_type="ndarray")
+    if len(pairs) == 0:
+        return VN
+    i, j = pairs[:, 0], pairs[:, 1]
+    d = np.linalg.norm(pts[i] - pts[j], axis=1)
+    dots = (nrm[i] * nrm[j]).sum(1)
+    w = np.exp(-0.5 * (d / sigma) ** 2) * np.clip((dots - min_dot) / (1 - min_dot), 0, 1)
+    acc = nrm.copy()
+    np.add.at(acc, i, nrm[j] * w[:, None])
+    np.add.at(acc, j, nrm[i] * w[:, None])
+    out = VN.copy()
+    out[verts] = normalize(acc)
+    return out
+
+
 class Model:
     """Car geometry, shared by every instance (same filtering as render_rs3.Scene)."""
 
@@ -262,7 +315,10 @@ class Model:
             for k in range(3):
                 np.add.at(acc, self.T[:, k], fn)
             vn[~ok] = acc[~ok]
-        self.VN = normalize(vn).astype(np.float32)
+        vn = normalize(vn)
+        if "skin" in self.mat_names:
+            vn = smooth_normals(self.P, vn, np.unique(self.T[self.TM == self.mat_names.index("skin")].ravel()))
+        self.VN = vn.astype(np.float32)
         uva = self.UV[self.T[:, 1]] - self.UV[self.T[:, 0]]; uvb = self.UV[self.T[:, 2]] - self.UV[self.T[:, 0]]
         self.uv_area = np.abs(uva[:, 0] * uvb[:, 1] - uva[:, 1] * uvb[:, 0]).astype(np.float32)
         tyre = self.TM == self.mat_names.index("ture") if "ture" in self.mat_names else np.zeros(len(self.T), bool)
@@ -365,6 +421,64 @@ def sample_mip(levels, u, v, lod):
         else:
             out[jj] = a
     return out
+
+
+def footprint(J, W0, H0):
+    """Texel footprint of one pixel from the per-triangle screen->uv Jacobian J (n, 4: du/dx, du/dy,
+    dv/dx, dv/dy) for a W0 x H0 texture: (major, minor) axis lengths in texels and the major axis
+    direction (unit vector in texel space)."""
+    a = J[:, 0] * W0; b = J[:, 1] * W0; c = J[:, 2] * H0; d = J[:, 3] * H0
+    p = a * a + b * b; q = c * c + d * d; r = a * c + b * d
+    S = p + q; D = np.sqrt(np.maximum((p - q) ** 2 + 4 * r * r, 0))
+    s1 = np.sqrt(np.maximum((S + D) / 2, 0)); s2 = np.sqrt(np.maximum((S - D) / 2, 0))
+    lam = (S + D) / 2
+    # eigenvector of M M^T for the larger eigenvalue
+    ex = np.where(np.abs(r) > 1e-12, r, np.where(p >= q, 1.0, 0.0))
+    ey = np.where(np.abs(r) > 1e-12, lam - p, np.where(p >= q, 0.0, 1.0))
+    n = np.maximum(np.hypot(ex, ey), 1e-12)
+    return s1.astype(np.float32), s2.astype(np.float32), (ex / n).astype(np.float32), (ey / n).astype(np.float32)
+
+
+def sample_aniso(levels, u, v, J, bias=0.0, max_aniso=MAX_ANISO):
+    """Anisotropic filtering: up to max_aniso trilinear taps spread along the major axis of the pixel's
+    texel footprint, at the mip level of footprint / taps (sharp along the minor axis, no aliasing along
+    the major one: thin keylines and decals at grazing angles neither sparkle nor smear)."""
+    H0, W0 = levels[0].shape[:2]
+    s1, s2, ex, ey = footprint(J, W0, H0)
+    N = np.clip(np.ceil(s1 / np.maximum(s2, 1e-3)), 1, max_aniso).astype(np.int32)
+    N = np.where(s1 <= 1.0, 1, N)
+    lod = np.log2(np.maximum(s1 / N, 1e-6)) + bias
+    lod = np.where(np.isfinite(lod), lod, 0.0)
+    out = np.zeros((len(u), levels[0].shape[2]), np.float32)
+    for n in np.unique(N):
+        jj = np.nonzero(N == n)[0]
+        if n == 1:
+            out[jj] = sample_mip(levels, u[jj], v[jj], lod[jj])
+            continue
+        acc = np.zeros((len(jj), levels[0].shape[2]), np.float32)
+        step = s1[jj] / n
+        for k in range(n):
+            t = ((k + 0.5) - n / 2.0) * step
+            acc += sample_mip(levels, u[jj] + t * ex[jj] / W0, v[jj] + t * ey[jj] / H0, lod[jj])
+        out[jj] = acc / n
+    return out
+
+
+def tri_uv_jacobian(X, Y, T, UV):
+    """Per triangle screen -> uv Jacobian (n, 4: du/dx, du/dy, dv/dx, dv/dy; uv units per pixel), affine over
+    the triangle (zero for degenerate triangles)."""
+    x0, y0 = X[T[:, 0]], Y[T[:, 0]]
+    e1x = X[T[:, 1]] - x0; e1y = Y[T[:, 1]] - y0
+    e2x = X[T[:, 2]] - x0; e2y = Y[T[:, 2]] - y0
+    uv0 = UV[T[:, 0]]
+    f1 = UV[T[:, 1]] - uv0; f2 = UV[T[:, 2]] - uv0
+    det = e1x * e2y - e2x * e1y
+    ok = np.abs(det) > 1e-9
+    inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+    J = np.stack([(f1[:, 0] * e2y - f2[:, 0] * e1y) * inv, (-f1[:, 0] * e2x + f2[:, 0] * e1x) * inv,
+                  (f1[:, 1] * e2y - f2[:, 1] * e1y) * inv, (-f1[:, 1] * e2x + f2[:, 1] * e1x) * inv], 1)
+    J = np.where(np.isfinite(J), J, 0.0)
+    return np.clip(J, -1e3, 1e3).astype(np.float32)
 
 
 def holo_mask(rgb, cov):
@@ -484,53 +598,90 @@ def _wrap(a):
 
 
 MAGENTA = np.array([1.0, 0.30, 0.78], np.float32)
-TEAL = np.array([0.25, 0.85, 1.0], np.float32)
+TEAL = np.array([0.25, 0.85, 1.0], np.float32)          # cool cyan
 
 
 class Studio:
     """Procedural lat-long studio, rotated with the camera like a photographer's light rig.
-    Lights (group, kind, centre, half sizes, rgb, vertical gradient):
+    Lights (group, kind, centre, half sizes, rgb, gradient); every light is a hard-edged rectangle (its
+    edges only softened by the reflection lobe) with a linear gradient across it:
       top    long overhead softbox (world aligned, long along the cars) with a hotter core
-      tstrip two lengthwise overhead strips beside it (streaks along roofs and hoods)
-      strip  a high horizontal strip on each side, placed where the car sides mirror it towards the
-             camera: one crisp streak along the shoulder line (the far side one is dimmed)
-      kick   magenta and teal kickers behind the cars, a little above them: rim light on silhouettes
+      line   two long thin horizontal strips behind the cars: from an eye-level camera the hood, roof and
+             trunk mirror the directions just above the horizon behind the car, so these draw the crisp
+             light lines along them
+      strip  a horizontal strip where the car sides mirror the camera, a little high: one clean streak
+             along the shoulder line
+      key    a large front three-quarter softbox above the camera side (diffuse key, soft sheen)
+      rim    cyan and magenta strips low behind the cars, left and right of the view axis: the silhouettes
+             (roof line, wing, tyres) mirror the directions straight behind the car, so they draw thin
+             coloured rim lines
+      cove   the ceiling cove: a dim gradient above ~24 degrees (glass and horizontal panels show a sweep)
       back   a dim panel behind the cars, fill a dim panel behind the camera
-    The walls and the floor are near black.  radiance(d, sigma) is the environment convolved with a
-    gaussian lobe of sigma rad (analytic)."""
+      tstrip (top view) two lengthwise overhead strips beside the softbox (streaks along roof rails)
+      gpanel (top view) tall reflector panels in front of and behind the cars (seen in the glass)
+    The walls are near black, the floor a little lighter near the horizon (the light pool bounces some
+    light under the cars).  radiance(d, sigma) is the environment convolved with a gaussian lobe of sigma
+    rad (analytic)."""
 
     def __init__(self, cam_az_deg=34.0, cam_el_deg=6.0):
         ca = math.radians(cam_az_deg)
+        back = ca + math.pi
         mirror = math.pi - ca                    # where a vertical side panel reflects the camera
         R_ = math.radians
-        W_ = lambda v: np.array([v, v, v * 1.03], np.float32)
-        far = float(np.interp(abs(math.sin(ca)), [0.25, 0.5], [1.0, 0.15]))
+        W_ = lambda v: np.array([v, v, v], np.float32)
         top_view = cam_el_deg > 55
-        # lengthwise overhead strips: beside the softbox; seen from above they are moved out to where the
-        # roof rails and shoulders mirror them (a streak along the car, none across the roof number)
-        tilt = math.radians(90 - cam_el_deg) * math.copysign(1.0, -math.sin(ca)) if top_view else 0.0
-        ts = (tilt + 0.55, tilt - 0.45) if top_view else (0.62, -0.62)
-        self.lights = [
-            ("top", "top", 0.0, 0.0, 0.40, 0.78, W_(2.6), 0.0),
-            ("top", "top", 0.0, 0.0, 0.17, 0.62, W_(2.2), 0.0),
-            ("tstrip", "top", ts[0], 0.0, 0.035, 0.85, W_(14.0), 0.0),
-            ("tstrip", "top", ts[1], 0.0, 0.035, 0.85, W_(14.0), 0.0),
-            ("strip", "azel", mirror, R_(26), R_(42), R_(0.7), W_(55.0), 0.0),
-            ("strip", "azel", -mirror, R_(26), R_(42), R_(0.7), W_(55.0) * far, 0.0),
-            ("kick", "azel", ca + math.pi + R_(42), R_(16), R_(12), R_(15), MAGENTA * 7.0, 0.0),
-            ("kick", "azel", ca + math.pi - R_(42), R_(16), R_(12), R_(15), TEAL * 7.0, 0.0),
-            ("back", "azel", ca + math.pi, R_(22), R_(62), R_(18), W_(0.30), 0.6),
-            ("fill", "azel", ca, R_(14), R_(40), R_(14), W_(0.30), 0.0),
-        ]
-        # reflections seen by the camera: from high above the overhead softbox would mirror flat over the
-        # roof (a photographer shoots through it), so its specular share drops with camera elevation
-        self.spec_gains = {"top": float(np.interp(cam_el_deg, [30, 75], [1.0, 0.18])),
-                           "tstrip": 1.0 if top_view else 0.6}
-        # diffuse: the strips and kickers are tuned for crisp reflections, their diffuse share is small
-        self.diff_gains = {"strip": 0.10, "kick": 0.25, "tstrip": 0.12}
-        self.floor_gains = {"*": 0.02, "base": 1.0}
-        self.glass_gains = {"top": self.spec_gains["top"], "tstrip": 0.5, "strip": 0.15, "kick": 0.55,
-                            "back": 1.0, "fill": 0.5}
+        self.top_view = top_view
+        if top_view:
+            # lengthwise overhead strips moved out to where the roof rails and shoulders mirror them (a streak
+            # along the car, none across the roof number); rims at the horizon left and right of the cars
+            # (the side edges of the cars seen from above); reflector panels in front of / behind the cars
+            tilt = math.radians(90 - cam_el_deg) * math.copysign(1.0, -math.sin(ca))
+            ts = (tilt + 0.55, tilt - 0.45)
+            self.lights = [
+                ("top", "top", 0.0, 0.0, 0.40, 0.78, W_(2.4), 0.0),
+                ("top", "top", 0.0, 0.0, 0.16, 0.60, W_(1.8), 0.0),
+                ("tstrip", "top", ts[0], 0.0, 0.035, 0.85, W_(10.0), 0.0),
+                ("tstrip", "top", ts[1], 0.0, 0.035, 0.85, W_(10.0), 0.0),
+                ("rim", "azel", R_(90), R_(6), R_(60), R_(6), MAGENTA * 6.0, 0.0),
+                ("rim", "azel", R_(-90), R_(6), R_(60), R_(6), TEAL * 6.0, 0.0),
+                ("gpanel", "azel", R_(16), R_(31), R_(22), R_(17), W_(3.4), 0.6),
+                ("gpanel", "azel", math.pi - R_(16), R_(36), R_(22), R_(17), W_(2.8), 0.6),
+                ("cove", "cove", R_(24), 0.0, 0.0, 0.0, W_(0.10), 0.6),
+                ("back", "azel", back, R_(22), R_(62), R_(18), W_(0.30), 0.6),
+                ("fill", "azel", ca, R_(14), R_(40), R_(14), W_(0.30), 0.0),
+            ]
+            self.spec_gains = {"top": 0.18, "tstrip": 1.0, "gpanel": 0.12, "cove": 0.4}
+            self.diff_gains = {"tstrip": 0.12, "rim": 0.02, "gpanel": 0.0, "cove": 0.5}
+            self.glass_gains = {"top": 0.3, "tstrip": 0.6, "rim": 0.5, "gpanel": 1.0, "cove": 2.5, "back": 1.0,
+                                "fill": 0.5}
+        else:
+            # a surface tilted t towards the camera mirrors the elevation cam_el + 2 t: the light lines sit just
+            # above the camera elevation (the roof crown and the hood draw one streak each) and the rims at the
+            # mirror of the camera elevation (the silhouettes, whose normals are square to the view)
+            e = math.radians(cam_el_deg)
+            self.lights = [
+                ("top", "top", 0.0, 0.0, 0.40, 0.78, W_(2.4), 0.0),
+                ("top", "top", 0.0, 0.0, 0.16, 0.60, W_(1.8), 0.0),
+                ("line", "azel", back, e + R_(3.5), R_(66), R_(0.9), W_(9.0), 0.0),
+                ("line", "azel", back, e + R_(15.0), R_(58), R_(1.2), W_(4.5), 0.0),
+                ("strip", "azel", mirror, R_(17.0), R_(38), R_(2.3), W_(22.0), 0.0),
+                ("key", "azel", ca + R_(40), R_(36), R_(22), R_(15), W_(2.6), -0.4),
+                ("rim", "azel", back + R_(10), -e + R_(3.0), R_(9), R_(5.5), MAGENTA * 8.0, 0.0),
+                ("rim", "azel", back - R_(10), -e + R_(3.0), R_(9), R_(5.5), TEAL * 8.0, 0.0),
+                ("cove", "cove", R_(24), 0.0, 0.0, 0.0, W_(0.10), 0.6),
+                ("back", "azel", back, R_(22), R_(62), R_(18), W_(0.30), 0.6),
+                ("fill", "azel", ca, R_(14), R_(40), R_(14), W_(0.35), 0.0),
+            ]
+            # reflections seen by the camera: from high above the overhead softbox would mirror flat over the
+            # roof (a photographer shoots through it), so its specular share drops with camera elevation
+            self.spec_gains = {"top": float(np.interp(cam_el_deg, [30, 75], [1.0, 0.18])), "key": 0.25,
+                               "cove": 0.5}
+            # diffuse: the strips and rims are tuned for crisp reflections, their diffuse share is small
+            self.diff_gains = {"line": 0.06, "strip": 0.06, "rim": 0.03, "key": 1.0, "cove": 0.5}
+            self.glass_gains = {"top": self.spec_gains["top"], "line": 0.7, "strip": 0.4, "key": 0.8, "rim": 0.7,
+                                "cove": 2.5, "back": 1.0, "fill": 0.6}
+        # what the glossy floor mirrors beyond the cars: the dark studio and a faint trace of the big panels
+        self.floor_gains = {"*": 0.0, "base": 1.0, "top": 0.02, "back": 0.5, "fill": 0.5}
 
     def radiance(self, d, sig, gains=None):
         d = np.asarray(d, np.float32)
@@ -542,13 +693,14 @@ class Studio:
         x, y, z = d[:, 0], d[:, 1], d[:, 2]
         el = np.arcsin(np.clip(y, -1, 1))
         az = np.arctan2(x, z)
-        # walls: near black, a little lighter towards the horizon (backdrop sweep); floor: near black
-        wall = 0.0010 + 0.0030 * np.exp(-(el / 0.30) ** 2)
-        floor = 0.0008 + 0.0010 * np.clip(-y, 0, 1)
+        # walls: near black, a little lighter towards the horizon (backdrop sweep); floor: dark, lighter
+        # towards the horizon (the light pool around the cars)
+        wall = 0.0025 + 0.0040 * np.exp(-(el / 0.30) ** 2)
+        floor = 0.0035 + 0.0080 * np.exp(-((el + 0.12) / 0.30) ** 2)
         hz = 0.5 * (1 + erf(el / (np.maximum(sig, 0.004) * SQ2)))
         base = (floor + (wall - floor) * hz).astype(np.float32) * gains.get("base", 1.0)
         out = np.repeat(base[:, None], 3, 1)
-        out *= np.array([1.0, 0.97, 1.02], np.float32)
+        out *= np.array([1.0, 0.98, 1.0], np.float32)
         top_u = top_v = None
         for group, kind, c1, c2, a, b, rgb, grad in self.lights:
             g = gains.get(group, dflt)
@@ -558,6 +710,8 @@ class Studio:
                 if top_u is None:
                     top_u = np.arctan2(x, np.maximum(y, 1e-3)); top_v = np.arctan2(z, np.maximum(y, 1e-3))
                 w = _box(top_u - c1, a, sig) * _box(top_v - c2, b, sig) * (y > 0)
+            elif kind == "cove":
+                w = 0.5 * (1 + erf((el - c1) / (sig * SQ2))) * (1 + grad * np.clip((el - c1) / (np.pi / 2 - c1), 0, 1))
             else:
                 du = _wrap(az - c1); dv = el - c2
                 sel = np.abs(dv) < b + 5 * sig + 0.05
@@ -739,9 +893,9 @@ class Layout:
         for h in (0.015, 0.04, 0.08, 0.13, 0.2, 0.3, 0.45, 0.65, 0.9, 1.2, 1.5):
             m = (hmin < h).astype(np.float32)
             O = np.maximum(O, ndimage.gaussian_filter(m, max(h * 0.42, 0.012) / cell))
-        ao = ndimage.gaussian_filter((hmin < 0.7).astype(np.float32), 0.45 / cell)
+        ao = ndimage.gaussian_filter((hmin < 0.7).astype(np.float32), 0.38 / cell)
         contact = ndimage.gaussian_filter((hmin < 0.035).astype(np.float32), 0.025 / cell)
-        self.floor_light = np.clip((1 - 0.96 * O) * (1 - 0.45 * ao) * (1 - 0.7 * contact), 0, 1).astype(np.float32)
+        self.floor_light = np.clip((1 - 0.96 * O) * (1 - 0.62 * ao) * (1 - 0.8 * contact), 0, 1).astype(np.float32)
         self.floor_grid = (x0, z0, cell, nx, nz)
         log(f"layout {self.cars}: visibility {t1 - t0:.1f}s{' (skipped)' if fast else ''}, floor {time.time() - t1:.1f}s")
 
@@ -850,8 +1004,10 @@ def hue_rotate(g, ang):
 
 
 def pearl_holo(alb, NV, ry, holo, phase):
-    """Pearl flop (pink -> violet and a little lighter at grazing angles) on the pink paint and a view
-    dependent hue rotation on the holographic regions.  Returns (albedo, pearl paint weight)."""
+    """Pearl flop (a slight hue shift and lift at grazing angles, so the pink reads the same in every view)
+    on the pink paint, and a gentle view dependent shift of the designed rainbow on the holographic
+    regions (it moves with the angle but stays the band the texture draws).  Returns (albedo, pearl
+    paint weight)."""
     g = np.power(np.clip(alb, 0, 1), 1 / 2.2)
     mx = g.max(1); mn = g.min(1)
     d = np.maximum(mx - mn, 1e-6)
@@ -862,22 +1018,25 @@ def pearl_holo(alb, NV, ry, holo, phase):
     pm = (np.clip((34 - hd) / 14, 0, 1) * np.clip((sat - 0.12) / 0.12, 0, 1) * np.clip((mx - 0.45) / 0.2, 0, 1)
           * (1 - holo)).astype(np.float32)
     flop = np.power(1 - NV, 1.6)
-    ang = math.radians(-28) * flop * pm + holo * (phase + math.radians(250) * (1 - NV) + math.radians(80) * ry)
+    ang = (math.radians(PEARL_FLOP_DEG) * flop * pm
+           + holo * (phase + math.radians(75) * np.power(1 - NV, 1.3) + math.radians(22) * ry))
     g2 = hue_rotate(g, ang)
-    lift = (0.12 * flop * flop * pm)[:, None]
-    g2 = g2 + (np.array([0.93, 0.88, 1.0], np.float32) - g2) * lift
+    lift = (0.06 * flop * flop * pm)[:, None]
+    g2 = g2 + (np.array([0.98, 0.93, 0.95], np.float32) - g2) * lift
     return np.power(np.clip(g2, 0, 1), 2.2).astype(np.float32), pm
 
 
 class ShadeCtx:
-    def __init__(self, model, liveries, L, studio, car_gain=None, lod_bias=-0.35):
+    def __init__(self, model, liveries, L, studio, car_gain=None, lod_bias=LOD_BIAS):
         self.m, self.liv, self.L, self.env = model, liveries, L, studio
         self.lod_bias = lod_bias
         self.car_gain = np.ones(L.n, np.float32) if car_gain is None else np.asarray(car_gain, np.float32)
-        self.holo_phase = np.array([0.0, 2.2, 4.1, 1.1][:L.n] + [0.0] * max(0, L.n - 4), np.float32)
+        self.holo_phase = np.array([0.0, 0.45, 0.9, 1.35][:L.n] + [0.0] * max(0, L.n - 4), np.float32)
         # diffuse: the overhead softbox (with its near-field fall-off) and the rest of the rig separately
         dg = dict(studio.diff_gains)
-        self.sh_top = sh_irradiance_coeffs(studio, {"*": 0.0, "base": 0.0, "top": 1.0}) * DIFFUSE_GAIN
+        # (the overhead softbox at 0.85 of its reflected strength: the upper surfaces stay close in value to
+        # the sides, so the pink reads as one colour on roof and doors)
+        self.sh_top = sh_irradiance_coeffs(studio, {"*": 0.0, "base": 0.0, "top": 1.0}) * DIFFUSE_GAIN * 0.85
         self.sh_rest = sh_irradiance_coeffs(studio, dict(dg, top=0.0)) * DIFFUSE_GAIN
         # per-vertex directional occlusion for this environment
         Lk = studio.radiance(L.dirs.astype(np.float32), 0.22, dg).mean(1)
@@ -890,6 +1049,7 @@ class ShadeCtx:
         ao = np.where(den2 > 1e-6, num2 / np.maximum(den2, 1e-6), 1.0)
         self.occ = np.clip(0.7 * occ_l + 0.3 * ao, 0, 1).astype(np.float32)
         self.P32 = L.P.astype(np.float32)
+        self.jac = None                       # per-triangle screen -> uv Jacobian of the current pass
 
     def irradiance(self, ns, y, occ):
         E = sh_irradiance(self.sh_top, ns) * near_field(y)[:, None] + sh_irradiance(self.sh_rest, ns)
@@ -911,7 +1071,9 @@ class ShadeCtx:
         x = np.clip((so - 0.15) / 0.75, 0, 1)
         return (x * x * (3 - 2 * x)).astype(np.float32)
 
-    def albedo(self, tt, uv, tri_scr_area):
+    def albedo(self, tt, uv):
+        """Base colour (linear), Skin_map reflection weight and holographic mask per sample: anisotropic
+        filtering from the per-triangle Jacobian of the current pass."""
         L, m = self.L, self.m
         n = len(tt)
         col = np.zeros((n, 3), np.float32)
@@ -925,20 +1087,18 @@ class ShadeCtx:
             lv = self.liv[c]
             if lv.kind[mid] == "tex":
                 pyr = lv.pyr[mid]
-                H0, W0 = pyr[0].shape[:2]
-                t = tt[jj]
-                lod = 0.5 * np.log2(np.maximum(L.uv_area[t] * W0 * H0, 1e-9) / np.maximum(tri_scr_area[t], 1e-6)) + self.lod_bias
-                lod = np.where(L.uv_area[t] > 1e-12, lod, 0.0)
-                s = sample_mip(pyr, uv[jj, 0], uv[jj, 1], lod)
+                J = self.jac[tt[jj]]
+                s = sample_aniso(pyr, uv[jj, 0], uv[jj, 1], J, self.lod_bias)
                 col[jj] = srgb_to_lin(s[:, :3])
                 if mid == m.skin_id:
+                    H0 = pyr[0].shape[0]
+                    s1 = footprint(J, pyr[0].shape[1], H0)[0]
+                    lod = np.log2(np.maximum(s1, 1e-6))
                     if lv.refl is not None:
-                        lod2 = lod - math.log2(H0 / lv.refl[0].shape[0])
-                        r = sample_mip(lv.refl, uv[jj, 0], uv[jj, 1], lod2)[:, 0] / 255.0
+                        r = sample_mip(lv.refl, uv[jj, 0], uv[jj, 1], lod - math.log2(H0 / lv.refl[0].shape[0]))[:, 0] / 255.0
                         refl[jj] = 0.55 + 0.45 * r
                     if lv.holo is not None:
-                        lod3 = lod - math.log2(H0 / lv.holo[0].shape[0])
-                        holo[jj] = sample_mip(lv.holo, uv[jj, 0], uv[jj, 1], lod3)[:, 0] / 255.0
+                        holo[jj] = sample_mip(lv.holo, uv[jj, 0], uv[jj, 1], lod - math.log2(H0 / lv.holo[0].shape[0]))[:, 0] / 255.0
             else:
                 col[jj] = lv.flat[mid]
         return col, refl, holo
@@ -962,7 +1122,8 @@ class ShadeCtx:
             ns[bend] = normalize(ns[bend] + V[bend] * (0.05 - nv[bend])[:, None])
         return ns.astype(np.float32), ng
 
-    def shade_opaque(self, tt, b1, b2, eye, tri_scr_area):
+    def shade_opaque(self, tt, b1, b2, eye):
+        """Returns (radiance, world position, emitted radiance) of the opaque samples."""
         L, m, env = self.L, self.m, self.env
         tri, bw, pos, ns, uv = self.gbuffer_points(tt, b1, b2)
         V = normalize(eye[None, :].astype(np.float32) - pos).astype(np.float32)
@@ -971,9 +1132,10 @@ class ShadeCtx:
         Rd = (2 * NV[:, None] * ns - V).astype(np.float32)
         mid = L.TM[tt]; car = L.CAR[tt]
         p = {k: v[mid].copy() for k, v in m.prm.items()}
-        alb, refl, holo = self.albedo(tt, uv, tri_scr_area)
+        alb, refl, holo = self.albedo(tt, uv)
         occ = (self.occ[tri[:, 0]] * bw[:, 0] + self.occ[tri[:, 1]] * bw[:, 1] + self.occ[tri[:, 2]] * bw[:, 2])
-        E = self.irradiance(ns, pos[:, 1], occ)
+        occ = np.maximum(occ, p["occ_min"])
+        E = self.irradiance(ns, pos[:, 1], occ) * p["fill"][:, None]
         so = self.spec_occ(tri, bw, Rd)
         F = np.minimum(schlick(NV, 0.04), 0.55)      # grazing Fresnel limited (lobe width / horizon occlusion)
         # pearl paint and holographic film on the livery
@@ -1007,18 +1169,24 @@ class ShadeCtx:
             f0 = alb[sel] + (1 - alb[sel]) * p["mt_lift"][sel][:, None]
             fm = f0 + (1 - f0) * schlick(NV[sel], 0.0)[:, None]
             out[sel] += envlobe(sel, p["mt_s"]) * fm * (mt[sel] * (1 - Fcc[sel]))[:, None]
-        # holographic film: a tinted metallic reflection with a soft lobe
+        # holographic film: a tinted metallic reflection with a soft lobe, soft clamped so a bright light
+        # never washes the band out to flat white (it keeps its colour)
         sel = holo > 0.02
         if sel.any():
-            hc = np.clip(alb[sel] / np.maximum(alb[sel].max(1, keepdims=True), 1e-4), 0, 1)
-            fh = (0.30 + 0.70 * schlick(NV[sel], 0.25)) * 0.55 * holo[sel]
-            out[sel] += envlobe(sel, 0.09) * hc * fh[:, None]
+            hc = np.clip(alb[sel] / np.maximum(alb[sel].max(1, keepdims=True), 1e-4), 0, 1) ** 1.8
+            fh = (0.25 + 0.75 * schlick(NV[sel], 0.20)) * 0.40 * holo[sel]
+            rh = envlobe(sel, 0.10) * hc * fh[:, None]
+            lum = rh.max(1, keepdims=True)
+            out[sel] += rh / (1.0 + lum / 0.6)
         em = L.EMIS[tt]
+        emis = None
         if (em > 0).any():
-            out += m.emit_rgb[em]
+            emis = m.emit_rgb[em] * self.car_gain[car][:, None]
         out *= self.car_gain[car][:, None]
+        if emis is not None:
+            out += emis
         out = np.minimum(np.nan_to_num(out, nan=0.0, posinf=0.0), 12.0)
-        return out, pos
+        return out, pos, emis
 
     def shade_glass(self, tt, b1, b2, eye):
         """Returns (reflected radiance, transmittance) for the nearest glass layer."""
@@ -1058,7 +1226,8 @@ def tri_screen_area(X, Y, T):
 
 
 def raster_scene(ctx, X, Y, D, W, H):
-    """Opaque (alpha tested) and glass G-buffers."""
+    """Opaque (alpha tested) and glass G-buffers.  ctx.jac must hold the Jacobian of this projection: the
+    alpha test reads the filtered alpha at the pixel's mip level (no crawling decal edges)."""
     L, m = ctx.L, ctx.m
     is_at = np.array([n in rr.AT_MATS for n in m.mat_names])
     opaque = ~L.is_glass_tri & L.tri_ok
@@ -1079,12 +1248,14 @@ def raster_scene(ctx, X, Y, D, W, H):
             uv = L.UV[tri[:, 0]] * b0[:, None] + L.UV[tri[:, 1]] * b1[ii, None] + L.UV[tri[:, 2]] * b2[ii, None]
             key = L.CAR[tt[ii]].astype(np.int64) * 1000 + mt[ii]
             for kv in np.unique(key):
-                sel = key == kv
+                sel = np.nonzero(key == kv)[0]
                 lv = ctx.liv[int(kv // 1000)]
                 pyr = lv.pyr[int(kv % 1000)]
                 if pyr is None or pyr[0].shape[2] < 4:
                     continue
-                a = rr.sample(pyr[0], uv[sel, 0], uv[sel, 1], bilinear=False)[:, 3]
+                s1 = footprint(ctx.jac[tt[ii[sel]]], pyr[0].shape[1], pyr[0].shape[0])[0]
+                lod = np.log2(np.maximum(s1, 1e-6))
+                a = sample_mip(pyr, uv[sel, 0], uv[sel, 1], lod)[:, 3]
                 keep[ii[sel]] = a >= 128
         return keep
 
@@ -1096,27 +1267,33 @@ def raster_scene(ctx, X, Y, D, W, H):
     return zb.astype(np.float32), tid, B1, B2, zg.astype(np.float32), tidg, G1, G2
 
 
-def shade_buffers(ctx, gb, eye, area, npx, chunk=1_000_000, want_pos=False):
+def shade_buffers(ctx, gb, eye, npx, chunk=1_000_000, want_pos=False, want_emis=False):
+    """Shade the opaque G-buffer: (radiance, world height or None, emitted radiance or None)."""
     zb, tid, B1, B2, zg, tidg, G1, G2 = gb
     img = np.zeros((npx, 3), np.float32)
     hit = np.nonzero(tid >= 0)[0]
     posy = np.full(npx, np.nan, np.float32) if want_pos else None
+    emi = np.zeros((npx, 3), np.float32) if want_emis else None
     for k in range(0, len(hit), chunk):
         h = hit[k:k + chunk]
-        c, pos = ctx.shade_opaque(tid[h], B1[h], B2[h], eye, area)
+        c, pos, e = ctx.shade_opaque(tid[h], B1[h], B2[h], eye)
         img[h] = c
         if want_pos:
             posy[h] = pos[:, 1]
-    return img, posy
+        if want_emis and e is not None:
+            emi[h] = e
+    return img, posy, emi
 
 
-def composite_glass(ctx, gb, img, eye):
+def composite_glass(ctx, gb, img, eye, emi=None):
     zb, tid, B1, B2, zg, tidg, G1, G2 = gb
     gh = np.nonzero((tidg >= 0) & (zg < zb))[0]
     for k in range(0, len(gh), 1_000_000):
         h = gh[k:k + 1_000_000]
         refl, T = ctx.shade_glass(tidg[h], G1[h], G2[h], eye)
         img[h] = img[h] * T + refl
+        if emi is not None:
+            emi[h] *= T
     return gh
 
 
@@ -1145,22 +1322,25 @@ FLOOR_Y = 0.0            # the layout puts the tyre contact patches on y = 0
 
 def mirror_reflection(ctx, cam, eye, Ws, Hs, ms=0.5):
     """Planar mirror pass at reduced resolution: the cars mirrored in the floor, shaded from the mirrored
-    eye, faded with height above the floor and blurred by the floor gloss: the blur grows with the height
-    of the reflected point (its distance from the contact with the floor).
+    eye, faded gently with height above the floor and blurred by the floor gloss: the blur of every
+    reflected point grows with its own height (sharp at the tyre contact, soft at the roof), so the body
+    colour never smears down over the contact patches.
     Returns (Hm, Wm, 4): premultiplied rgb + coverage, and the scale."""
     L = ctx.L
     Wm, Hm = int(Ws * ms), int(Hs * ms)
     Pm = L.P.copy(); Pm[:, 1] = 2 * FLOOR_Y - Pm[:, 1]
     Xm, Ym, Dm = cam.project(Pm, ms)
-    aream = tri_screen_area(Xm, Ym, L.T)
+    jac_main = ctx.jac
+    ctx.jac = tri_uv_jacobian(Xm, Ym, L.T, L.UV)
     gbm = raster_scene(ctx, Xm, Ym, Dm, Wm, Hm)
     eye_m = eye.copy(); eye_m[1] = 2 * FLOOR_Y - eye_m[1]
-    mimg, mposy = shade_buffers(ctx, gbm, eye_m, aream, Wm * Hm, want_pos=True)
+    mimg, mposy, _ = shade_buffers(ctx, gbm, eye_m, Wm * Hm, want_pos=True)
     composite_glass(ctx, gbm, mimg, eye_m)
+    ctx.jac = jac_main
     cov = (gbm[1] >= 0).astype(np.float32)
     del gbm
     hgt = np.where(cov > 0, np.nan_to_num(mposy, nan=0.0) - FLOOR_Y, 0.0).astype(np.float32)
-    fade = np.exp(-np.maximum(hgt, 0) / 0.42) * (cov > 0)
+    fade = np.exp(-np.maximum(hgt, 0) / 1.8) * (cov > 0)
     mimg = mimg.reshape(Hm, Wm, 3); cov2 = cov.reshape(Hm, Wm); hgt2 = hgt.reshape(Hm, Wm)
     fade2 = fade.reshape(Hm, Wm)
     gy, gx = np.mgrid[0:Hm, 0:Wm]
@@ -1168,19 +1348,26 @@ def mirror_reflection(ctx, cam, eye, Ws, Hs, ms=0.5):
     tfl = np.where(dirs_m[:, 1] < -1e-4, (FLOOR_Y - eye[1]) / np.minimum(dirs_m[:, 1], -1e-4), 1e3)
     depth_fl = (tfl * (dirs_m @ cam.f.astype(np.float32))).reshape(Hm, Wm)
     del dirs_m, gx, gy, tfl
-    h_d = ndimage.grey_dilation(hgt2 * cov2, size=5)
-    sm_c = ndimage.gaussian_filter((h_d > 0).astype(np.float32), 3)
-    h_est = ndimage.gaussian_filter(h_d, 3) / np.maximum(sm_c, 1e-3)
-    h_est = np.where(sm_c > 1e-3, h_est, 0.0)
-    beta = 0.05                                                     # floor gloss lobe (rad)
-    sig_px = beta * 2 * h_est * cam.fpx * ms / np.maximum(depth_fl, 1.0) + 0.6
+    # blur radius from the pixel's own reflected height; outside the mirror image (where the blurred image
+    # spreads) from the nearest reflected point, smoothed, so the soft halo never stops at a hard edge
+    if (cov2 > 0).any():
+        near = ndimage.distance_transform_edt(cov2 <= 0, return_distances=False, return_indices=True)
+        h_near = hgt2[near[0], near[1]]
+        del near
+        h_near = ndimage.gaussian_filter(h_near, 4)
+    else:
+        h_near = np.zeros_like(hgt2)
+    h_use = np.where(cov2 > 0, hgt2, h_near)
+    beta = 0.035                                                    # floor gloss lobe (rad)
+    sig_px = beta * 2 * h_use * cam.fpx * ms / np.maximum(depth_fl, 1.0) + 0.5
     chans = np.concatenate([mimg * fade2[..., None], cov2[..., None]], -1).astype(np.float32)
     return blur_stack_select(chans, sig_px).astype(np.float32), ms
 
 
 def shade_background(ctx, cam, eye, idx, Ws, mb, ms, look):
-    """Floor (diffuse light pool x contact shadows + Fresnel reflection of the cars / studio, faded towards
-    the camera) fading into the near-black cyclorama with a soft light pool behind the cars."""
+    """Glossy black floor (diffuse light pool x contact shadows and occlusion footprint + Fresnel
+    reflection of the cars / studio, faded towards the camera) fading into the near-black cyclorama with a
+    maroon-pink glow behind the cars and a dashed light line on the back wall."""
     L, env = ctx.L, ctx.env
     py, px = np.divmod(idx, Ws)
     gyf = (py + 0.5) * ms - 0.5; gxf = (px + 0.5) * ms - 0.5
@@ -1195,29 +1382,43 @@ def shade_background(ctx, cam, eye, idx, Ws, mb, ms, look):
     up = np.array([[0, 1, 0]], np.float32)
     E_up = float((sh_irradiance(ctx.sh_top, up) * near_field(np.zeros(1, np.float32))[:, None]
                   + sh_irradiance(ctx.sh_rest, up))[0].mean())
+    # light pool: a soft spot centred under the cars
     pool = (1.0 + (r / look.pool_r) ** 2) ** -2.0
     fl = L.floor_light_at(hx, hz)
-    floor_col = (look.floor_alb * E_up / np.pi * pool * fl)[:, None] * np.array([1.0, 0.98, 1.0], np.float32)
+    floor_col = (look.floor_alb * E_up / np.pi * pool * fl)[:, None] * np.array([1.0, 0.97, 0.98], np.float32)
     # floor reflection: Fresnel x (mirror image of the cars, else the studio), weaker towards the camera
     cosv = np.clip(-dirs[:, 1], 0, 1)
     Ff = schlick(cosv, 0.04) * look.refl
     depth = np.where(down, t * (dirs @ cam.f.astype(np.float32)), 1e4).astype(np.float32)
     fc = np.clip((depth - look.d_near) / max(look.d_car - look.d_near, 1e-3), 0, 1)
-    fc = 0.22 + 0.78 * fc * fc * (3 - 2 * fc)
+    fc = 0.30 + 0.70 * fc * fc * (3 - 2 * fc)
     Rf = dirs.copy(); Rf[:, 1] = -Rf[:, 1]
     env_r = env.radiance(Rf, 0.08, env.floor_gains)
     refl = refl_car[:, :3] + env_r * (1 - np.clip(refl_car[:, 3:4], 0, 1))
-    floor_rad = floor_col + refl * (Ff * fc * np.sqrt(fl))[:, None]
-    # backdrop (infinite cyclorama): near black with a soft light pool behind the cars
+    floor_rad = floor_col + refl * (Ff * fc)[:, None]
+    # backdrop (infinite cyclorama): near black with a maroon-pink glow behind the cars
     gx = (px + 0.5 - look.pool_cx) / look.pool_rx; gy = (py + 0.5 - look.pool_cy) / look.pool_ry
     glow = np.exp(-1.6 * (gx * gx + gy * gy))
-    back = (look.back + look.pool_glow * glow)[:, None] * look.back_tint[None, :]
+    wide = np.exp(-0.5 * (gx * gx * 0.25 + gy * gy * 0.6))
+    back = look.back * look.back_tint[None, :] + (look.pool_glow * glow)[:, None] * look.glow_rgb[None, :] \
+        + (look.pool_glow * 0.35 * wide)[:, None] * look.back_tint[None, :]
+    if look.line_y is not None:
+        # dashed light line on the back wall (the butcher-chart dash), with a soft glow around it
+        ph = ((px + 0.5 - look.line_x0) % look.line_period) / look.line_period
+        dash = np.clip((look.line_duty - np.abs(ph - 0.5) * 2 + 0.5 * look.line_soft) / look.line_soft, 0, 1)
+        inx = np.clip((px - look.line_x0) / (0.06 * Ws), 0, 1) * np.clip((look.line_x1 - px) / (0.06 * Ws), 0, 1)
+        dy = (py + 0.5 - look.line_y)
+        core = np.exp(-0.5 * (dy / look.line_w) ** 2)
+        halo = np.exp(-0.5 * (dy / (look.line_w * 9)) ** 2)
+        back = back + ((core * dash * look.line_core + halo * (0.35 + 0.65 * dash) * look.line_glow) * inx)[:, None] \
+            * look.line_rgb[None, :]
     fade_far = np.clip((r - look.far0) / look.far1, 0, 1) ** 1.5
     fade_far = np.where(down, fade_far, 1.0)[:, None]
     return (floor_rad * (1 - fade_far) + back * fade_far).astype(np.float32), depth
 
 
 def render_view(factory, name, args, log=print):
+    """Returns (image with the title band if --title, image without it, car bounding box in output px)."""
     t0 = time.time()
     W, H, ss = args.width, args.height, args.ss
     Ws, Hs = W * ss, H * ss
@@ -1232,36 +1433,41 @@ def render_view(factory, name, args, log=print):
     if L.n > 1 and look.get("back_ev", 0.0) != 0.0:
         gain[int(np.argmax(dep))] = 2.0 ** look["back_ev"]
     ctx = ShadeCtx(factory.model, factory.liveries, L, Studio(cam_az, cam_el), gain)
-    m = ctx.m
-    margins = (0.06, 0.06, 0.12, 0.27 if args.title else 0.17)
-    if name == "top_pair":
-        margins = (0.08, 0.08, 0.07, 0.20 if args.title else 0.08)
-    elif name == "side_pair":
-        margins = (0.05, 0.05, 0.09, 0.22 if args.title else 0.10)
+    margins = tuple(look.get("margins", (0.06, 0.06, 0.12, 0.27)))
     cam.fit(L, Ws, Hs, margins, args.zoom)
     eye = cam.eye.astype(np.float32)
     X, Y, D = cam.project(L.P)
-    area = tri_screen_area(X, Y, L.T)
+    ctx.jac = tri_uv_jacobian(X, Y, L.T, L.UV)
     gb = raster_scene(ctx, X, Y, D, Ws, Hs)
     t1 = time.time()
     npx = Ws * Hs
-    img, _ = shade_buffers(ctx, gb, eye, area, npx)
+    img, _, emi = shade_buffers(ctx, gb, eye, npx, want_emis=True)
     t2 = time.time()
 
     # ---- look of the floor and backdrop
     cen = (L.lo + L.hi) / 2
     pcx, pcy, _ = cam.project(np.array([[cen[0], 1.15, cen[2]]]))
     ux, uy, _ = cam.project(L.P[L.ext_vertices])
+    top = name == "top_pair" or cam_el > 55
     lk = SimpleNamespace(
-        floor_alb=look.get("floor_alb", 0.05), refl=look.get("refl", 0.42),
-        pool_r=float(max(L.hi[0] - L.lo[0], L.hi[2] - L.lo[2]) * 0.62),
+        floor_alb=look.get("floor_alb", 0.16), refl=look.get("refl", 0.5),
+        pool_r=float(max(L.hi[0] - L.lo[0], L.hi[2] - L.lo[2]) * 0.55),
         d_car=float(dep.min()) - 1.5, d_near=float(dep.min()) * 0.45,
         pool_cx=float(pcx[0]), pool_cy=float(min(pcy[0], uy.min() + 0.45 * (uy.max() - uy.min()))),
-        pool_rx=float((ux.max() - ux.min()) * 0.50), pool_ry=float(max(uy.max() - uy.min(), Hs * 0.3) * 0.85),
-        back=0.0005, pool_glow=0.045, back_tint=np.array([1.0, 0.90, 1.0], np.float32),
-        far0=float(np.linalg.norm(L.hi - L.lo) * 0.5 + 3.0), far1=10.0)
-    if name == "top_pair":
-        lk.pool_r = float(max(L.hi[0] - L.lo[0], L.hi[2] - L.lo[2]) * 0.8)
+        pool_rx=float((ux.max() - ux.min()) * 0.55), pool_ry=float(max(uy.max() - uy.min(), Hs * 0.3) * 0.85),
+        back=0.0006, pool_glow=0.022, back_tint=np.array([1.0, 0.86, 0.92], np.float32),
+        glow_rgb=np.array([1.0, 0.24, 0.40], np.float32),
+        far0=float(np.linalg.norm(L.hi - L.lo) * 0.5 + 3.0), far1=10.0, line_y=None)
+    if look.get("line_h") is not None and not top:
+        # dashed light line on the back wall (seen behind the cars from a low camera)
+        fdir = np.array([cam.f[0], 0.0, cam.f[2]]); fdir /= max(np.linalg.norm(fdir), 1e-6)
+        lx, ly, _ = cam.project((np.array([cen[0], look["line_h"], cen[2]]) + fdir * 14.0)[None, :])
+        lk.line_y = float(ly[0]); lk.line_w = 1.1 * ss
+        lk.line_x0, lk.line_x1 = 0.03 * Ws, 0.97 * Ws
+        lk.line_period = 46.0 * ss * (W / 2400.0); lk.line_duty = 0.62; lk.line_soft = 0.08
+        lk.line_core = 0.55; lk.line_glow = 0.020; lk.line_rgb = np.array([1.0, 0.16, 0.36], np.float32)
+    if top:
+        lk.pool_r = float(max(L.hi[0] - L.lo[0], L.hi[2] - L.lo[2]) * 0.75)
         lk.far0, lk.far1 = 30.0, 10.0
 
     mb, ms = mirror_reflection(ctx, cam, eye, Ws, Hs)
@@ -1277,7 +1483,7 @@ def render_view(factory, name, args, log=print):
             depth[idx] = dpt
     del mb, bg
     # glass (also over the floor seen through the windows)
-    gh = composite_glass(ctx, gb, img, eye)
+    gh = composite_glass(ctx, gb, img, eye, emi)
     layer = None
     if want_depth:
         layer = np.where(gb[1] >= 0, L.CAR[np.maximum(gb[1], 0)], -1).astype(np.int8)
@@ -1287,26 +1493,30 @@ def render_view(factory, name, args, log=print):
     t4 = time.time()
 
     # ---- post: DOF, bloom, haze, vignette, tone mapping, float downsample, dither
-    img = img.reshape(Hs, Ws, 3)
+    img = img.reshape(Hs, Ws, 3); emi = emi.reshape(Hs, Ws, 3)
     del gb
     dof = None
     if want_depth:
         dof = (depth.reshape(Hs, Ws), layer.reshape(Hs, Ws), list(dep))
-    disp = post_process(img, dof, look, args, ss, lk, exposure=args.exposure * look.get("exposure", 1.0))
-    del img
+    disp = post_process(img, emi, dof, look, args, ss, lk, exposure=args.exposure * look.get("exposure", 1.0))
+    del img, emi
     out = downsample_dither(disp, W, H, seed=zlib.crc32(name.encode()))
     t5 = time.time()
-    # screen position of each car (for the title band ordering)
+    # screen position of each car (for the title band ordering) and the cars' bounding box
     car_xy = []
     for c in L.car_centres:
         cx_, cy_, _ = cam.project(np.asarray(c)[None, :])
         car_xy.append((float(cx_[0]) / ss, float(cy_[0]) / ss))
+    bbox = (float(ux.min()) / ss, float(uy.min()) / ss, float(ux.max()) / ss, float(uy.max()) / ss)
+    raw = out
     if args.title:
         out = draw_title(out, ctx.liv, car_xy, args)
-    log(f"{name}: focal {cam.focal_mm():.0f} mm eq., eye {np.round(cam.eye, 2).tolist()}, el {cam_el:.1f}; "
-        f"raster {t1 - t0:.0f}s, shade {t2 - t1:.0f}s, mirror {t3 - t2:.0f}s, floor+glass {t4 - t3:.0f}s, "
-        f"post {t5 - t4:.0f}s, total {time.time() - t0:.0f}s, peak {_peak_mb():.0f} MB")
-    return out
+    log(f"{name}: focal {cam.focal_mm():.0f} mm eq., eye {np.round(cam.eye, 2).tolist()}, el {cam_el:.1f}, "
+        f"cars y {bbox[1] / H:.2f}-{bbox[3] / H:.2f} ({(bbox[3] - bbox[1]) / H:.0%} of the height), "
+        f"x {bbox[0] / W:.2f}-{bbox[2] / W:.2f}; raster {t1 - t0:.0f}s, shade {t2 - t1:.0f}s, "
+        f"mirror {t3 - t2:.0f}s, floor+glass {t4 - t3:.0f}s, post {t5 - t4:.0f}s, total {time.time() - t0:.0f}s, "
+        f"peak {_peak_mb():.0f} MB")
+    return out, raw, bbox
 
 
 def _peak_mb():
@@ -1363,33 +1573,37 @@ def depth_of_field(img, depth, layer, car_depths, strength, ss):
     return out.astype(np.float32)
 
 
-def post_process(img, dof, look, args, ss, lk, exposure=1.0):
-    """HDR (Hs, Ws, 3) -> display-referred float (Hs, Ws, 3) in 0..1 (sRGB encoded)."""
+def post_process(img, emi, dof, look, args, ss, lk, exposure=1.0):
+    """HDR (Hs, Ws, 3) -> display-referred float (Hs, Ws, 3) in 0..1 (sRGB encoded).  emi: the emitted part
+    of img (lamps, after the lens glass): it blooms more than the reflected highlights."""
     Hs, Ws = img.shape[:2]
     if dof is not None and look.get("dof", 0) > 0:
         img = depth_of_field(img, dof[0], dof[1], dof[2], look["dof"], ss)
-    # bloom from the bright part of the HDR image (lamps, softbox streaks)
+    # bloom from the bright part of the HDR image (softbox streaks) and from the lamps (DRL, tail lights)
     k = 4
     h4, w4 = Hs // k, Ws // k
     small = img[:h4 * k, :w4 * k].reshape(h4, k, w4, k, 3).mean((1, 3))
     lum = small.max(2, keepdims=True)
     bright = small * np.clip((lum - 1.1) / np.maximum(lum, 1e-4), 0, None)
+    if emi is not None:
+        bright = bright + 0.9 * emi[:h4 * k, :w4 * k].reshape(h4, k, w4, k, 3).mean((1, 3))
     bloom = np.zeros_like(small)
     px = (Ws / ss) / 2400.0 * ss / k                 # one output pixel of a 2400-wide frame, in bloom pixels
-    for s, wgt in ((2.0 * px, 0.45), (7.0 * px, 0.35), (22.0 * px, 0.20)):
+    for s, wgt in ((2.0 * px, 0.40), (7.0 * px, 0.35), (22.0 * px, 0.25)):
         bloom += wgt * np.stack([ndimage.gaussian_filter(bright[..., c], max(s, 0.5)) for c in range(3)], -1)
     for c in range(3):
         up = ndimage.zoom(bloom[..., c], (Hs / h4, Ws / w4), order=1)
-        img[:up.shape[0], :up.shape[1], c] += 0.10 * up[:Hs, :Ws]
+        img[:up.shape[0], :up.shape[1], c] += 0.12 * up[:Hs, :Ws]
     del bloom, bright, small
     yy = (np.arange(Hs, dtype=np.float32) + 0.5) / Hs
     xx = (np.arange(Ws, dtype=np.float32) + 0.5) / Ws
-    # haze: a faint coloured veil in the light pool (magenta on the left, teal on the right)
-    hx = np.exp(-((xx * Ws - lk.pool_cx) / (lk.pool_rx * 0.8)) ** 2)
+    # haze: a faint maroon-pink veil in the light pool behind the cars (cooler towards one side)
+    hx = np.exp(-((xx * Ws - lk.pool_cx) / (lk.pool_rx * 0.9)) ** 2)
     hy = np.exp(-((yy * Hs - lk.pool_cy) / (lk.pool_ry * 1.1)) ** 2)
-    mix = np.clip((xx * Ws - lk.pool_cx) / (lk.pool_rx * 1.2) * 0.5 + 0.5, 0, 1)
-    tint = MAGENTA[None, :] * (1 - mix[:, None]) + TEAL[None, :] * mix[:, None]   # (Ws, 3)
-    haze_amt = 0.0025
+    mix = np.clip((xx * Ws - lk.pool_cx) / (lk.pool_rx * 1.4) * 0.5 + 0.5, 0, 1)
+    rose = np.array([1.0, 0.32, 0.52], np.float32)
+    tint = rose[None, :] * (1 - 0.35 * mix[:, None]) + TEAL[None, :] * (0.35 * mix[:, None])   # (Ws, 3)
+    haze_amt = 0.0035
     yv = yy * 2 - 1
     xv = xx * 2 - 1
     out = np.empty((Hs, Ws, 3), np.float32)
@@ -1397,21 +1611,22 @@ def post_process(img, dof, look, args, ss, lk, exposure=1.0):
         r1 = min(Hs, r0 + 256)
         blk = img[r0:r1] + haze_amt * (hy[r0:r1, None, None] * hx[None, :, None]) * tint[None, :, :]
         r2 = (xv[None, :] ** 2) * 0.80 + (yv[r0:r1, None] ** 2) * 0.95
-        vig = 1 - 0.42 * (np.clip(r2, 0, 1.75) / 1.75) ** 1.6
+        vig = 1 - 0.38 * (np.clip(r2, 0, 1.75) / 1.75) ** 1.6
         v = aces(blk * exposure) * vig[..., None]
         out[r0:r1] = np.power(np.clip(v, 0, 1), 1 / 2.2)
     return out
 
 
 def downsample_dither(disp, W, H, seed=0):
-    """Float display image -> (W, H) uint8 RGB: Lanczos downsample in float, then ~1 LSB triangular
-    dither before quantising (no banding in the dark gradients)."""
+    """Float display image -> (W, H) uint8 RGB: triangle-filter downsample in float (no negative lobes, so
+    no ringing halos at high-contrast edges), then ~1 LSB triangular dither before quantising (no banding
+    in the dark gradients)."""
     Hs, Ws = disp.shape[:2]
     chans = []
     for c in range(3):
         im = Image.fromarray(np.ascontiguousarray(disp[..., c]).astype(np.float32), mode="F")
         if (Ws, Hs) != (W, H):
-            im = im.resize((W, H), Image.LANCZOS)
+            im = im.resize((W, H), Image.BILINEAR)
         chans.append(np.asarray(im, np.float32))
     v = np.stack(chans, -1) * 255.0
     rng = np.random.default_rng(seed)
@@ -1479,13 +1694,13 @@ def draw_title(im, liveries, car_xy, args):
     """Team band: «КОМАНДА ЭДМ · BUTCHER CHART CHROME» + driver number plates and names (ui_skin.json),
     drivers ordered like the cars on screen."""
     W, H = im.size
-    s = min(W / 2400.0, H / 1350.0)
+    s = min(W / 2400.0, H / 1350.0) * 0.8           # a slim band (~9 % of the frame), overlaid on the floor
     im = im.convert("RGBA")
     bh = int(150 * s)
     y0 = H - bh
-    # dark fade under the band
-    grad_h = int(bh * 2.3)
-    a = np.clip(np.arange(grad_h) / (grad_h - bh), 0, 1) ** 1.6 * 228
+    # dark fade under the band (the floor reflection shows through above it)
+    grad_h = int(bh * 2.0)
+    a = np.clip(np.arange(grad_h) / (grad_h - bh * 0.85), 0, 1) ** 1.8 * 200
     rng = np.random.default_rng(7)
     a = a[:, None] + rng.random((grad_h, W)) - 0.5           # dithered alpha ramp
     shade = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), "L")
@@ -1563,20 +1778,47 @@ def draw_title(im, liveries, car_xy, args):
     return im.convert("RGB")
 
 
-def team_sheet(imgs, views, liveries, cols=2, tw=1200, th=675):
-    """Shareable contact sheet: team header with the drivers (Cyrillic, from ui_skin.json) and a caption
-    under every view."""
+def _crop_box(bbox, W, H, aspect, pad=0.07, below=0.16):
+    """A crop of the given aspect around a car bounding box (with air around it and room below for the
+    floor reflection), inside the W x H frame where possible; when the cars do not fit a crop of that
+    aspect inside the frame, the box reaches past the frame edge (the caller extends the image)."""
+    x0, y0, x1, y1 = bbox
+    bw, bh = x1 - x0, y1 - y0
+    cw = bw * (1 + 2 * pad); ch = bh * (1 + 2 * pad + below)
+    cw = max(cw, ch * aspect); ch = cw / aspect
+    if cw > W and ch * (W / cw) >= bh * (1 + pad):
+        cw = W; ch = cw / aspect
+    cx = (x0 + x1) / 2; cy = (y0 + y1) / 2 + bh * below / 2
+    l = min(max(cx - cw / 2, 0), W - cw) if cw <= W else cx - cw / 2
+    t = min(max(cy - ch / 2, 0), H - ch) if ch <= H else cy - ch / 2
+    return int(round(l)), int(round(t)), int(round(l + cw)), int(round(t + ch))
+
+
+def _crop_ext(im, box):
+    """Crop, extending the image by its edge pixels where the box reaches past the frame."""
+    W, H = im.size
+    l, t, r, b = box
+    pl, pt, pr, pb = max(0, -l), max(0, -t), max(0, r - W), max(0, b - H)
+    if pl or pt or pr or pb:
+        a = np.pad(np.asarray(im), ((pt, pb), (pl, pr), (0, 0)), mode="edge")
+        im = Image.fromarray(a); l += pl; r += pl; t += pt; b += pt
+    return im.crop((l, t, r, b))
+
+
+def team_sheet(imgs, bboxes, views, liveries, cols=2, tw=1200, th=572):
+    """Shareable contact sheet: the team header once (team, livery, drivers from ui_skin.json), then every
+    view without its title band, cropped to the cars, with a readable caption."""
     s = tw / 1200.0
-    pad, head, capt = int(28 * s), int(118 * s), int(52 * s)
+    pad, head, capt = int(28 * s), int(118 * s), int(64 * s)
     rows = (len(imgs) + cols - 1) // cols
     Wt = cols * tw + (cols + 1) * pad
-    Ht = head + rows * (th + capt) + (rows - 1) * int(14 * s) + pad
+    Ht = head + rows * (th + capt) + (rows - 1) * int(10 * s) + pad
     sheet = Image.new("RGB", (Wt, Ht), (11, 8, 11))
     d = ImageDraw.Draw(sheet)
     f_team = find_font("MontserratAlternates-BlackItalic.ttf", 44 * s, extra_dirs=_FONT_EXTRA)
     f_sub = find_font("Exo2-Italic[wght].ttf", 28 * s, "ExtraBold Italic", extra_dirs=_FONT_EXTRA)
     f_drv = find_font("SofiaSansCondensed-Italic[wght].ttf", 34 * s, "Black Italic", extra_dirs=_FONT_EXTRA)
-    f_cap = find_font("SofiaSansCondensed-Italic[wght].ttf", 30 * s, "Bold Italic", extra_dirs=_FONT_EXTRA)
+    f_cap = find_font("SofiaSansCondensed-Italic[wght].ttf", 40 * s, "Black Italic", extra_dirs=_FONT_EXTRA)
     yb = int(66 * s)
     team = (liveries[0].info.get("team") or TEAM_LINE[0]).upper()
     d.text((pad, yb), team, font=f_team, fill=(255, 150, 198), anchor="ls")
@@ -1590,11 +1832,14 @@ def team_sheet(imgs, views, liveries, cols=2, tw=1200, th=675):
     while x < Wt - pad:
         d.rounded_rectangle([x, int(100 * s), min(x + int(24 * s), Wt - pad), int(103 * s)], radius=1, fill=(170, 34, 68))
         x += int(36 * s)
-    for k, (im, v) in enumerate(zip(imgs, views)):
+    for k, (im, bb, v) in enumerate(zip(imgs, bboxes, views)):
         r_, c_ = divmod(k, cols)
-        x = pad + c_ * (tw + pad); y = head + r_ * (th + capt + int(14 * s))
-        sheet.paste(im.resize((tw, th), Image.LANCZOS), (x, y))
-        d.text((x + 2, y + th + int(36 * s)), CAPTIONS.get(v, v), font=f_cap, fill=(236, 222, 232), anchor="ls")
+        x = pad + c_ * (tw + pad); y = head + r_ * (th + capt + int(10 * s))
+        box = _crop_box(bb, im.size[0], im.size[1], tw / th, below=0.0 if v == "top_pair" else 0.16)
+        sheet.paste(_crop_ext(im, box).resize((tw, th), Image.LANCZOS), (x, y))
+        cap = CAPTIONS.get(v, v).upper()
+        d.rounded_rectangle([x, y + th + int(14 * s), x + int(8 * s), y + th + int(48 * s)], radius=2, fill=(170, 34, 68))
+        _spaced(d, (x + int(20 * s), y + th + int(46 * s)), cap, f_cap, (244, 232, 242), 1.5 * s)
     return sheet
 
 
@@ -1619,10 +1864,10 @@ _JOB = None
 
 def _render_one(view):
     args, factory = _JOB
-    im = render_view(factory, view, args, log=lambda s: print(s, flush=True))
+    im, raw, bbox = render_view(factory, view, args, log=lambda s: print(s, flush=True))
     fp = os.path.join(args.out, view + ".png")
     im.save(fp)
-    return fp
+    return fp, np.asarray(raw), bbox
 
 
 def main():
@@ -1649,6 +1894,7 @@ def main():
     ap.add_argument("--fonts", default=None, help="extra font folder searched first")
     ap.add_argument("--cache", default=None, help="folder to cache the per-layout visibility (speeds up re-renders)")
     ap.add_argument("--fast", action="store_true", help="previews: no visibility / occlusion precomputation")
+    ap.add_argument("--no-sheet", action="store_true", help="skip the contact sheet")
     a = ap.parse_args()
     if a.fonts:
         _FONT_EXTRA.append(a.fonts)
@@ -1678,11 +1924,12 @@ def main():
     if jobs > 1:
         import multiprocessing as mp
         with mp.get_context("fork").Pool(jobs) as pool:
-            paths = pool.map(_render_one, views, chunksize=1)
+            res = pool.map(_render_one, views, chunksize=1)
     else:
-        paths = [_render_one(v) for v in views]
-    imgs = [Image.open(p) for p in paths]
-    team_sheet(imgs, views, liveries).save(os.path.join(a.out, "sheet.png"))
+        res = [_render_one(v) for v in views]
+    if not a.no_sheet:
+        raws = [Image.fromarray(r[1]) for r in res]
+        team_sheet(raws, [r[2] for r in res], views, liveries).save(os.path.join(a.out, "sheet.png"))
     print(f"done in {time.time() - t0:.1f}s -> {a.out}")
 
 

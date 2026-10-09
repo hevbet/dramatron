@@ -1013,10 +1013,77 @@ def band_edge(P):
     return z, dz
 
 
+BELLY_SHUT_MIN = 60          # texels of 'hidden' skin (the groove between two panels) that make a shut-line crossing
+BELLY_LIP_AIR = 0.006        # paint air from the fender dash to the wheel opening's lip and to the fender / door step
+BELLY_PHASE = {}
+
+
+def belly_side_phase(P, s, dist, ok):
+    """Re-phase the belly line's dash coordinate s along the sides (both sides alike - s is mirror-symmetric): a gap
+    middle on every shut line it crosses between the front fender and the rear flare (the fender / front door step,
+    front / rear door, rear door / rear quarter - the grooves of the 'hidden' skin across the line's band), the
+    stretches between them as close to 1 as possible (_dash_plan), unchanged from BELLY_REAR_Y on (the stem's
+    handover and the tail keep their phase). On the front fender - a 9-10 cm flat strip between the wheel opening's lip
+    and the step down to the door (the bolt-on fender stands ~8 cm proud of the door there) - one dash, centred on the
+    strip and shortened to keep BELLY_LIP_AIR to the lip and to the step: the line runs from the wheel opening on."""
+    gm = DASH[0] + DASH[1] / 2
+    cap = 0.011
+    cl = ok & (np.abs(dist - 0.022) < 0.0015) & (np.abs(P[:, 0]) > 0.5)
+    hid = (PARTF == PID["hidden"]) & COV.reshape(-1) & (np.abs(POSF[:, 0]) > 0.5)
+    HP = POSF[hid]
+    zB, _ = b_curve(HP[:, 1])
+    HP = HP[(HP[:, 2] > zB) & (HP[:, 2] < zB + 0.045) & (HP[:, 1] > -1.0) & (HP[:, 1] < BELLY_REAR_Y - 0.1)]
+    ys = np.sort(HP[:, 1])
+    gr = [g for g in np.split(ys, np.flatnonzero(np.diff(ys) > 0.02) + 1) if len(g) >= 2 * BELLY_SHUT_MIN]
+    y_g = [float(np.median(g)) for g in gr]
+    door = cl & (np.abs(P[:, 0]) < 0.93)
+
+    def s_at(y, m):
+        q = m & (np.abs(P[:, 1] - y) < 0.004)
+        return float(np.median(s[q]))
+    # the fender / door step is the first crossing: the door side's coordinate starts there
+    s_k = [s_at(y_g[0] + 0.006, door)] + [s_at(y, cl) for y in y_g[1:]]
+    s_end = s_at(BELLY_REAR_Y, cl)
+    an = [(s_ - s_k[0], "mod", gm) for s_ in s_k[1:]] + [(s_end - s_k[0], "mod", float(s_end % DPER))]
+    kt, ku, st, _ = _dash_plan(an, gm)
+    ku = ku + (s_end - ku[-1])                       # (u_end == s_end exactly: no jump into the unwarped field)
+    knots_s = s_k[0] + kt
+    side = (np.abs(P[:, 1]) < 1.9) & (np.abs(P[:, 0]) > 0.5)
+    sw = np.where(side & (s >= knots_s[0]) & (s <= knots_s[-1]), np.interp(s, knots_s, ku), s)
+    # (the door's leading edge ahead of the gap middle - between the fender's step and the shut line - stays clear:
+    #  it is the first half of that gap)
+    lead_in = side & (np.abs(P[:, 0]) < 0.93) & (P[:, 1] > y_g[0] - 0.03) & (P[:, 1] < y_g[0] + 0.012) & \
+        (s < knots_s[0])
+    sw = np.where(lead_in, ku[0], sw)
+    # the front fender's flat strip at the line's height (outward-facing skin of the fender, ahead of the step)
+    fen = (PARTF[IDX_BELLY] == PID["front_fender"]) & (np.abs(P[:, 0]) > 0.93) & (P[:, 1] > -1.05) & \
+        (P[:, 1] < y_g[0] + 0.01)
+    fl = cl & fen & (np.abs(NRMF[IDX_BELLY][:, 0]) > 0.97)
+    y_a, y_b = float(P[fl, 1].min()), float(P[fl, 1].max())
+    body = (y_b - y_a) - 2 * (cap + BELLY_LIP_AIR)
+    k_f = max(1.0, DASH[0] / body)
+    y_c = 0.5 * (y_a + y_b)
+    a_c = float(np.interp(y_c, _AY, _AS))
+    u_c = ku[0] - DASH[1] / 2 - DASH[0] / 2                   # (the dash before the door's first one)
+    sw = np.where(fen, u_c + k_f * (np.interp(P[:, 1], _AY, _AS) - a_c), sw)
+    BELLY_PHASE.update(shut_y=[round(y, 3) for y in y_g], stretches=st, fender=dict(
+        strip_y=[round(y_a, 3), round(y_b, 3)], dash_cm=round(DASH[0] / k_f * 100, 1), stretch=round(k_f, 3),
+        air_cm=round(((y_b - y_a) - DASH[0] / k_f - 2 * cap) / 2 * 100, 2)))
+    print(f"   belly line phase: gap middles on the shut lines at y {BELLY_PHASE['shut_y']}, stretches {st}; front "
+          f"fender: one {BELLY_PHASE['fender']['dash_cm']} cm dash on its strip y {y_a:+.3f}..{y_b:+.3f} "
+          f"({BELLY_PHASE['fender']['air_cm']} cm paint air to the lip and the step)", flush=True)
+    return sw
+
+
+IDX_BELLY = None
+
+
 def paint_belly():
     global _AY, _AS
     _AY, _AS = arc_y()
+    global IDX_BELLY
     idx = np.flatnonzero(PAINTF & np.isin(PARTF, [PID[p] for p in ALL_PARTS]))
+    IDX_BELLY = idx
     P = POSF[idx]
     z, dz = b_curve(P[:, 1])
     k = np.sqrt(1 + dz ** 2)
@@ -1107,6 +1174,9 @@ def paint_belly():
     global REAR_K
     REAR_K = rear_k_centred(P, dist)
     s = belly_s(P)
+    # round 5 verifier: along the sides the dash phase puts a gap middle on every shut line the line crosses and one
+    # (shortened) dash on the front fender between the wheel opening's lip and the fender / door step
+    s = belly_side_phase(P, s, dist, facing_out)
     # the dashed line runs on along the rear flare's edge over the wheel (no connector up to the shoulder line any more).
     # Keyline and dashes only on skin that faces out of the car (not on the inner faces of the flares / arch returns,
     # which share the height)
@@ -2293,7 +2363,9 @@ def eyeliner_checks(C, side, sd, ink, drop=(), hw=None, neck_dash=None):
 # on the middle of one of the front cut line's dashes. The bumper corner between the wheel opening, the lower line,
 # the riser and the front cut line is a closed cut (ЩЕКА), the front URL sits in it.
 BF_PARTS = ["front_bumper", "front_bumper_corner", "front_fender"]
-BF_SLOT_GAP = 0.040        # riser centre -> the outer intake's side wall (its visible edge, from the kn5)
+BF_SLOT_GAP = 0.040        # (old: riser centre -> the outer intake's side wall; the riser now runs up the corner's
+#                            outboard part, see BF_RISER_Y)
+BF_RISER_Y = -1.772        # the riser's y: on the corner's outboard part, between the corner URL and the wheel opening
 BF_R_MIN = 0.045           # smallest turn radius of the closure (the elbow)
 BF = {}
 CLOSE_LOG = []             # closure lines (front / rear): length, dashes, junctions, checks
@@ -2382,22 +2454,27 @@ def belly_front_closure():
     k = (ot[:, 0] > 0.7) & (ot[:, 0] < 0.9) & (ot[:, 1] > -2.02) & (ot[:, 1] < -1.88) & (ot[:, 2] > 0.28) & \
         (ot[:, 2] < 0.50)
     slot = cKDTree(ot[k])
-    ds = slot.query(surf.P)[0]
-    R = []
-    for z in np.arange(zb + 0.045, 0.445, 0.01):
-        q = surf.P[(np.abs(ds - BF_SLOT_GAP) < 0.0015) & (np.abs(surf.P[:, 2] - z) < 0.003) &
-                   (surf.P[:, 1] > -1.93) & (surf.P[:, 1] < -1.80)]
-        if len(q) >= 3:
-            R.append(np.median(q, 0))
-    R = np.array(R)
-    # T: the middle of the front cut line's dash nearest above the riser
+    # round 5 verifier: the forward-facing face beside the outer intake carries the corner URL (the client's arrows),
+    # so the riser goes up the corner's outboard part instead, at y BF_RISER_Y (outermost skin at each height)
+    # (the riser goes straight up to the middle of the front cut line's dash nearest above BF_RISER_Y: its y is that
+    #  dash middle's)
     eC, esd = EYE["L"]["C"], EYE["L"]["sd"]
     loc = np.mod(esd, DPER)
-    ci = np.flatnonzero((np.abs(loc - DASH[0] / 2) < 0.0025) & (eC[:, 0] > 0.75) & (eC[:, 1] < -1.80) &
-                        (eC[:, 1] > -1.96))
+    cm_ = np.flatnonzero((np.abs(loc - DASH[0] / 2) < 0.0025) & (eC[:, 0] > 0.85) & (np.abs(eC[:, 1] - BF_RISER_Y) < 0.05))
+    y_r = float(eC[cm_[np.argmin(np.abs(eC[cm_, 1] - BF_RISER_Y))], 1]) if len(cm_) else BF_RISER_Y
+    BF["riser_y"] = y_r
+    R = []
+    for z in np.arange(zb + BF_R_MIN, 0.545, 0.01):
+        q = surf.P[(np.abs(surf.P[:, 1] - y_r) < 0.002) & (np.abs(surf.P[:, 2] - z) < 0.002)]
+        if len(q) >= 3:
+            R.append(q[int(np.argmax(q[:, 0]))])
+    R = np.array(R)
+    # T: the middle of the front cut line's dash nearest above the riser
+    ci = np.flatnonzero((np.abs(loc - DASH[0] / 2) < 0.0025) & (eC[:, 0] > 0.75) & (eC[:, 1] < BF_RISER_Y + 0.06) &
+                        (eC[:, 1] > BF_RISER_Y - 0.08))
     iT = int(ci[np.argmin(np.abs(eC[ci, 1] - R[-1, 1]))])
     PT = eC[iT].copy()
-    run = surf.snap(np.array([[0.95, y, zb] for y in np.arange(y_a - 0.004, -1.861, -0.02)]))
+    run = surf.snap(np.array([[0.95, y, zb] for y in np.arange(y_a - 0.004, y_r + BF_R_MIN - 0.005, -0.01)]))
     G = np.vstack([run, R, PT[None]])
     w = np.full(len(G), 6.0)
     w[-1] = 60.0
@@ -2444,7 +2521,7 @@ def belly_front_closure():
         rec = dict(line=f"belly_front_{s}", length_cm=round(float(Ss[-1]) * 100, 1), dashes=len(dashes),
                    stretch=round(kk, 4), turn_r_min_cm=round(r_min * 100, 1), truncated=trunc, hidden=hid,
                    start=[round(float(v), 3) for v in Cs[0]], end_T=[round(float(v), 3) for v in PTs],
-                   air_to_intake_wall_cm=round(air_slot * 100, 1), riser_gap_cm=BF_SLOT_GAP * 100,
+                   air_to_intake_wall_cm=round(air_slot * 100, 1), riser_y=round(BF["riser_y"], 3),
                    height_z=round(zb, 3), wheel_edge_y=round(y_a, 3))
         rec["status"] = "OK" if not trunc and not hid and air_slot >= 0.0075 else "FAIL"
         CLOSE_LOG.append(rec)
@@ -2871,14 +2948,16 @@ def belly_stem(s, Csh, iT):
         A = []
         for th in np.radians(np.arange(10.0, 90.1, 10.0)):
             x, y = p0[0] - R * (1 - np.cos(th)), p0[1] + R * np.sin(th)
-            kk = (np.abs(top_s.P[:, 0] - x) < 0.003) & (np.abs(top_s.P[:, 1] - y) < 0.003) & (top_s.N[:, 2] > 0.5)
+            kk = (np.abs(top_s.P[:, 0] - x) < 0.003) & (np.abs(top_s.P[:, 1] - y) < 0.003) & \
+                (top_s.N[:, 2] > 0.5) & (top_s.P[:, 2] < 0.845)
             if kk.sum():
                 A.append(top_s.P[kk][int(np.argmax(top_s.P[kk, 2]))])
         A = np.array(A)
         # straight inboard across the rest of the step at y_T, then up the side (outermost skin at (y_T, z)) to T
         run = []
         for x in np.arange(float(A[-1][0]) - 0.01, 0.78, -0.01):
-            kk = (np.abs(top_s.P[:, 0] - x) < 0.003) & (np.abs(top_s.P[:, 1] - y_T) < 0.003) & (top_s.N[:, 2] > 0.5)
+            kk = (np.abs(top_s.P[:, 0] - x) < 0.003) & (np.abs(top_s.P[:, 1] - y_T) < 0.003) & \
+                (top_s.N[:, 2] > 0.5) & (top_s.P[:, 2] < 0.845)          # (the step only, not the top above the crease)
             if kk.sum():
                 run.append(top_s.P[kk][int(np.argmax(top_s.P[kk, 2]))])
         wall = []
@@ -5550,8 +5629,13 @@ def region_labels():
                 c = surf_point("side", y, z, sp, s)
                 out.append((tuple(c), tuple(mean_normal(c, sp, s, 0.05)), (0, 0, 1)))
         return out
-    put_pair("label_shcheka", "ЩЕКА", [0.034, 0.032, 0.030, 0.028, 0.026, 0.024], shc, sp,
-             views_fn=lambda s: ("front", f"front34_{'left' if s == 'L' else 'right'}"), wrap=True, min_clear_cm=1.5)
+    # (round 5 verifier: the URL has priority and takes the corner's forward-facing face; ЩЕКА would have to be set
+    #  smaller than the URL beside it and there is no room for it with air - skipped, as the change list allows)
+    for s_ in ("L", "R"):
+        LABEL_LOG.append(dict(label="ЩЕКА", name=f"label_shcheka_{s_}", ok=False,
+                              status="skipped: the corner's forward-facing face carries the URL (priority); the strip "
+                                     "between the riser and the wheel opening is ~8 cm wide - no room for the label "
+                                     "with 2 cm of air"))
     # КРЕСТЕЦ: behind the tail lamp - the rear bumper's outer corner under the loop, outboard of its riser (the plain
     # under-flare recess kept >= 1 cm clear), wrapped
     rc = ["rear_bumper", "rear_bumper_corner"]
@@ -5589,7 +5673,12 @@ def region_labels():
              min_clear_cm=1.0)
 
 
-URL_CORNER_SIZES = [round(0.060 - 0.002 * i, 3) for i in range(16)]       # art height (ascender to descender), m
+URL_CORNER_SIZES = [round(0.040 - 0.002 * i, 3) for i in range(11)]       # type height (ascender to descender), m
+URL_WRAP_MAX = 24.0        # the face may turn at most this much under a corner URL (deg, 2nd-98th percentile)
+URL_FRONT_ANGLE = 58.0     # every texel of it faces forward within this (deg from the front axis, 98th percentile):
+#                            well inside the front view's silhouette, no letters crushed at the edge
+URL_FRONT_TILT = 24.0      # apparent slope of its level baseline in the front view (the perspective of a face that
+#                            recedes ~40-55 deg; the type itself stays level with the ground)
 
 
 def url_art(txt, h):
@@ -5601,73 +5690,130 @@ def url_art(txt, h):
     return solid(pad(m, 6), INK)
 
 
+def _wrap_painted(art, c, n, ppm, parts, side):
+    """texels a wrapped decal would paint (alpha > 0.05)"""
+    W, H = art.size
+    wm, hm = W / ppm, H / ppm
+    idx = cand(parts, side)
+    R = math.hypot(wm / 2 + 0.07, hm / 2 + 0.07) + 0.09
+    idx = idx[np.all(np.abs(POSF[idx] - np.asarray(c, float)) < R, axis=1)]
+    sa, sb, on = wrap_coords(c, frame(n, (0, 0, 1))[0], idx)
+    px_ = (sa / wm + 0.5) * W - 0.5
+    py_ = (0.5 - sb / hm) * H - 0.5
+    m = on & (px_ > -2) & (px_ < W + 1) & (py_ > -2) & (py_ < H + 1)
+    a = np.asarray(art.convert("RGBA"))[..., 3].astype(np.float32) / 255.0
+    al = ndimage.map_coordinates(a, np.stack([py_[m], px_[m]]), order=1, mode="constant", cval=0.0)
+    return idx[m][al > 0.05]
+
+
+def url_front_metrics(painted, side):
+    """how a corner URL reads from the front (round 5 verifier): the angle its texels face away from the front axis
+    (98th pct), how much the face turns under it (2nd-98th pct of the normals' yaw), its apparent baseline slope in the
+    front view and in that side's front 3/4 view, its length / cap height in the 1600 x 900 front view (px)"""
+    P, Nn = POSF[painted], NRMF[painted]
+    ang = np.degrees(np.arccos(np.clip(-Nn[:, 1], -1, 1)))
+    yaw = np.degrees(np.arctan2(np.abs(Nn[:, 0]), -Nn[:, 1]))
+    v34 = f"front34_{'left' if side == 'L' else 'right'}"
+    lv = _view_level(painted, ["front", v34])
+    e, f, rgt, up, mx, my, fpx, Ws, Hs = VISD["cam"]["front"]
+    rel = P - e
+    dv = rel @ f
+    X = ((rel @ rgt) / dv - mx) * fpx * 1600.0 / Ws
+    Y = ((rel @ up) / dv - my) * fpx * 1600.0 / Ws
+    return dict(face_angle_deg=round(float(np.percentile(ang, 98)), 1),
+                wrap_turn_deg=round(float(np.percentile(yaw, 98) - np.percentile(yaw, 2)), 1),
+                view_level_deg=lv, front_len_px=round(float(np.ptp(X)), 1), front_h_px=round(float(np.ptp(Y)), 1))
+
+
 def corner_urls():
-    """Front URLs (client round 5, item 3): «simkarting.ru» on the car-right and «karting64.ru» on the car-left front
-    bumper corner - the rounded pink corner face outboard of the outer intake, below the headlight, above the holo
-    band, inside the closed cut formed by the front cut line, the belly line's closure riser / lower run and the wheel
-    opening. Maroon ink in the livery URL face, straight on the pink (no plate). The corner turns ~25 deg under the
-    type, so it is WRAPPED onto the surface (wrap_coords): every row level with the ground, each row laid along the
-    skin with its true arc length - no stretching where the face turns. As large as passes on BOTH sides (one size,
-    mirror-symmetric position): >= 2 cm to every cut line / keyline, >= 1.5 cm to the wheel opening and the intake,
-    >= 3 cm to other decals, fully visible in the front view and that side's front 3/4 view."""
+    """Front URLs (client round 5, item 3 + verifier): «simkarting.ru» on the car-right and «karting64.ru» on the
+    car-left front bumper corner, on the FORWARD-FACING part of the corner beside the outer intake (where the client's
+    arrows point: the face turns from ~38 to ~60 deg off the front axis between the intake's outer wall and the
+    corner's outboard part) - the belly line's closure riser now runs up the corner's outboard part (BF_RISER_Y), so
+    the face is free. Maroon ink in the livery URL face, straight on the pink, wrapped onto the face (wrap_coords:
+    rows level with the ground, true arc length - no stretching). As large as passes on BOTH sides (one size,
+    mirror-symmetric position): >= 2 cm to every cut line / keyline, >= 1.5 cm to the intake and the panel edges,
+    >= 3 cm to other decals, fully visible in the front view and that side's front 3/4 view, and readable from the
+    front: the face turns <= URL_WRAP_MAX under it, every texel faces forward within URL_FRONT_ANGLE (all letters well
+    inside the front view's silhouette), apparent slope in the front view <= URL_FRONT_TILT."""
     sp = ["front_bumper_corner", "front_bumper", "front_fender"]
     jobs = (("url_corner_R", SIMKART_URL, "R", "front34_right"), ("url_corner_L", K64_URL, "L", "front34_left"))
     kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.09, min_clear_cm=1.5, wrap=True)
     gate = dict(tilt_gate=90.0, line_min=2.0, air=1.5, deco_min=3.0)
+    ys = (-1.860, -1.865, -1.855, -1.870, -1.850, -1.875, -1.845, -1.880)
+    zs = (0.445, 0.450, 0.440, 0.455, 0.435, 0.460, 0.430, 0.465)
     cache = {}
 
     def cands(s):
-        def f(h):
-            if s not in cache:
-                out = []
-                sg = 1 if s == "L" else -1
-                for y in (-1.79, -1.78, -1.80, -1.77, -1.81, -1.76, -1.82):
-                    for z in (0.430, 0.440, 0.420, 0.450, 0.410, 0.460):
-                        c = surf_point("side", y, z, sp, s)
-                        nv = mean_normal(c, sp, s, 0.05)
-                        out.append((tuple(c), tuple(nv), (0, 0, 1)))
-                cache[s] = out
-            return cache[s]
-        return f
-    fits = {s: fit_search(nm, lambda h, t=t: url_art(t, h), URL_CORNER_SIZES, cands(s),
-                          occl_views=["front", v], **gate, **kw) for nm, t, s, v in jobs}
-    h = min(f[0] for f in fits.values())
-    # one common size and one mirror-symmetric position: the (y, z) whose worse side scores best
-    score = {}
+        if s not in cache:
+            out = []
+            for y in ys:
+                for z in zs:
+                    c = surf_point("side", y, z, sp, s)
+                    out.append((tuple(c), tuple(mean_normal(c, sp, s, 0.04)), (0, 0, 1)))
+            cache[s] = out
+        return cache[s]
+    pick = None
+    for h in URL_CORNER_SIZES:
+        score = {}
+        for nm, t, s, v in jobs:
+            a_ = url_art(t, h)
+            for i, (c, n, u) in enumerate(cands(s)):
+                r = decal(nm, a_, c, n, u, dry=True, occl_views=["front", v], **kw)
+                ok, sc = _gates(r, kw, gate["tilt_gate"], gate["line_min"], gate["air"])
+                ok = ok and r.get("decal_clear_cm", 99) >= gate["deco_min"]
+                if not ok:
+                    continue
+                fm = url_front_metrics(_wrap_painted(a_, c, n, PPM, sp, s), s)
+                ok = (fm["wrap_turn_deg"] <= URL_WRAP_MAX and fm["face_angle_deg"] <= URL_FRONT_ANGLE and
+                      abs(fm["view_level_deg"]["front"]) <= URL_FRONT_TILT)
+                if ok:
+                    score.setdefault(i, {})[s] = (sc - 0.05 * abs(fm["view_level_deg"]["front"]), (c, n, u), fm)
+        pairs = [(min(d["L"][0], d["R"][0]), i) for i, d in score.items() if len(d) == 2]
+        if pairs:
+            pick = (h, max(pairs)[1], score)
+            break
+    if pick is None:
+        raise RuntimeError("corner URLs: no size passes on both corners")
+    h, i_best, score = pick
     for nm, t, s, v in jobs:
-        a_ = url_art(t, h)
-        for c, n, u in cands(s)(h):
-            r = decal(nm, a_, c, n, u, dry=True, occl_views=["front", v], **kw)
-            ok, sc = _gates(r, dict(kw, **{"min_clear_cm": 1.5}), gate["tilt_gate"], gate["line_min"], gate["air"])
-            ok = ok and r.get("decal_clear_cm", 99) >= gate["deco_min"]
-            score.setdefault((round(c[1], 3), round(c[2], 3)), {})[s] = (sc if ok else sc - 1000, (c, n, u))
-    pairs = [(min(d["L"][0], d["R"][0]), k) for k, d in score.items() if len(d) == 2]
-    best_sc, key = max(pairs)
-    for nm, t, s, v in jobs:
-        c, n, u = score[key][s][1]
+        _, (c, n, u), fm = score[i_best][s]
         a_ = url_art(t, h)
         decal(nm, a_, c, n, u, occl_views=["front", v, "side_left" if s == "L" else "side_right"], **kw)
         rep = CHECKS[-1]
-        ang = _view_level(PAINTED[nm], ["front", v])
-        rep["view_level_deg"] = ang
         f_ = F_SPON(400)
         cap = h * (f_.getbbox("k")[3] - f_.getbbox("k")[1]) / (f_.getbbox("simkarting.ru")[3] - f_.getbbox("simkarting.ru")[1])
         SPL_LOG[nm] = dict(c=[round(float(q), 4) for q in c], type_height_cm=round(h * 100, 1),
                            width_cm=round(a_.width / PPM * 100, 1), cap_cm=round(cap * 100, 1), status=rep["status"],
-                           view_level_deg=ang, wrap_turn_deg=rep.get("wrap_turn_deg"),
+                           view_level_deg=fm["view_level_deg"], wrap_turn_deg=fm["wrap_turn_deg"],
+                           face_angle_max_deg=fm["face_angle_deg"], front_view_px=[fm["front_len_px"],
+                                                                                   fm["front_h_px"]],
                            wrap_stretch_pct=rep.get("wrap_stretch_pct"), hidden=rep.get("hidden_frac"),
-                           line_clear_cm=rep.get("line_clear_cm"), edge_clear_cm=rep.get("edge_clear_cm"))
+                           line_clear_cm=rep.get("line_clear_cm"), edge_clear_cm=rep.get("edge_clear_cm"),
+                           decal_clear_cm=rep.get("decal_clear_cm"))
         print(f"   {nm}: «{t}» {SPL_LOG[nm]}", flush=True)
     L_, R_ = SPL_LOG["url_corner_L"], SPL_LOG["url_corner_R"]
-    URL_NOTES.append(f"front bumper outer corners (the closed ЩЕКА cut outboard of each outer intake, mirror-symmetric "
-                     f"at y {key[0]:+.3f}, z {key[1]:.3f}): «{SIMKART_URL}» car-right / «{K64_URL}» car-left, maroon "
-                     f"ink in the URL face on the pink, type {h * 100:.1f} cm tall (cap ~{L_['cap_cm']} cm), "
-                     f"{R_['width_cm']} / {L_['width_cm']} cm long; wrapped round the corner (the face turns "
-                     f"{L_['wrap_turn_deg']} deg under the type): rows level, arc-length true - measured stretch "
-                     f"{L_['wrap_stretch_pct']} % (median, 98th pct); fully visible in front + that side's 3/4 view "
-                     f"(hidden {L_['hidden']}); >= {min(L_['line_clear_cm'], R_['line_clear_cm'])} cm to the lines, "
-                     f">= {min(L_['edge_clear_cm'], R_['edge_clear_cm'])} cm to the wheel opening / intake; the old "
-                     f"url_splitter plates beside the intakes are removed")
+    key = (round(score[i_best]["L"][1][0][1], 3), round(score[i_best]["L"][1][0][2], 3))
+    URL_NOTES.append(f"front bumper outer corners (the forward-facing face beside each outer intake, where the client's "
+                     f"arrows point; mirror-symmetric at y {key[0]:+.3f}, z {key[1]:.3f}): «{SIMKART_URL}» car-right / "
+                     f"«{K64_URL}» car-left, maroon ink in the URL face on the pink, type {h * 100:.1f} cm tall (cap "
+                     f"~{L_['cap_cm']} cm), {R_['width_cm']} / {L_['width_cm']} cm long - the largest size that keeps "
+                     f"the whole address on the forward-facing face on both corners (that face is only ~11 cm wide "
+                     f"as seen from the front, between the intake and the corner's turn, so 4.5-5 cm type cannot fit "
+                     f"there); wrapped onto the face (it turns {L_['wrap_turn_deg']} / {R_['wrap_turn_deg']} deg under "
+                     f"the type, <= {URL_WRAP_MAX:.0f}): rows level with the ground, arc length true - measured "
+                     f"stretch {L_['wrap_stretch_pct']} % (median, 98th pct); every texel faces forward within "
+                     f"{max(L_['face_angle_max_deg'], R_['face_angle_max_deg'])} deg (the whole address well inside the "
+                     f"front view's silhouette, no letter at its edge); front view: {L_['front_view_px'][0]} / "
+                     f"{R_['front_view_px'][0]} px long, apparent slope {L_['view_level_deg']['front']} / "
+                     f"{R_['view_level_deg']['front']} deg (perspective of the receding face - the type is level with "
+                     f"the ground); front 3/4 views {L_['view_level_deg']['front34_left']} / "
+                     f"{R_['view_level_deg']['front34_right']} deg; fully visible (hidden {L_['hidden']} / "
+                     f"{R_['hidden']}); >= {min(L_['line_clear_cm'], R_['line_clear_cm'])} cm to the lines, >= "
+                     f"{min(L_['edge_clear_cm'], R_['edge_clear_cm'])} cm to the intake / panel edges; ЩЕКА is not "
+                     f"set on the corner (the URL has priority; no room for it with air)")
+
+
 GLASS_ALPHA = {}
 
 
