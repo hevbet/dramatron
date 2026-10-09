@@ -2456,20 +2456,38 @@ def belly_front_closure():
 # constant gap LL_GAP from the lamp outline (the iso-line of the 3D distance to the lamp meshes from the kn5, on the
 # renderer-visible skin, like the front cut line round the headlight), then turns down the rear bumper outboard of the
 # rear URL (riser at |x| = LL_RISER_X, round elbows) and runs into the rear bumper line, whose dashes it becomes: the
-# shoulder line, the loop and the rear bumper line are one line from the nose round to the other side's nose. The belly
-# line's rear end (on the rear flare's top step) leaves its path at the flare's upper rear corner and lands on the
-# loop in front of the lamp in a T (its last dash ends on the middle of a loop dash). The rear bumper line's old ends
-# beside the trim fins (the dashes left out there) are gone: outboard of the riser the loop has taken over.
+# shoulder line, the loop and the rear bumper line are one line from the nose round to the other side's nose. The rear
+# bumper line's old ends beside the trim fins (the dashes left out there) are gone: outboard of the riser the loop has
+# taken over.
+# Round 5 verifier: the belly line's rear end used to land on the loop's first dash right where it bends down in front
+# of the lamp (its last dash a short steep stub: the two read as an arrowhead / «λ»). The loop has no straight
+# near-vertical leg on the visible skin there - between the crease and the flare's step the body side is only ~7 cm
+# tall and the lamp's front tip sits right on the step's rear end - so the belly line now meets the SHOULDER line
+# instead: it leaves its path on the flare's step, turns in across the step in one fair arc (radius ST_R) and climbs
+# the body side square to the crease, its last dash a whole straight dash ending on the middle of a shoulder dash (a T
+# at 90 deg) - one whole dash and a gap ahead of the dash that bends down round the lamp. The loop's dash phase puts
+# one (lengthened) gap over the step's fold at the lamp's foot AND the stretch the flare's top plate hides in the rear
+# 3/4 view, so no loop dash starts or ends behind the plate's silhouette; the shoulder line keeps a gap middle on every
+# shut line / fuel-flap edge it crosses (both sides alike: the right side's fuel flap is mirrored onto the left).
 LL_PARTS = sorted(set(SIDE_PARTS + ["rear_bumper", "rear_panel", "rear_shoulder"]))
 LL_GAP = 0.032             # loop centre -> tail lamp outline (m): ~2 cm of clear paint
 LL_START_Y = 1.74          # the loop takes over from the shoulder line here (still on the crease, before it turns down)
 LL_RISER_X = 0.47          # |x| of the riser down the rear bumper (outboard of the rear URL, inboard of the trim fin)
 LL_END_X = 0.30            # |x| where the loop has run into the rear bumper line (handover to its own dashes)
 LL_R_MIN = 0.05            # smallest turn radius of the loop
-LL_SEAM_EXT = (0.0, 0.005, 0.010, 0.015, 0.020, 0.025, 0.030)  # a gap over a shut line may be lengthened by this
-LL_EDGE_EXT = (0.015, 0.020, 0.025, 0.030)                    # ... the gap over the flare step's edge by this
-BELLY_REAR_Y = 1.62        # the belly line's own dashes end here; the connector to the loop takes over ...
-BC_LEAVE_Y = 1.70          # ... follows its path to here and then crosses the flare's step diagonally onto the loop
+LL_SEAM_EXT = (0.0, 0.010, 0.020, 0.030)  # a gap over a shut line may be lengthened by this
+LL_ZONE_EXT = (0.0, 0.004, 0.008)         # ... the gap over the fold + hidden stretch by this beyond its least length
+LL_FOLD_AIR = 0.005        # paint air from the last loop dash before it to the step's fold at the lamp's foot
+LL_HIDE_AIR = 0.006        # paint air from the first loop dash after it to the flare plate's silhouette (rear 3/4)
+SH_GROOVE_EXT = (0.0, 0.006)  # a gap over a shut line / fuel-flap edge on the shoulder line may be lengthened by this
+BELLY_REAR_Y = 1.62        # the belly line's own dashes end here; the stem up to the shoulder line takes over ...
+BC_LEAVE_Y = 1.70          # (set from the T: where the stem leaves the belly line's path on the step)
+ST_Y = (1.62, 1.74)        # range searched for the stem's T on the shoulder line (y; it must stay a whole dash + gap
+#                            ahead of the loop's bend)
+ST_R = 0.08                # the stem's turn in across the flare's step: one arc of this radius (in the surface)
+ST_TGT = 0.0745            # the stem's last dash: a whole dash ending on the T
+ST_RS = (0.08, 0.065, 0.095, 0.11)      # arc radii tried (the stem's length: its dashes keep their length) ...
+ST_TGTS = (0.0745, 0.070, 0.065)       # ... and the last dash's length beyond the T's dash middle
 BELLY_HANDOVER = {}        # (set by paint_belly: the belly line's gap middle ahead of BELLY_REAR_Y where the connector starts)
 LOOP = {}
 LL_HANDOVER = {}           # (set by paint_belly: the rear bumper line's gap middle where the loop hands over)
@@ -2492,6 +2510,24 @@ def _grooves_along(C, side, s_lo=0.0, s_hi=9.0, tol=0.004):
             if not out or S[i] - out[-1] > 0.03:
                 out.append(float(S[i]))
     return out
+
+
+def shoulder_grooves(Csh):
+    """y of the shut lines / fuel-flap edges the shoulder curves (per side) cross between the front door's front shut
+    gap and the loop's start, both sides merged (within 1.5 cm: one crossing)"""
+    ys = []
+    for s, C in Csh.items():
+        S = arclen(C)
+        i0 = int(np.argmin(np.abs(C[:, 1] - SH_SHUT_Y)))
+        i1 = int(np.argmin(np.abs(C[:, 1] - LL_START_Y)))
+        ys += [float(np.interp(g, S, C[:, 1])) for g in _grooves_along(C, s, float(S[i0]) + 0.05, float(S[i1]) - 0.03)]
+    out = []
+    for y in sorted(ys):
+        if out and y - out[-1][-1] < 0.015:
+            out[-1].append(y)
+        else:
+            out.append([y])
+    return [float(np.mean(g)) for g in out]
 
 
 def lamp_loop_curve(s, Csh, x_r=LL_RISER_X):
@@ -2569,43 +2605,168 @@ def lamp_loop_curve(s, Csh, x_r=LL_RISER_X):
                              round(float(np.median(dlc[under & (dlc < 0.06)])) * 100, 2)])
 
 
-def loop_phase(S_sh, u_sh, S_h, L_loop, grooves, s_end, dash_at=(), edges=()):
+def _dash_plan(anchors, u0):
+    """piecewise-linear dash coordinate through anchors [(t, kind, target)], t increasing from 0 (u = u0 there):
+    kind 'mod' - u = target (mod DPER) there, 'gap' - u advances by exactly `target` from the previous anchor (one
+    forced, lengthened gap). For each free piece the stretch k is one of (du + n DPER) / dt; the choices minimise
+    sum(len (k - 1)^2) + 0.5 sum(min(len) (k_i - k_j)^2) over neighbouring free pieces (exhaustive over the 3 nearest
+    choices per piece). Returns (knot t, knot u, stretches, cost)."""
+    states = {(round(u0, 6), None): (0.0, None, None, [u0], [])}
+    t_prev = 0.0
+    for t, kind, tg in anchors:
+        dt = max(t - t_prev, 1e-6)
+        new = {}
+        for c, k_p, l_p, us, st in states.values():
+            u_p = us[-1]
+            if kind == "gap":
+                cands = [u_p + tg]
+            else:
+                n0 = round((u_p + dt - tg) / DPER)
+                cands = [tg + n * DPER for n in (n0 - 1, n0, n0 + 1)]
+            for u in cands:
+                if u <= u_p + 1e-6:
+                    continue
+                k = (u - u_p) / dt
+                if kind == "gap":
+                    c2, k2, l2 = c, None, None              # (the forced gap breaks the smoothness chain)
+                else:
+                    c2 = c + dt * (k - 1) ** 2 + 10 * dt * max(0.0, abs(k - 1) - 0.6) ** 2
+                    if k_p is not None:
+                        c2 += 0.5 * min(dt, l_p) * (k - k_p) ** 2
+                    k2, l2 = k, dt
+                key = (round(u, 6), None if k2 is None else round(k2, 4))
+                if key not in new or c2 < new[key][0]:
+                    new[key] = (c2, k2, l2, us + [u], st + [k])
+        states = new
+        t_prev = t
+    c, _, _, us, st = min(states.values(), key=lambda v: v[0])
+    kt = np.concatenate([[0.0], [a_[0] for a_ in anchors]])
+    return kt, np.array(us), [round(k, 4) for k in st], c
+
+
+def loop_phase(S_sh, u_sh, S_h, L_loop, grooves, s_end, dash_at=(), zones=(), sh_grooves=()):
     """Dash coordinate behind the front fender / door shut gap (path arc p: the shoulder curve's arc up to the handover
-    S_h, then S_h + the loop's arc): u_sh (a gap middle) at S_sh, a gap middle on every shut line the loop crosses (that
-    gap lengthened by up to 2.5 cm where it keeps the dashes closer to their length) and, at the loop's end, the rear
-    bumper line's own dash coordinate s_end. Piecewise linear; the stretches as close to 1 as possible. Returns
-    (u_map(p), log)."""
+    S_h, then S_h + the loop's arc): u_sh (a gap middle) at S_sh; a gap middle on every shut line / fuel-flap edge the
+    shoulder line crosses (sh_grooves, arcs of the shoulder curve; that gap lengthened by up to SH_GROOVE_EXT) and on
+    every shut line the loop crosses (grooves, loop arcs; lengthened by up to LL_SEAM_EXT); a dash middle at each
+    dash_at (loop arcs, < 0 = on the shoulder line ahead of the handover: the stem's T); over each zone (a, b) (loop
+    arcs: the step's fold at the lamp's foot .. the end of the stretch the flare plate hides in the rear 3/4 view) one
+    gap exactly: a dash ENDS LL_FOLD_AIR + its cap before a and the next one STARTS LL_HIDE_AIR + its cap after b
+    (that gap lengthened as needed; no dash starts or ends behind the plate); and, at the loop's end, the rear bumper
+    line's own dash coordinate s_end. Piecewise linear; stretches chosen by _dash_plan (length-weighted, smooth from
+    piece to piece). The shoulder part (up to the T) and the loop part are planned separately (they meet on the T's
+    dash middle). Returns (u_map(p), log)."""
     import itertools
     gm = DASH[0] + DASH[1] / 2
-    # (shut lines: a gap, lengthened by 0-3 cm; the flare step's edge at the lamp's foot: a gap lengthened by 1.5-3 cm -
-    #  seen from the side the step hides the loop just below it, so no dash may start right at the edge as a stub)
-    gx = sorted([(S_h + g, LL_SEAM_EXT) for g in grooves] + [(S_h + e, LL_EDGE_EXT) for e in edges])
-    gp = [g for g, _ in gx]
-    dp = [S_h + a for a in dash_at]                 # (dash middles: where the belly line's connector lands)
+    cap = 0.011
+    shut = [(g, SH_GROOVE_EXT) for g in sh_grooves] + [(S_h + g, LL_SEAM_EXT) for g in grooves
+                                                        if not any(za - 0.03 < g < zb + 0.03 for za, zb in zones)]
+    shut.sort()
+    gp = [g for g, _ in shut]
+    dp = sorted(S_h + a for a in dash_at)
+    zs = [(S_h + za - cap - LL_FOLD_AIR, S_h + zb + cap + LL_HIDE_AIR) for za, zb in zones]
     end = S_h + L_loop
-    best = None
-    for ext in itertools.product(*[o for _, o in gx]):
-        def teff(p, ext=ext):
+    split = dp[0] if dp else end
+
+    def plan(ext_sub, idx_sub, p0, u0, p1, last):
+        """pieces from p0 (u = u0) to p1 (target last) with the shut gaps idx_sub lengthened by ext_sub"""
+        def teff(p):
             p = np.asarray(p, float)
             out = p.copy()
-            for g, x in zip(gp, ext):
-                W = DASH[1] + x
+            for i_, x in zip(idx_sub, ext_sub):
+                g, W = gp[i_], DASH[1] + x
                 out = out - x * np.clip((p - (g - W / 2)) / W, 0, 1)
             return out
-        an = sorted([(float(teff(g) - teff(S_sh)), [gm]) for g in gp] +
-                    [(float(teff(a) - teff(S_sh)), [DASH[0] / 2]) for a in dp])
-        ta = [a for a, _ in an] + [float(teff(end) - teff(S_sh))]
-        kt, ks, st, ch = _phase_pieces(ta, u_sh, [t_ for _, t_ in an] + [[float(s_end % DPER)]])
-        sc = max(abs(k - 1) for k in st) + 0.5 * max(ext) + 0.05 * sum(ext)
-        if best is None or sc < best[0] - 1e-9:
-            best = (sc, ext, teff, kt, ks, st)
-    sc, ext, teff, kt, ks, st = best
-    t0 = float(teff(S_sh))
+        an = [(float(teff(gp[i_]) - teff(p0)), "mod", gm) for i_ in idx_sub]
+        for e_, s_ in zs:
+            if p0 < e_ < p1:
+                an += [(float(teff(e_) - teff(p0)), "mod", DASH[0]), (float(teff(s_) - teff(p0)), "gap", DASH[1])]
+        an = sorted(an, key=lambda a_: a_[0]) + [(float(teff(p1) - teff(p0)), "mod", last)]
+        kt, ku, st, c = _dash_plan(an, u0)
+        return kt, ku, st, c, teff, an
+
+    best = {}
+    for part, (p0, p1, last) in (("sh", (S_sh, split, DASH[0] / 2)), ("loop", (split, end, float(s_end % DPER)))):
+        idx_sub = [i_ for i_, g in enumerate(gp) if p0 < g < p1]
+        u0 = u_sh if part == "sh" else DASH[0] / 2
+        for ext in itertools.product(*[shut[i_][1] for i_ in idx_sub]):
+            kt, ku, st, c, teff, an = plan(ext, idx_sub, p0, u0, p1, last)
+            fr = [k for k, a_ in zip(st, an) if a_[1] == "mod"]
+            L_ = float(kt[-1])
+            sc = float(np.sqrt(c / L_)) + 0.25 * max(abs(k - 1) for k in fr) + 0.3 * max([0.0] + list(ext)) + \
+                0.03 * sum(ext)
+            if part not in best or sc < best[part][0] - 1e-9:
+                best[part] = (sc, ext, idx_sub, kt, ku, st, teff, an, p0)
+    sc_sh, ext_sh, i_sh, kt1, ku1, st1, te1, an1, p01 = best["sh"]
+    sc_lp, ext_lp, i_lp, kt2, ku2, st2, te2, an2, p02 = best["loop"]
+    u_T = float(ku1[-1])
+    ku2 = ku2 - ku2[0] + u_T
 
     def u_map(p):
-        return np.interp(teff(p) - t0, kt, ks)
-    return u_map, dict(stretches=st, seam_gap_cm=[round((DASH[1] + x) * 100, 1) for x in ext],
-                       seams_m=[round(g - S_h, 3) for g in gp], dash_mid_m=[round(a - S_h, 3) for a in dp])
+        p = np.asarray(p, float)
+        return np.where(p <= p02, np.interp(te1(p) - te1(p01), kt1, ku1), np.interp(te2(p) - te2(p02), kt2, ku2))
+    ext_all = dict(zip(i_sh, ext_sh))
+    ext_all.update(zip(i_lp, ext_lp))
+    zone_gap = [round(float(s_ - e_ + 2 * cap) * 100, 1) for e_, s_ in zs]
+    return u_map, dict(stretches=list(st1) + list(st2), score=round(sc_sh + sc_lp, 4),
+                       seam_gap_cm=[round((DASH[1] + ext_all.get(i_, 0.0)) * 100, 1) for i_ in range(len(gp))],
+                       zone_gap_cm=zone_gap, seams_m=[round(g - S_h, 3) for g in gp],
+                       zones_m=[[round(a_, 3), round(b_, 3)] for a_, b_ in zones],
+                       dash_mid_m=[round(a - S_h, 3) for a in dp])
+
+
+def ray_hidden(Q, view, skip=0.004):
+    """True where the straight ray from a surface point toward the camera of a standard view hits the skin mesh (more
+    than `skip` from the point): exact self-occlusion by the body (e.g. the flare's top plate), not the texel-level
+    visibility map"""
+    D = np.load(os.path.join(ZONES, "_analysis.npz"))
+    V = D["P"].astype(float)
+    e = np.asarray(VISD["cam"][view][0], float)
+    out = np.zeros(len(Q), bool)
+    lo, hi = Q.min(0) - 0.6, Q.max(0) + 0.6
+    keep = np.all((V.max(1) >= np.minimum(lo, e)) & (V.min(1) <= np.maximum(hi, e)), axis=1)
+    V = V[keep]
+    v0, e1, e2 = V[:, 0], V[:, 1] - V[:, 0], V[:, 2] - V[:, 0]
+    for i, q in enumerate(Q):
+        d = e - q
+        L = float(np.linalg.norm(d))
+        d /= L
+        pv = np.cross(d, e2)
+        det = (e1 * pv).sum(1)
+        ok = np.abs(det) > 1e-12
+        inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+        tv = q - v0
+        u = (tv * pv).sum(1) * inv
+        qv = np.cross(tv, e1)
+        v = (qv * d).sum(1) * inv
+        t = (qv * e2).sum(1) * inv
+        out[i] = bool(np.any(ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t > skip) & (t < L)))
+    return out
+
+
+def loop_zone(lp, s):
+    """(a, b), loop arcs: the stretch one gap has to cover in front of / under the tail lamp - from the flare step's fold
+    at the lamp's foot (the first sharp edge the glued loop runs over) to the end of the stretch that the flare's top
+    plate hides in that side's rear 3/4 view (and the side view, where it starts there)"""
+    C = lp["C"]
+    S = arclen(C)
+    sd_ = "left" if s == "L" else "right"
+    idx = cand(LL_PARTS, s)
+    _, j = cKDTree(POSF[idx]).query(C)
+    runs = []
+    sel = np.flatnonzero((S > 0.08) & (S < 0.6))
+    for v in (f"rear34_{sd_}", f"side_{sd_}"):
+        # (exact: rays from the loop's centre line to the camera against the body mesh, + the separate parts)
+        hid_all = np.zeros(len(C), bool)
+        hid_all[sel] = ray_hidden(C[sel], v) | hidden_by_part(C[sel], v)
+        hid = np.flatnonzero(hid_all)
+        for r in np.split(hid, np.flatnonzero(np.diff(hid) > 1) + 1) if len(hid) else []:
+            if len(r) >= 3:
+                runs.append((v, float(S[r[0]]), float(S[r[-1]])))
+    edges = [e for e in lp["edges"] if 0.08 < e < 0.6]
+    a = min(edges + [r[1] for r in runs if r[0].startswith("rear34")] + [9.0])
+    b = max([a] + [r[2] for r in runs if r[0].startswith("rear34") and r[1] < a + 0.06])
+    return (a, b), runs
 
 
 def belly_rear_connector(s, CL, sdl, iT=None):
@@ -2671,6 +2832,99 @@ def belly_rear_connector(s, CL, sdl, iT=None):
     return dict(C=C, sd=sd, T=T, iT=iT, k=kk, r=r_fit, surf=surf, lead_y=float(lead[0, 1]))
 
 
+_STEM_CACHE = {}
+
+
+def belly_stem(s, Csh, iT):
+    """The belly line's rear end (round 5 verifier): from the middle of one of its gaps on the rear flare's top step it
+    follows its own path, turns in across the step in one arc of radius ST_R (laid out in the step's plane) until it
+    runs straight inboard, square to the crease, crosses the step's inner fold and climbs the body side straight up to
+    the shoulder line, meeting it at 90 deg in a T: its last dash is a whole straight dash ending on the middle of the
+    shoulder dash at Csh[iT]. Its dash coordinate starts as the belly line's there and is stretched (as little as
+    possible) so that the last dash ends on the T. Left side (the right one is its mirror image). Returns
+    dict(C, sd, T, k, ...)."""
+    if ("stem", s) not in _STEM_CACHE:
+        _STEM_CACHE[("stem", s)] = (_Surf(LL_PARTS, s, (0.25, 1.40, 0.40), (1.0, 2.35, 1.0)),
+                                    _Surf(LL_PARTS, s, (0.70, 1.40, 0.70), (1.0, 2.0, 0.95)))
+    surf, top_s = _STEM_CACHE[("stem", s)]
+    CB = band_curve3d()
+    T = Csh[iT].copy()
+    y_T = float(T[1])
+    y_bh, s_bh = BELLY_HANDOVER["y"], BELLY_HANDOVER["s"]
+    k = (surf.P[:, 1] > y_bh - 0.02) & (surf.P[:, 1] < y_T + 0.02) & (surf.P[:, 0] > 0.82) & (surf.P[:, 2] > 0.70)
+    Pk = surf.P[k]
+    d3 = cKDTree(CB).query(Pk)[0]
+    zb, _ = b_curve(Pk[:, 1])
+    on = (np.abs(d3 - 0.022) < 0.001) & (Pk[:, 2] > zb)
+    def path_at(y):
+        q = Pk[on & (np.abs(Pk[:, 1] - y) < 0.004)]
+        return np.median(q, 0) if len(q) >= 3 else None
+
+    def geom(R, tgt):
+        y_d = y_T - R                                  # (the arc starts here: it ends running inboard at y_T)
+        lead = [q for q in (path_at(y) for y in np.concatenate([[y_bh], np.arange(np.ceil(y_bh / 0.02 + 0.25) * 0.02,
+                                                                                 y_d - 0.004, 0.02), [y_d]]))
+                if q is not None]
+        lead = np.array(lead)
+        p0 = lead[-1]
+        # the arc in the step's plane (x, y): from heading +y at p0 to heading -x (inboard) after a quarter turn
+        A = []
+        for th in np.radians(np.arange(10.0, 90.1, 10.0)):
+            x, y = p0[0] - R * (1 - np.cos(th)), p0[1] + R * np.sin(th)
+            kk = (np.abs(top_s.P[:, 0] - x) < 0.003) & (np.abs(top_s.P[:, 1] - y) < 0.003) & (top_s.N[:, 2] > 0.5)
+            if kk.sum():
+                A.append(top_s.P[kk][int(np.argmax(top_s.P[kk, 2]))])
+        A = np.array(A)
+        # straight inboard across the rest of the step at y_T, then up the side (outermost skin at (y_T, z)) to T
+        run = []
+        for x in np.arange(float(A[-1][0]) - 0.01, 0.78, -0.01):
+            kk = (np.abs(top_s.P[:, 0] - x) < 0.003) & (np.abs(top_s.P[:, 1] - y_T) < 0.003) & (top_s.N[:, 2] > 0.5)
+            if kk.sum():
+                run.append(top_s.P[kk][int(np.argmax(top_s.P[kk, 2]))])
+        wall = []
+        for z in np.arange(0.848, T[2] - 0.010, 0.008):
+            kk = (np.abs(surf.P[:, 1] - y_T) < 0.003) & (np.abs(surf.P[:, 2] - z) < 0.002)
+            if kk.sum():
+                wall.append(surf.P[kk][int(np.argmax(surf.P[kk, 0]))])
+        # (one polyline through the guides - the belly path, the arc, the straight run inboard, the straight climb -
+        #  eased by a short Gaussian (~1.2 cm) where its pieces meet and glued to the skin; no spline: a spline
+        #  through the climb's end overshot past the crease and came back down)
+        G = np.vstack([lead, A, np.array(run).reshape(-1, 3), np.array(wall).reshape(-1, 3), T[None]])
+        C = _resample(G, 0.002)
+        n_end = int(round((tgt + 0.015) / 0.002))      # (the last dash: straight up the side, untouched)
+        Cs = ndimage.gaussian_filter1d(C, 6.0, axis=0, mode="nearest")
+        w_ = np.clip((len(C) - 1 - np.arange(len(C))) / n_end, 0, 1)[:, None]
+        C = Cs * w_ + C * (1 - w_)
+        C = _resample(surf.snap(C), 0.002)
+        C = C[np.linalg.norm(C - T, axis=1) > 0.001]
+        return np.vstack([C, T[None]]), lead, y_d
+    s0 = float(s_bh)     # (starts on the field's gap middle: its first dash is whole)
+    # (its length is tuned by the arc's radius and the last dash's visible length so the dashes keep theirs)
+    best = None
+    for R in ST_RS:
+        C_, lead_, y_d_ = geom(R, ST_TGT)
+        L = float(arclen(C_)[-1])
+        for tgt in ST_TGTS:
+            n = round((s0 + L - tgt) / DPER)
+            for nn in (n - 1, n, n + 1):
+                kk = (tgt + nn * DPER - s0) / L
+                sc = abs(kk - 1) + 0.15 * abs(R - ST_R) + 0.5 * abs(tgt - ST_TGT)
+                if kk > 0 and (best is None or sc < best[0]):
+                    best = (sc, kk, R, tgt, C_, lead_, y_d_)
+    _, kk, R, tgt, C, lead, y_d = best
+    r_fit = R
+    sd = s0 + kk * arclen(C)
+    # the angle at the T between the stem's last 3 cm and the shoulder line there
+    S = arclen(C)
+    v1 = C[-1] - C[int(np.searchsorted(S, S[-1] - 0.03))]
+    St = arclen(Csh)
+    v2 = Csh[min(len(Csh) - 1, iT + 10)] - Csh[max(0, iT - 10)]
+    ang = float(np.degrees(np.arccos(abs(v1 @ v2) / np.linalg.norm(v1) / np.linalg.norm(v2))))
+    r_min = _fair_radius(C, surf)[0]
+    return dict(C=C, sd=sd, T=T, iT=iT, k=kk, r=r_fit, r_glued=r_min, surf=surf, lead_y=float(lead[0, 1]),
+                leave_y=float(y_d), angle_deg=round(ang, 1), arc_r=R, last_dash_cm=round(tgt / kk * 100, 1))
+
+
 def dash_visibility(C, sd, ink, views):
     """per standard view: dashes of a painted curve that face the camera but are only PARTLY drawn by the renderer
     (a piece of a dash showing past the edge of something in front of it - a stub): [(dash, view, visible %)]"""
@@ -2714,10 +2968,13 @@ def loop_checks(s, lp, bc):
         if nm == "loop":
             rec.update(riser_x=lp["x_r"], lamp_gap_cm=lp["lamp_gap_cm"], stretches=lp["phase"]["stretches"],
                        seam_gaps_cm=lp["phase"]["seam_gap_cm"], seams_m=lp["phase"]["seams_m"],
+                       zone_m=lp["phase"]["zones_m"], zone_gap_cm=lp["phase"]["zone_gap_cm"],
                        spline_turn_r_min_cm=round(lp["r_spline"] * 100, 1), handover=LL_HANDOVER)
         else:
-            rec.update(stretch=round(bc["k"], 4), T=[round(float(v), 3) for v in bc["T"]],
-                       leaves_belly_line_at_y=BC_LEAVE_Y)
+            rec.update(stretch=round(bc["k"], 4), T=[round(float(v), 3) for v in bc["T"]], T_on="shoulder line",
+                       leaves_belly_line_at_y=round(bc["leave_y"], 3), angle_at_T_deg=bc["angle_deg"],
+                       turn_r_min_cm=round(bc["r_glued"] * 100, 1), T_ahead_of_bend_cm=round(
+                           (LOOP["L"]["y_bend"] - bc["T"][1]) * 100, 1))
         rec["status"] = "OK" if not trunc and not hid and rec["air_to_lamp_cm"] >= 0.75 else "FAIL"
         CLOSE_LOG.append(rec)
         print(f"   {nm} {s}: {rec}", flush=True)
@@ -3476,6 +3733,7 @@ KEY_OFF = 0.022             # keyline centre -> cut-line centre (m)
 KEY_HW = ((0.0072, (176, 172, 190)), (0.0045, (252, 250, 255)))     # grey edge, white core: half widths, colours
 KEY_AIR_LINE = 0.02         # air from the keyline's paint to any other cut line's paint (each side of a crossing)
 KEY_AIR_PART = 0.008        # air from the keyline's paint to a lamp / the grille
+KEY_TL_AIR = 0.005          # ... to the tail lamp, where the keyline runs between the loop and the lamp (narrowed there)
 KEY_LOG = []
 
 
@@ -3515,12 +3773,34 @@ KEY_NECK_AIR = 0.0025       # ... and between the keyline and the lamp
 KEY_NECK_KMIN = 0.30        # narrowest keyline there, as a fraction of its normal width (1.44 cm -> 0.43 cm)
 
 
-def paint_keyline(C, side, others, open_start=False, hwd=None):
+def rear_line_centre(s, x0, step=0.004):
+    """centre curve of the rear bumper's dashed line on side s from |x| = x0 (where the tail-lamp loop hands over to it)
+    to the centreline: on the rear skin, 2.2 cm above the band edge (as the field paint_belly paints it), glued and
+    smoothed, its last point exactly on x = 0"""
+    sg = 1.0 if s == "L" else -1.0
+    surf = _Surf(LL_PARTS, s, (-0.004, 2.05, 0.38), (x0 + 0.02, 2.40, 0.62))
+    pts = []
+    for x in np.arange(x0, -1e-9, -step):
+        k = np.abs(surf.P[:, 0] - sg * x) < 0.002
+        q = surf.P[k]
+        q = q[q[:, 1] > 2.1]
+        if len(q):
+            ze, _ = band_edge(q)
+            pts.append(q[int(np.argmin(np.abs(q[:, 2] - (ze + 0.022))))])
+    C = np.array(pts)
+    C[:, 1] = ndimage.gaussian_filter1d(C[:, 1], 3.0, mode="nearest")
+    C[:, 2] = ndimage.gaussian_filter1d(C[:, 2], 3.0, mode="nearest")
+    C = _resample(surf.snap(C), 0.002)
+    C[-1, 0] = 0.0
+    return C
+
+
+def paint_keyline(C, side, others, open_start=False, hwd=None, open_end=False, near=()):
     """Keyline beside the cut-line centre curve C (ordered; its first point is the centreline end of the nose line
     when open_start: there the mirrored keyline of the other side carries on). others: centre curves of the cut lines
     that meet / cross it."""
     sg = 1.0 if side == "L" else -1.0
-    parts = SIDE_PARTS + EYE_PARTS + NOSE_PARTS
+    parts = sorted(set(SIDE_PARTS + EYE_PARTS + NOSE_PARTS + LL_PARTS))
     S = arclen(C)
     idx = cand(parts)
     P = POSF[idx]
@@ -3556,39 +3836,38 @@ def paint_keyline(C, side, others, open_start=False, hwd=None):
     # fit, its width k and offset are the largest that keep KEY_NECK_GAP to the dash and KEY_NECK_AIR to the lamp,
     # eased in / out along the line (no step)
     hwd = np.full(len(C), 0.011) if hwd is None else np.asarray(hwd, float)
+    # (round 5: the same at the tail lamp - the keyline follows the loop round it on the lamp's side, narrowed where
+    #  the lamp comes closer than its full width + KEY_TL_AIR allows)
     tl_ = cKDTree(front_l)
-    nb_d, nb_j = tl_.query(C, k=64, distance_upper_bound=0.06)
+    tt_ = cKDTree(tl)
     room = np.full(len(C), 0.06)
-    for i in range(len(C)):
-        ok_ = np.isfinite(nb_d[i]) & (C[i, 1] < -1.2)              # (the nose only: the lamp / grille neck)
-        if ok_.any():
-            v = front_l[nb_j[i][ok_]] - C[i]
-            side_ = (v @ lat[i]) > 0.0
-            if side_.any():
-                room[i] = float(nb_d[i][ok_][side_].min())
-    kf = np.clip((room - KEY_NECK_AIR - KEY_NECK_GAP - hwd) / (2 * hw0), KEY_NECK_KMIN, 1.0)
+    air = np.where(C[:, 1] > 1.0, KEY_TL_AIR, KEY_NECK_AIR)
+    for tree_, pts_, sel_ in ((tl_, front_l, C[:, 1] < -1.2), (tt_, tl, C[:, 1] > 1.0)):
+        nb_d, nb_j = tree_.query(C, k=64, distance_upper_bound=0.06)
+        for i in np.flatnonzero(sel_):
+            ok_ = np.isfinite(nb_d[i])
+            if ok_.any():
+                v = pts_[nb_j[i][ok_]] - C[i]
+                side_ = (v @ lat[i]) > 0.0
+                if side_.any():
+                    room[i] = min(room[i], float(nb_d[i][ok_][side_].min()))
+    kf = np.clip((room - air - KEY_NECK_GAP - hwd) / (2 * hw0), KEY_NECK_KMIN, 1.0)
     kf = ndimage.gaussian_filter1d(ndimage.minimum_filter1d(kf, 31, mode="nearest"), 8.0, mode="nearest")
     kf = np.clip(kf, KEY_NECK_KMIN, 1.0)
     lo_off = hwd + KEY_NECK_GAP + hw0 * kf                   # (closest to the dash)
-    hi_off = room - KEY_NECK_AIR - hw0 * kf                   # (closest to the lamp)
+    hi_off = room - air - hw0 * kf                            # (closest to the lamp)
     off = np.minimum(KEY_OFF, 0.5 * (lo_off + np.maximum(hi_off, lo_off)))
     off = np.minimum(ndimage.gaussian_filter1d(ndimage.minimum_filter1d(off, 31, mode="nearest"), 8.0, mode="nearest"),
                      KEY_OFF)
     off = np.clip(off, lo_off, None)
     K = C + lat * off[:, None]
-    gap_part = (cKDTree(front_l).query(K)[0] < hw0 * kf + KEY_NECK_AIR - 0.0005)
-    # at the tail lamp: the keyline ends KEY_AIR_PART from it, in one clean round cap (everything behind the first
-    # point that comes too close is left out - no ragged on / off at the lamp's edge)
-    gt = cKDTree(tl).query(K)[0] < hw0 + KEY_AIR_PART
-    gt &= C[:, 1] > 1.0
-    if gt.any():
-        gt[int(np.flatnonzero(gt)[0]):] = True
-    gap_part |= gt
+    gap_part = (cKDTree(lamps).query(K)[0] < hw0 * kf + KEY_NECK_AIR - 0.0005)
     gap = gap_line | gap_part
     ends = gap.copy()
     if not open_start:
         ends[0] = True
-    ends[-1] = True
+    if not open_end:
+        ends[-1] = True
     f = _arc_dist_to(ends, S)                       # arc distance to the nearest interruption / end
     f[gap] = 0.0
     d, j = cKDTree(C).query(P, k=1, distance_upper_bound=KEY_OFF + 0.012)
@@ -3614,13 +3893,22 @@ def paint_keyline(C, side, others, open_start=False, hwd=None):
             gaps.append(dict(at_m=round(float(S[r[0]]), 3), len_cm=round(float(S[r[-1]] - S[r[0]]) * 100, 1), why=why,
                              y=round(float(C[r[len(r) // 2], 1]), 3)))
     nk = kf < 0.98
+    fr_, tr_ = nk & (C[:, 1] < 0), nk & (C[:, 1] > 0)
+    lampd = cKDTree(lamps).query(K)[0] - hw0 * kf
     KEY_LOG.append(dict(side=side, length_cm=round(float(S[-1]) * 100, 1), pieces_m=pieces, gaps=gaps,
-                        neck=dict(narrowed_cm=round(float(np.ptp(S[nk])) * 100, 1) if nk.any() else 0.0,
-                                  width_min_cm=round(float(kf.min() * 2 * hw0) * 100, 2),
-                                  offset_min_cm=round(float(off.min()) * 100, 2),
+                        ends=("open (meets the mirrored keyline on the centreline)" if open_start else "round cap") +
+                        " / " + ("open (meets the mirrored keyline on the centreline)" if open_end else "round cap"),
+                        neck=dict(narrowed_cm=round(float(np.ptp(S[fr_])) * 100, 1) if fr_.any() else 0.0,
+                                  width_min_cm=round(float(kf[fr_].min() * 2 * hw0) * 100, 2) if fr_.any() else None,
+                                  offset_min_cm=round(float(off[fr_].min()) * 100, 2) if fr_.any() else None,
                                   gap_to_dash_min_cm=round(float((off - hwd - hw0 * kf)[on].min()) * 100, 2),
-                                  air_to_lamp_min_cm=round(float((tl_.query(K[on & nk])[0] - hw0 * kf[on & nk]).min()) * 100, 2)
-                                  if (on & nk).any() else None),
+                                  air_to_lamp_min_cm=round(float((tl_.query(K[on & fr_])[0] - hw0 * kf[on & fr_]).min()) * 100, 2)
+                                  if (on & fr_).any() else None),
+                        tail=dict(narrowed_cm=round(float(np.ptp(S[tr_])) * 100, 1) if tr_.any() else 0.0,
+                                  width_min_cm=round(float(kf[C[:, 1] > 1.0].min() * 2 * hw0) * 100, 2),
+                                  air_to_lamp_min_cm=round(float(lampd[on & (C[:, 1] > 1.0)].min()) * 100, 2)),
+                        air_near_min_cm=round(float(min([cKDTree(O).query(K[on])[0].min() for O in near] + [9.9])
+                                                    - 0.011 - hw0) * 100, 1),
                         air_line_min_cm=round(float(min([cKDTree(O).query(K[on])[0].min() for O in others] + [9.9])
                                                       - 0.011 - hw0) * 100, 1),
                         air_part_min_cm=round(float(cKDTree(lamps).query(K[on & ~nk])[0].min() - hw0) * 100, 1)
@@ -4173,6 +4461,11 @@ def paint_body():
     eyeL = E["C"]
     # client round 5: the loop round the tail lamp into the rear bumper line (geometry first: it fixes the dash phase)
     LPC = {"L": [lamp_loop_curve("L", Csh["L"], xr) for xr in LL_RISER_XS]}     # (the right side: its mirror image)
+    # shut lines and fuel-flap edges the shoulder line crosses behind the front door's front shut gap, on either side:
+    # one list of y (the right side's fuel flap is mirrored onto the left - both sides keep the same dash rhythm)
+    SG_Y = shoulder_grooves(Csh)
+    LINE_NOTES.append("shoulder line: gap middles on the shut lines / fuel-flap edges it crosses at y "
+                      + ", ".join(f"{y_:+.3f}" for y_ in SG_Y) + " (both sides alike; the fuel flap is on the right)")
     for s in sides:
         Sarc = arclen(Csh[s])
         # dash coordinate = scale * arc + phase: the last dash ends at the line's rear end (SH_REAR_AIR from the tail
@@ -4262,27 +4555,47 @@ def paint_body():
         else:
             kf = scale
         # behind the shut gap: the shoulder line, the loop round the tail lamp and its run into the rear bumper line
-        # are one dashed line - gap middles on the shut lines the loop crosses, the rear bumper line's own dash
-        # coordinate where the loop hands over to it (loop_phase)
+        # are one dashed line - gap middles on the shut lines / fuel-flap edges the shoulder crosses and on the shut
+        # lines the loop crosses, a dash middle where the belly line's stem meets the shoulder line (T), one gap over
+        # the step's fold + the stretch the flare plate hides, the rear bumper line's own dash coordinate where the
+        # loop hands over to it (loop_phase)
+        shg = [float(np.interp(y_, Csh[s][:, 1], Sarc)) for y_ in SG_Y]
         if s == "L":
-            best_ = None
-            for lp_ in LPC["L"]:
+            def _search(lp_, ys_):
                 L_loop = float(arclen(lp_["C"])[-1])
+                s_end = float(belly_s(lp_["C"][-1:])[0])
+                out_ = None
+                for y_T in ys_:
+                    a_T = float(np.interp(y_T, Csh[s][:, 1], Sarc)) - lp_["S_h"]
+                    u_, lph_ = loop_phase(S_sh, u_sh, lp_["S_h"], L_loop, lp_["grooves"], s_end, dash_at=[a_T],
+                                          zones=[lp_["zone"]], sh_grooves=shg)
+                    # (the stem's own stretch counts too: its dashes should keep their length)
+                    st_ = belly_stem(s, Csh[s], int(np.argmin(np.abs(Csh[s][:, 1] - y_T))))
+                    sc_ = lph_["score"] + 0.3 * abs(st_["k"] - 1)
+                    if out_ is None or sc_ < out_[0] - 1e-6:
+                        out_ = (sc_, y_T, a_T, u_, lph_)
+                return out_
+            for lp_ in LPC["L"]:
+                lp_["zone"], lp_["hide_runs"] = loop_zone(lp_, "L")
                 Sl_ = arclen(lp_["C"])
-                # (the belly line's connector lands on the loop in front of the lamp, above the flare step: on the
-                #  middle of the dash just before the gap over the step's edge)
-                lp_["a_T"] = (lp_["edges"][0] - (DASH[0] / 2 + DASH[1] / 2 + 0.0075)) if lp_["edges"] else \
-                    float(Sl_[np.flatnonzero(lp_["C"][:, 2] < 0.865)[0]])
-                u_, lph_ = loop_phase(S_sh, u_sh, lp_["S_h"], L_loop, lp_["grooves"],
-                                      float(belly_s(lp_["C"][-1:])[0]), dash_at=[lp_["a_T"]], edges=lp_["edges"])
-                sc_ = max(abs(k_ - 1) for k_ in lph_["stretches"]) + 0.5 * max([0.0] + [
-                    (g_ - DASH[1] * 100) / 100 for g_ in lph_["seam_gap_cm"]])
-                if best_ is None or sc_ < best_[0] - 0.002:
-                    best_ = (sc_, lp_, u_, lph_)
-            _, lp, u_rear, lph = best_
+                Tg = np.gradient(lp_["C"], Sl_, axis=0)
+                dn_ = np.degrees(np.arctan2(-Tg[:, 2], np.abs(Tg[:, 1])))
+                lp_["y_bend"] = float(lp_["C"][int(np.flatnonzero((dn_ > 5.0) & (Sl_ > 0.02))[0]), 1])
+            # the riser first (stem's T fixed in the middle of its range), then the T for that riser
+            y_mid = [0.5 * (ST_Y[0] + ST_Y[1])]
+            # (only the risers whose loop keeps its full gap round the lamp: >= 2.4 cm measured at its closest)
+            ok_r = [i_ for i_, lp_ in enumerate(LPC["L"]) if lp_["lamp_gap_cm"][0] >= 2.4] or \
+                [max(range(len(LPC["L"])), key=lambda i_: LPC["L"][i_]["lamp_gap_cm"][0])]
+            best_ = min(((_search(LPC["L"][i_], y_mid)[0], i_) for i_ in ok_r))
+            lp = LPC["L"][best_[1]]
+            ys_T = [y_ for y_ in np.arange(ST_Y[0], ST_Y[1] + 1e-9, 0.005)
+                    if y_ + DASH[0] / 2 <= lp["y_bend"] + 0.002]
+            _, y_T, a_T, u_rear, lph = _search(lp, ys_T)
+            lp["y_T"], lp["a_T"] = float(y_T), float(a_T)
         else:
             # right side: the left loop mirrored and glued to the right skin, from the right shoulder's handover point
-            # to the right rear bumper line's handover; the same anchors (shut lines / step edge) at the same arcs
+            # to the right rear bumper line's handover; the same anchors (shut lines, the stem's T, the fold + hidden
+            # stretch) at the same places
             lL = LOOP["L"]
             surfR = _Surf(LL_PARTS, "R", (0.10, 1.55, 0.40), (1.0, 2.35, 1.0))
             CR = _resample(surfR.snap(lL["C"] * np.array([-1.0, 1.0, 1.0])), 0.002)
@@ -4292,8 +4605,10 @@ def paint_body():
             CR[-1, 0] = -abs(CR[-1, 0])
             lp = dict(lL, C=CR, S_h=float(Sh_R[i_hR]), i_h=i_hR, surf=surfR)
             L_loop = float(arclen(CR)[-1])
-            u_rear, lph = loop_phase(S_sh, u_sh, lp["S_h"], L_loop, lL["grooves"],
-                                     float(belly_s(CR[-1:])[0]), dash_at=[lL["a_T"]], edges=lL["edges"])
+            a_T = float(np.interp(lL["y_T"], Csh["R"][:, 1], Sarc)) - lp["S_h"]
+            lp["a_T"] = a_T
+            u_rear, lph = loop_phase(S_sh, u_sh, lp["S_h"], L_loop, lL["grooves"], float(belly_s(CR[-1:])[0]),
+                                     dash_at=[a_T], zones=[lL["zone"]], sh_grooves=shg)
             lp.pop("bc", None)
         lp["phase"] = lph
         u_of = lambda S_, u_rear=u_rear, S_sh=S_sh, u_sh=u_sh, kf=kf: np.where(
@@ -4310,21 +4625,23 @@ def paint_body():
         sdl = u_rear(lp["S_h"] + arclen(CL))
         lp["sd"] = sdl
         lp["ink"] = paint_curve_line(CL, sdl, np.full(len(CL), 0.011), LL_PARTS, s)
+        iT_ = int(np.argmin(np.abs(Csh[s][:, 1] - lp["y_T"] if s == "L" else Csh[s][:, 1] - LOOP["L"]["y_T"])))
         if s == "L":
-            bc = belly_rear_connector(s, CL, sdl, iT=int(np.argmin(np.abs(arclen(CL) - lp["a_T"]))))
+            bc = belly_stem(s, Csh[s], iT_)
         else:
             bL = LOOP["L"]["bc"]
             CbR = _resample(_Surf(LL_PARTS, "R", (0.10, 1.40, 0.40), (1.0, 2.35, 1.0)).snap(
                 bL["C"] * np.array([-1.0, 1.0, 1.0])), 0.002)
-            TR = CL[int(np.argmin(np.linalg.norm(CL - bL["T"] * np.array([-1.0, 1.0, 1.0]), axis=1)))]
+            TR = Csh[s][iT_].copy()
+            jr = int(np.argmin(np.linalg.norm(CbR - TR, axis=1)))
+            CbR = CbR[:jr + 1]
             CbR[-1] = TR
             s0R = float(belly_s(CbR[:1])[0])
             # (same stretch as the left: the belly line's dash coordinate is mirror-symmetric)
-            bc = dict(bL, C=CbR, sd=s0R + bL["k"] * arclen(CbR), T=TR)
+            bc = dict(bL, C=CbR, sd=s0R + bL["k"] * arclen(CbR), T=TR, iT=iT_)
         bc["ink"] = paint_curve_line(bc["C"], bc["sd"], np.full(len(bc["C"]), 0.011), LL_PARTS, s)
         lp["bc"] = bc
         LOOP[s] = lp
-        others[s].append(bc["C"])
         loop_checks(s, lp, bc)
         SB_ = float(u_of(S_B))
         if a_f is not None:     # branch -> fender groove: the stretch kf; groove (gap middle) -> neck -> centreline
@@ -4361,10 +4678,14 @@ def paint_body():
     for s in sides:
         ib = int(np.searchsorted(arclen(shoulder[s]), SHOULDER[s]["S_B"]))
         ih = int(np.searchsorted(arclen(shoulder[s]), LOOP[s]["S_h"]))
-        # (on along the loop until it comes too close to the tail lamp: the keyline ends there in a round cap)
-        Ck = np.vstack([EYE[s]["C"][::-1], shoulder[s][ib + 1:ih], LOOP[s]["C"]])
+        # (round 5 verifier: on along the whole loop - round the tail lamp, narrowed where the lamp comes close, down
+        #  the riser - and along the rear bumper line to the centreline, where the mirrored keyline carries on: the
+        #  shoulder line's keyline is one closed line round the car like its cut line)
+        RB = rear_line_centre(s, float(np.abs(LOOP[s]["C"][-1, 0])))
+        Ck = np.vstack([EYE[s]["C"][::-1], shoulder[s][ib + 1:ih], LOOP[s]["C"], RB[1:]])
         hwd = np.concatenate([EYE[s]["hw"][::-1], np.full(len(Ck) - len(EYE[s]["C"]), 0.011)])
-        paint_keyline(Ck, s, others[s], open_start=True, hwd=hwd)
+        paint_keyline(Ck, s, others[s], open_start=True, hwd=hwd, open_end=True,
+                      near=[LOOP[s]["bc"]["C"], BF[s]["C"]])
     # --- client (top priority): the body surface under / behind the rear flare (the recess between the flare's
     #     trailing edge and the rear bumper, confirmed zone) is plain base pink, shaded: no holo, no keyline, no dash
     #     stubs. Part map + mesh: the rear bumper corner's side-facing skin inboard of the flare, and the rear fender's
@@ -6009,7 +6330,11 @@ def main():
                    + f"; air to lamps / grille >= {r['air_part_min_cm']} cm; through the lamp / grille neck it runs on, "
                    f"narrowed like the dash over {r['neck']['narrowed_cm']} cm (down to {r['neck']['width_min_cm']} cm "
                    f"wide, {r['neck']['offset_min_cm']} cm off the cut line's centre, >= {r['neck']['gap_to_dash_min_cm']} "
-                   f"cm of paint to the dash and >= {r['neck']['air_to_lamp_min_cm']} cm to the lamp); round ends")
+                   f"cm of paint to the dash and >= {r['neck']['air_to_lamp_min_cm']} cm to the lamp); round the tail "
+                   f"lamp it follows the loop on the lamp's side (narrowed over {r['tail']['narrowed_cm']} cm, down to "
+                   f"{r['tail']['width_min_cm']} cm wide, >= {r['tail']['air_to_lamp_min_cm']} cm to the lamp), down the "
+                   f"riser and along the rear bumper line to the centreline; the belly line's stem and front riser meet "
+                   f"the cut line from the other side (>= {r['air_near_min_cm']} cm of paint air to it); ends: {r['ends']}")
     for s_, r in SLOT_LOG.items():
         if r:
             rep.append(f"INFO   keyline:band_{s_} runs {SLOT_GAP * 100:.1f} cm under the black lower-trim fin's slot, "

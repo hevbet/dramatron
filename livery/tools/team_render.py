@@ -42,9 +42,9 @@ of field (--dof).  Textures are sampled trilinearly from mip pyramids padded out
 Post: SSAA (--ss) with a float downsample, bloom, ACES tone mapping, dithering before quantising.
 --title adds the team band at the bottom.  --fast skips the visibility precomputation (previews).
 
-Cost: per layout the visibility (128 shadow maps) takes ~1 min on 4 CPUs (--cache keeps it between
-runs); a 2400x1350 view at --ss 2 renders in ~3-4 min, the four views in parallel (--jobs 4) in ~5 min
-with ~2 GB per worker.
+Cost: per layout the visibility (128 shadow maps) takes ~0.5-1 min on 4 CPUs (--cache keeps it between
+runs); a 2400x1350 view at --ss 2 renders in ~2-3 min (+2 min with depth of field), the four views in
+parallel (--jobs 4) in ~5.5 min, peak ~2 GB per worker (~3.2 GB with depth of field).
 
 World space = AC/kn5: x = car LEFT, y = up, z = FRONT.  Writes <view>.png and sheet.png.
 """
@@ -55,6 +55,7 @@ import os
 import re
 import sys
 import time
+import zlib
 from types import SimpleNamespace
 
 import numpy as np
@@ -84,7 +85,7 @@ CAPTIONS = {"front34_pair": "Три четверти спереди", "rear34_pa
 PRESETS = {
     "front34_pair": dict(az=37.0, eye_h=0.85, dist=16.0, ty=0.62, cars=((1.45, -0.35, 0.0), (-2.75, -0.95, -8.0)),
                          dof=0.55, back_ev=-0.5, exposure=1.0, floor_alb=0.05, refl=0.42),
-    "rear34_pair": dict(az=217.0, eye_h=0.90, dist=16.0, ty=0.66, cars=((2.75, 0.95, -8.0), (-1.45, 0.35, 0.0)),
+    "rear34_pair": dict(az=217.0, eye_h=0.90, dist=16.0, ty=0.66, cars=((3.15, 1.10, -8.0), (-1.45, 0.35, 0.0)),
                         dof=0.55, back_ev=-0.5, exposure=1.0, floor_alb=0.05, refl=0.42),
     "side_pair": dict(az=82.0, el=16.5, dist=22.0, ty=0.55, cars=((2.5, -0.9, 0.0), (-2.5, 0.9, 0.0)),
                       dof=0.0, back_ev=-0.25, exposure=1.0, floor_alb=0.06, refl=0.42),
@@ -101,10 +102,10 @@ CUSTOM = dict(ty=0.62, cars=((1.225, 0.4, 0.0), (-1.225, -0.4, 0.0)), dof=0.0, b
 MAT_DEFAULT = dict(kd=1.0, cc=0.0, cc_s=0.02, sp=0.0, sp_s=0.3, sp_tint=0.0, mt=0.0, mt_s=0.2, mt_lift=0.0)
 MATS = {
     "skin": dict(cc=1.0, cc_s=0.006, sp=0.45, sp_s=0.22, sp_tint=0.6),       # pearl base + clearcoat
-    "glass_sticker": dict(cc=0.30, cc_s=0.03),
+    "glass_sticker": dict(cc=0.15, cc_s=0.04),
     "ext_sticker": dict(cc=0.45, cc_s=0.03),
     "caliper": dict(cc=1.0, cc_s=0.03),
-    "rim": dict(kd=0.75, mt=0.40, mt_s=0.16, mt_lift=0.08, cc=0.6, cc_s=0.03),
+    "rim": dict(kd=0.95, mt=0.15, mt_s=0.16, mt_lift=0.08, cc=0.7, cc_s=0.03),    # painted rims
     "ture": dict(sp=0.6, sp_s=0.40),
     "brakedisc": dict(kd=0.5, mt=0.6, mt_s=0.30, mt_lift=0.3),
     "chrome": dict(kd=0.05, mt=1.0, mt_s=0.012, mt_lift=0.55),
@@ -505,13 +506,17 @@ class Studio:
         W_ = lambda v: np.array([v, v, v * 1.03], np.float32)
         far = float(np.interp(abs(math.sin(ca)), [0.25, 0.5], [1.0, 0.15]))
         top_view = cam_el_deg > 55
+        # lengthwise overhead strips: beside the softbox; seen from above they are moved out to where the
+        # roof rails and shoulders mirror them (a streak along the car, none across the roof number)
+        tilt = math.radians(90 - cam_el_deg) * math.copysign(1.0, -math.sin(ca)) if top_view else 0.0
+        ts = (tilt + 0.55, tilt - 0.45) if top_view else (0.62, -0.62)
         self.lights = [
             ("top", "top", 0.0, 0.0, 0.40, 0.78, W_(2.6), 0.0),
             ("top", "top", 0.0, 0.0, 0.17, 0.62, W_(2.2), 0.0),
-            ("tstrip", "top", 0.62, 0.0, 0.035, 0.85, W_(14.0), 0.0),
-            ("tstrip", "top", -0.62, 0.0, 0.035, 0.85, W_(14.0), 0.0),
-            ("strip", "azel", mirror, R_(20), R_(42), R_(1.5), W_(42.0), 0.0),
-            ("strip", "azel", -mirror, R_(20), R_(42), R_(1.5), W_(42.0) * far, 0.0),
+            ("tstrip", "top", ts[0], 0.0, 0.035, 0.85, W_(14.0), 0.0),
+            ("tstrip", "top", ts[1], 0.0, 0.035, 0.85, W_(14.0), 0.0),
+            ("strip", "azel", mirror, R_(26), R_(42), R_(0.7), W_(55.0), 0.0),
+            ("strip", "azel", -mirror, R_(26), R_(42), R_(0.7), W_(55.0) * far, 0.0),
             ("kick", "azel", ca + math.pi + R_(42), R_(16), R_(12), R_(15), MAGENTA * 7.0, 0.0),
             ("kick", "azel", ca + math.pi - R_(42), R_(16), R_(12), R_(15), TEAL * 7.0, 0.0),
             ("back", "azel", ca + math.pi, R_(22), R_(62), R_(18), W_(0.30), 0.6),
@@ -524,7 +529,7 @@ class Studio:
         # diffuse: the strips and kickers are tuned for crisp reflections, their diffuse share is small
         self.diff_gains = {"strip": 0.10, "kick": 0.25, "tstrip": 0.12}
         self.floor_gains = {"*": 0.02, "base": 1.0}
-        self.glass_gains = {"top": self.spec_gains["top"], "tstrip": 0.5, "strip": 0.30, "kick": 0.55,
+        self.glass_gains = {"top": self.spec_gains["top"], "tstrip": 0.5, "strip": 0.15, "kick": 0.55,
                             "back": 1.0, "fill": 0.5}
 
     def radiance(self, d, sig, gains=None):
@@ -538,8 +543,8 @@ class Studio:
         el = np.arcsin(np.clip(y, -1, 1))
         az = np.arctan2(x, z)
         # walls: near black, a little lighter towards the horizon (backdrop sweep); floor: near black
-        wall = 0.0045 + 0.0075 * np.exp(-(el / 0.30) ** 2)
-        floor = 0.0030 + 0.004 * np.clip(-y, 0, 1)
+        wall = 0.0010 + 0.0030 * np.exp(-(el / 0.30) ** 2)
+        floor = 0.0008 + 0.0010 * np.clip(-y, 0, 1)
         hz = 0.5 * (1 + erf(el / (np.maximum(sig, 0.004) * SQ2)))
         base = (floor + (wall - floor) * hz).astype(np.float32) * gains.get("base", 1.0)
         out = np.repeat(base[:, None], 3, 1)
@@ -857,7 +862,7 @@ def pearl_holo(alb, NV, ry, holo, phase):
     pm = (np.clip((34 - hd) / 14, 0, 1) * np.clip((sat - 0.12) / 0.12, 0, 1) * np.clip((mx - 0.45) / 0.2, 0, 1)
           * (1 - holo)).astype(np.float32)
     flop = np.power(1 - NV, 1.6)
-    ang = math.radians(-36) * flop * pm + holo * (phase + math.radians(250) * (1 - NV) + math.radians(80) * ry)
+    ang = math.radians(-28) * flop * pm + holo * (phase + math.radians(250) * (1 - NV) + math.radians(80) * ry)
     g2 = hue_rotate(g, ang)
     lift = (0.12 * flop * flop * pm)[:, None]
     g2 = g2 + (np.array([0.93, 0.88, 1.0], np.float32) - g2) * lift
@@ -1038,7 +1043,7 @@ class ShadeCtx:
         haze = E / np.pi * 0.010
         haze[is_red] = E[is_red] / np.pi * np.array([0.10, 0.006, 0.008], np.float32)
         refl = r * F[:, None]
-        refl = refl / (1.0 + refl / 0.55)                 # soft clamp: softbox reflections never blow out
+        refl = refl / (1.0 + refl / 0.42)                 # soft clamp: softbox reflections never blow out
         refl = refl + haze
         g = self.car_gain[L.CAR[tt]][:, None]
         T = Tm * (1 - F)[:, None]
@@ -1205,7 +1210,7 @@ def shade_background(ctx, cam, eye, idx, Ws, mb, ms, look):
     floor_rad = floor_col + refl * (Ff * fc * np.sqrt(fl))[:, None]
     # backdrop (infinite cyclorama): near black with a soft light pool behind the cars
     gx = (px + 0.5 - look.pool_cx) / look.pool_rx; gy = (py + 0.5 - look.pool_cy) / look.pool_ry
-    glow = np.exp(-(gx * gx + gy * gy))
+    glow = np.exp(-1.6 * (gx * gx + gy * gy))
     back = (look.back + look.pool_glow * glow)[:, None] * look.back_tint[None, :]
     fade_far = np.clip((r - look.far0) / look.far1, 0, 1) ** 1.5
     fade_far = np.where(down, fade_far, 1.0)[:, None]
@@ -1232,7 +1237,7 @@ def render_view(factory, name, args, log=print):
     if name == "top_pair":
         margins = (0.08, 0.08, 0.07, 0.20 if args.title else 0.08)
     elif name == "side_pair":
-        margins = (0.05, 0.05, 0.07, 0.22 if args.title else 0.10)
+        margins = (0.05, 0.05, 0.09, 0.22 if args.title else 0.10)
     cam.fit(L, Ws, Hs, margins, args.zoom)
     eye = cam.eye.astype(np.float32)
     X, Y, D = cam.project(L.P)
@@ -1252,8 +1257,8 @@ def render_view(factory, name, args, log=print):
         pool_r=float(max(L.hi[0] - L.lo[0], L.hi[2] - L.lo[2]) * 0.62),
         d_car=float(dep.min()) - 1.5, d_near=float(dep.min()) * 0.45,
         pool_cx=float(pcx[0]), pool_cy=float(min(pcy[0], uy.min() + 0.45 * (uy.max() - uy.min()))),
-        pool_rx=float((ux.max() - ux.min()) * 0.62), pool_ry=float(max(uy.max() - uy.min(), Hs * 0.3) * 0.75),
-        back=0.0035, pool_glow=0.030, back_tint=np.array([1.0, 0.90, 1.0], np.float32),
+        pool_rx=float((ux.max() - ux.min()) * 0.50), pool_ry=float(max(uy.max() - uy.min(), Hs * 0.3) * 0.85),
+        back=0.0005, pool_glow=0.045, back_tint=np.array([1.0, 0.90, 1.0], np.float32),
         far0=float(np.linalg.norm(L.hi - L.lo) * 0.5 + 3.0), far1=10.0)
     if name == "top_pair":
         lk.pool_r = float(max(L.hi[0] - L.lo[0], L.hi[2] - L.lo[2]) * 0.8)
@@ -1289,7 +1294,7 @@ def render_view(factory, name, args, log=print):
         dof = (depth.reshape(Hs, Ws), layer.reshape(Hs, Ws), list(dep))
     disp = post_process(img, dof, look, args, ss, lk, exposure=args.exposure * look.get("exposure", 1.0))
     del img
-    out = downsample_dither(disp, W, H, seed=hash(name) & 0xFFFF)
+    out = downsample_dither(disp, W, H, seed=zlib.crc32(name.encode()))
     t5 = time.time()
     # screen position of each car (for the title band ordering)
     car_xy = []
@@ -1380,11 +1385,11 @@ def post_process(img, dof, look, args, ss, lk, exposure=1.0):
     yy = (np.arange(Hs, dtype=np.float32) + 0.5) / Hs
     xx = (np.arange(Ws, dtype=np.float32) + 0.5) / Ws
     # haze: a faint coloured veil in the light pool (magenta on the left, teal on the right)
-    hx = np.exp(-((xx * Ws - lk.pool_cx) / (lk.pool_rx * 1.1)) ** 2)
-    hy = np.clip(1.15 - yy * 1.1, 0, 1) ** 1.5
+    hx = np.exp(-((xx * Ws - lk.pool_cx) / (lk.pool_rx * 0.8)) ** 2)
+    hy = np.exp(-((yy * Hs - lk.pool_cy) / (lk.pool_ry * 1.1)) ** 2)
     mix = np.clip((xx * Ws - lk.pool_cx) / (lk.pool_rx * 1.2) * 0.5 + 0.5, 0, 1)
     tint = MAGENTA[None, :] * (1 - mix[:, None]) + TEAL[None, :] * mix[:, None]   # (Ws, 3)
-    haze_amt = 0.0045
+    haze_amt = 0.0025
     yv = yy * 2 - 1
     xv = xx * 2 - 1
     out = np.empty((Hs, Ws, 3), np.float32)
