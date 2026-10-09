@@ -29,7 +29,8 @@ Views (each one has its own car layout, camera and look; the hero car is the one
 Scene: glossy black studio floor (planar mirror reflection weighted by Fresnel, sharp at the contact
 and blurred with the height of the reflected point, faded towards the camera) with a soft light pool
 under the cars, contact shadows and an occlusion footprint (height field of the cars), in a near-black
-cyclorama with a maroon-pink back glow, a dashed light line on the back wall (the butcher-chart motif),
+cyclorama with a maroon-pink back glow, a dashed light line on the back wall in the profile (the
+butcher-chart motif),
 a touch of coloured haze and a vignette.  Light rig (procedural environment rotated with the camera
 like a photographer's rig; every light a hard-edged rectangle with a gradient): a long overhead
 softbox, two long horizontal light-line strips behind the cars (the crisp streaks along hood, roof and
@@ -52,8 +53,8 @@ float downsample (no ringing), bloom, ACES tone mapping, dithering before quanti
 precomputation (previews).  sheet.png: the views without the band, cropped to the cars.
 
 Cost: per layout the visibility (128 shadow maps) takes ~0.5-1 min on 4 CPUs (--cache keeps it between
-runs); the four 2400x1350 views at --ss 2 in parallel (--jobs 4) take ~6-7 min, peak ~2.5 GB per worker
-(~3.5 GB with depth of field).
+runs); the four 2400x1350 views at --ss 2 in parallel (--jobs 4) take ~6 min, peak ~2.2 GB per worker
+(~3.4 GB with depth of field).
 
 World space = AC/kn5: x = car LEFT, y = up, z = FRONT.  Writes <view>.png and sheet.png.
 """
@@ -133,7 +134,7 @@ MATS = {
     "glass_sticker": dict(cc=0.15, cc_s=0.04),
     "ext_sticker": dict(cc=0.45, cc_s=0.03),
     "caliper": dict(cc=1.0, cc_s=0.03, fill=1.4, occ_min=0.3),
-    "rim": dict(kd=1.0, mt=0.04, mt_s=0.16, mt_lift=0.05, cc=0.6, cc_s=0.03, fill=1.9, occ_min=0.5),  # painted rims
+    "rim": dict(kd=1.0, mt=0.04, mt_s=0.16, mt_lift=0.05, cc=0.6, cc_s=0.03, fill=2.4, occ_min=0.6),  # painted rims
     "ture": dict(sp=0.6, sp_s=0.40),
     "brakedisc": dict(kd=0.5, mt=0.6, mt_s=0.30, mt_lift=0.3),
     "chrome": dict(kd=0.05, mt=1.0, mt_s=0.012, mt_lift=0.55),
