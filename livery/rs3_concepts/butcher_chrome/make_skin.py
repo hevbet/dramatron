@@ -12,7 +12,7 @@ dash that would be cut by an arch lip / trim notch or half-hidden behind a part 
 left out whole and listed in the report; lines that meet another line end on the middle of one of its dashes.
 
 Run:  python3 make_skin.py            (writes one skin folder per driver, named Surname_Number - Pozdnyakov_23/,
-                                      Konopelko_00/ - their zips, the team zip ../butcher_chrome.zip,
+                                      Konopelko_86/ - their zips, the team zip ../butcher_chrome.zip,
                                       texture_preview.png, check_report.txt/.json; each skin folder also gets
                                       every file of gear/out/<skin>/ - calipers, driver gear, crew)
 """
@@ -6409,7 +6409,7 @@ def save_dxt5(im, path):
         fh.write(struct.pack("<I", 0))
 
 
-NUMBERS = {"Pozdnyakov": "23", "Konopelko": "00"}      # race number per driver (Конопелько: still 00 for now)
+NUMBERS = {"Pozdnyakov": "23", "Konopelko": "86"}      # race number per driver
 NAMES = {"Pozdnyakov": ("Станислав", "Поздняков"), "Konopelko": ("Матвей", "Конопелько")}
 # skin folder = Surname_Number (also the zip name, ui_skin.json skinname, renders/<skin>, gear/out/<skin>)
 DRIVERS = [(f"{k}_{NUMBERS[k]}", NAMES[k]) for k in ("Pozdnyakov", "Konopelko")]

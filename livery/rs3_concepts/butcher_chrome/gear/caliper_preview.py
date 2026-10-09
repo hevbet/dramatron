@@ -124,7 +124,7 @@ def main():
     d.text((PAD, y), "СУППОРТЫ  ·  Butcher Chart Chrome", font=F_T(46), fill=PIG)
     y += 64
     d.text((PAD, y), "caliper.dds 256×256 DXT5, 9 mips, alpha = original + caliper_detail.dds 4×4 white — same "
-           "files for Pozdnyakov_23 and Konopelko_00; all 4 calipers share one UV", font=F_L(22), fill=DIM)
+           "files for Pozdnyakov_23 and Konopelko_86; all 4 calipers share one UV", font=F_L(22), fill=DIM)
     y += 46
 
     # row 1: flat before / after + swatches / notes

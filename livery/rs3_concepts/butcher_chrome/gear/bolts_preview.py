@@ -3,7 +3,7 @@
 
   1. flat textures: rim_d.dds nut islands and the rim_blur.dds hub, original (kn5) vs new (gear/out/<skin>/)
   2. hub close-ups of all 4 wheels, rendered with tools/render_rs3.py --fit --ks-detail (the in-game x0.886
-     detail multiply) from a test skin = copy of butcher_chrome/Konopelko_00 + the new rim_d.dds / rim_blur.dds
+     detail multiply) from a test skin = copy of butcher_chrome/Konopelko_86 + the new rim_d.dds / rim_blur.dds
   3. front left: original vs new in game, the pixels that changed, the raw texel colour (no detail multiply)
   4. the spinning wheel (rimblur meshes, which render_rs3 normally skips) before / after, and the whole
      front left / rear right wheels in game
@@ -11,7 +11,7 @@
      texture (bilinear upscale = what the GPU shows when it samples that mip), plus the texels of that mip;
      and per mip the count of rim-part texels (not nuts) that moved more than 2 grey levels (must be 0)
 
-Usage: python3 bolts_preview.py [--work DIR] [--skip-render] [--skin Konopelko_00]
+Usage: python3 bolts_preview.py [--work DIR] [--skip-render] [--skin Konopelko_86]
 """
 import argparse
 import os
@@ -154,7 +154,7 @@ def label(d, xy, text, f, fill=FG, bg=(0, 0, 0)):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", default=WORK)
-    ap.add_argument("--skin", default="Konopelko_00")
+    ap.add_argument("--skin", default="Konopelko_86")
     ap.add_argument("--skip-render", action="store_true")
     ap.add_argument("--out", default=os.path.join(HERE, "bolts_preview.png"))
     a = ap.parse_args()
@@ -223,7 +223,7 @@ def main():
     d.text((PAD, y), "БОЛТЫ КОЛЁС  ·  Butcher Chart Chrome", font=F_T(46), fill=PIG)
     y += 66
     d.text((PAD, y), f"rim_d.dds + rim_blur.dds, 1024×1024 DXT5, 11 mips, original headers and alpha — same files "
-                     f"for Pozdnyakov_23 and Konopelko_00; all 4 rims share one UV", font=F_L(22), fill=DIM)
+                     f"for Pozdnyakov_23 and Konopelko_86; all 4 rims share one UV", font=F_L(22), fill=DIM)
     y += 46
 
     def row(items, y, hdr=None):
@@ -265,7 +265,7 @@ def main():
     y += max(4 * 44, len(notes) * 29) + 24
 
     y = row([(R["hub_" + k.replace(" ", "_")], k) for k in WHEELS], y,
-            "hub close-ups, all 4 wheels (test skin = Konopelko_00 + new rim textures, render_rs3 --fit --ks-detail)")
+            "hub close-ups, all 4 wheels (test skin = Konopelko_86 + new rim textures, render_rs3 --fit --ks-detail)")
     y = row([(R["hub_front_left_orig"], "original, in game"), (R["hub_front_left"], "new, in game"),
              (R["hub_front_left_raw"], "new, texel colour (no detail)"), (R["diff"], "pixels changed (wheel)")], y,
             "front left: before / after, and what changed")

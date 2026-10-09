@@ -4,7 +4,7 @@
 Writes skin-folder overrides of the two rim textures embedded in the .kn5:
     out/<skin>/rim_d.dds      1024x1024 DXT5, 11 mips  (rim material, the static wheel)
     out/<skin>/rim_blur.dds   1024x1024 DXT5, 11 mips  (rimblur material, the spinning wheel)
-    identical files for Pozdnyakov_23 and Konopelko_00
+    identical files for Pozdnyakov_23 and Konopelko_86
 
 Where the nuts are
   The 5 lug nuts are part of the rim mesh (WHEEL_xx/RIM_xx/Plane.0xx, material «rim»). Each nut is made of
@@ -94,7 +94,9 @@ import kn5  # noqa: E402
 import render_rs3  # noqa: E402
 
 KN5 = render_rs3.DEFAULT_KN5
-SKINS = ("Pozdnyakov_23", "Konopelko_00")
+SKINS = ("Pozdnyakov_23", "Konopelko_86")
+# per-driver rims: Pozdnyakov_23 graphite (default), Konopelko_86 stock white ->
+#   python3 make_bolts.py --skins Pozdnyakov_23 && python3 make_bolts.py --skins Konopelko_86 --rim-colour stock
 RIM, BLUR, DETAIL = "rim_d.dds", "rim_blur.dds", "car_paint_rims.dds"
 
 # palette (butcher_chrome/make_skin.py): PIG (242,158,178) is the body's flesh pink

@@ -4,7 +4,7 @@
 Writes skin-folder overrides of the two diffuse textures of the tyre material «ture» (shader ksTyres):
     out/<skin>/tyre_d.dds        2048x2048 DXT5, 12 mips  (txDiffuse = txDirty)
     out/<skin>/tyre_d_blur.dds   1024x1024 DXT5, 11 mips  (txBlur, used while the wheel spins)
-    identical files for Pozdnyakov_23 and Konopelko_00, plus the preview gear/tyre_preview.png.
+    identical files for Pozdnyakov_23 and Konopelko_86, plus the preview gear/tyre_preview.png.
 
 Everything is measured from the .kn5 at run time (and printed); the numbers below are what it finds.
 
@@ -65,7 +65,7 @@ sys.path.insert(0, TOOLS)
 import render_rs3  # noqa: E402
 
 KN5 = render_rs3.DEFAULT_KN5
-SKINS = ("Pozdnyakov_23", "Konopelko_00")
+SKINS = ("Pozdnyakov_23", "Konopelko_86")
 TEX, TEX_BLUR = "tyre_d.dds", "tyre_d_blur.dds"
 FONT = "/home/user/dramatron/livery/fonts/Exo2-Italic[wght].ttf"
 FONT_VAR = b"ExtraBold Italic"

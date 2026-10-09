@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pit-crew kit for the «Butcher Chart Chrome» skins (Pozdnyakov_23 / Konopelko_00).
+"""Pit-crew kit for the «Butcher Chart Chrome» skins (Pozdnyakov_23 / Konopelko_86).
 
 Source: the SMP01 skin of the car. Every texture below is written with the SAME name and pixel size as
 the original, into out/<skin>/ for both skins (identical files):
@@ -52,7 +52,7 @@ FONTS = os.path.join(LIV, "fonts")
 sys.path.insert(0, os.path.join(LIV, "br03_pro"))
 import lib as blib  # noqa: E402  (arka_logo, simkart_logo, save_dxt5)
 
-SKINS = ("Pozdnyakov_23", "Konopelko_00")
+SKINS = ("Pozdnyakov_23", "Konopelko_86")
 
 # ---------------------------------------------------------------- palette (make_skin.py)
 PIG = np.array((242, 158, 178), np.float32)       # flesh pink, the 917/20 tone
