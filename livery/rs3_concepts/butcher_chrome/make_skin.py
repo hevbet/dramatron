@@ -577,15 +577,18 @@ def tail_with_label(h):
 TAIL_K = 1.4
 
 
-F_PIG = lambda s: font(os.path.join("extra", "Exo2[wght].ttf"), s, "Bold")         # truffle-hunter pig text
+F_PIG = lambda s: font("SofiaSansCondensed-Italic[wght].ttf", s, "Bold Italic")  # truffle-hunter pig text (the
+#                                                                                 driver-name face, condensed: the
+#                                                                                 largest letters the small pig holds)
 
 
 def truffle_pig(h, face_left=False, line1="ОХОТНИК ЗА ВЕСТАМИ", line2="из Саратова"):
     """«Truffle hunter» tribute sticker (client round 5, item 5; the 917/20's «Der Trüffel Jäger von Zuffenhausen» pig):
     a cute, clean side-view pig silhouette - plump rounded body, head with a disc snout, pointed ear, four short legs,
     curly tail - in white with a thin maroon ink outline and ink details (eye, nostrils, smile, inner ear); inside the
-    body, centred, «ОХОТНИК ЗА ВЕСТАМИ» and under it a smaller «из Саратова» in deep maroon, Exo 2 Bold (the livery's URL
-    family, upright). h = art height (px). The silhouette is drawn facing right; face_left mirrors the SILHOUETTE only
+    body, centred, «ОХОТНИК ЗА ВЕСТАМИ» and under it a smaller «из Саратова» in deep maroon, Sofia Sans Condensed Bold
+    (the livery's driver-name face: condensed, so the letters come out ~30 % larger than in Exo 2 at the same length).
+    h = art height (px). The silhouette is drawn facing right; face_left mirrors the SILHOUETTE only
     (so the pig faces the car's nose on either side) - the text is set afterwards and never mirrored."""
     S = 4
     H = int(h * S); W = int(H * 1.62)
@@ -605,9 +608,9 @@ def truffle_pig(h, face_left=False, line1="ОХОТНИК ЗА ВЕСТАМИ", 
     RR(140, 39, 158, 62, 8)          # snout
     # legs: back pair and front pair, short and rounded
     for x0 in (30, 44, 104, 118):
-        RR(x0, 70, x0 + 11, 93, 5)
+        RR(x0, 70, x0 + 11, 89, 5)
     # ear: a rounded triangle tipping forward
-    d.polygon([(118 * u, 33 * u), (124 * u, 12 * u), (138 * u, 30 * u)], fill=255)
+    d.polygon([(118 * u, 33 * u), (124 * u, 15 * u), (138 * u, 30 * u)], fill=255)
     m = m.filter(ImageFilter.GaussianBlur(u * 0.6)).point(lambda v: 255 if v > 128 else 0)
     # tail: a curl at the back (stroke)
     tail = Image.new("L", (W, H), 0); dt = ImageDraw.Draw(tail)
@@ -632,7 +635,7 @@ def truffle_pig(h, face_left=False, line1="ОХОТНИК ЗА ВЕСТАМИ", 
     dd.ellipse([P(145.5, 45.5), P(148.5, 54)], fill=255); dd.ellipse([P(150.5, 45.5), P(153.5, 54)], fill=255)
     dd.ellipse([P(127.5, 38), P(133.5, 44)], fill=255)
     dd.arc([P(124, 49), P(138, 61)], 30, 150, fill=255, width=lw)
-    dd.polygon([P(122.5, 30.5), P(125, 18.5), P(132, 29.5)], fill=255)
+    dd.polygon([P(122.5, 30.5), P(125, 21), P(132, 29.5)], fill=255)
     out.alpha_composite(solid(det, INK))
     if face_left:
         out = out.transpose(Image.FLIP_LEFT_RIGHT)
@@ -642,18 +645,21 @@ def truffle_pig(h, face_left=False, line1="ОХОТНИК ЗА ВЕСТАМИ", 
         bb = f.getbbox(s); mm = Image.new("L", (bb[2] - bb[0] + 8, bb[3] - bb[1] + 8), 0)
         ImageDraw.Draw(mm).text((4 - bb[0], 4 - bb[1]), s, font=f, fill=255); return mm.crop(mm.getbbox())
     t1 = tm(line1, f1)
-    body_w = 84 * u                                  # usable text width inside the body
+    body_w = 94 * u                                  # usable text width inside the body
     k1 = min(1.0, body_w / t1.width)
     t1 = t1.resize((int(t1.width * k1), int(t1.height * k1)), Image.LANCZOS)
     t2 = tm(line2, F_PIG(10 * u * k1 * 0.72))
     gap = int(3.2 * u)
-    bxc = (70 if not face_left else 162 - 70) * u + ox
+    bxc = (69 if not face_left else 162 - 69) * u + ox
     byc = 50 * u + ox
     tot = t1.height + gap + t2.height
     out.alpha_composite(solid(t1, INK), (int(bxc - t1.width / 2), int(byc - tot / 2)))
     out.alpha_composite(solid(t2, INK), (int(bxc - t2.width / 2), int(byc - tot / 2 + t1.height + gap)))
     out = out.resize((out.width // S, out.height // S), Image.LANCZOS)
-    return out.crop(out.getbbox())
+    out = out.crop(out.getbbox())
+    global PIG_TEXT_CAP
+    PIG_TEXT_CAP = (t1.height / S) / out.height          # (first line's cap height per unit of art height)
+    return out
 
 
 def cut_label(s, h_px, col=INK, underline=True):
@@ -4790,95 +4796,58 @@ def top_decals():
     trunk_tail()
 
 
-PIG_SIZES = (0.150, 0.140, 0.130, 0.120, 0.110, 0.100, 0.095, 0.090, 0.085, 0.080, 0.075, 0.070)   # art height, m
+PIG_SIZES = (0.130, 0.120, 0.110, 0.105, 0.100, 0.095, 0.090, 0.085, 0.080, 0.075, 0.070)   # art height, m
+PIG_TEXT_CAP = None         # (cap height of the pig's first text line per metre of art height: set by truffle_pig)
 PIG_LOG = {}
-LOP_KW = dict(ppm=PPM, kind="text", min_clear_cm=1.0)
-LOP_GATE = dict(tilt_gate=10.0, line_min=1.5, deco_min=3.0)
-
-
-def _painted_texels(name, art, c, n, u, **kw):
-    """texels a decal would paint (alpha > 0.05), without painting it"""
-    keep = CAN.copy(), INK_LAYER.copy(), OBST.copy()
-    nchk = len(CHECKS)
-    p = decal(name, art, c, n, u, check=False, **kw)
-    CAN[:], INK_LAYER[:], OBST[:] = keep
-    PAINTED.pop(name, None)
-    del CHECKS[nchk:]
-    return p
-
-
 def fender_decals():
     """Front fenders: ЛОПАТКА and the «truffle hunter» pig (client round 5, item 5). The fender's side face behind the
     front wheel opening is a wedge between the opening (its top reaches the shoulder line), the door shut line and the
-    shoulder line: ~26 cm wide at the top, ~12 cm at mid-height. ЛОПАТКА keeps its approved size and is fitted as
-    before (same candidates and gates); the pig (white silhouette, ink outline, its text inside - see truffle_pig) is
-    then fitted in the room left, as large as passes: >= 2 cm to ЛОПАТКА, every line / keyline, the wheel opening's lip,
-    the door shut line and the door number plate, flat within 15 deg, projected level (art up = world z), fully visible
-    in that side's side and front 3/4 view. If ЛОПАТКА moved up / back by a few cm (still on the fender, same size)
-    leaves room for a larger pig, it moves (the smallest move that gives the largest pig). The pig faces the car's nose
-    on both sides (its silhouette mirrored on the left, its text never mirrored)."""
+    shoulder line: ~26 cm wide at the top, ~15 cm at mid-height, ~10 cm low down - and ЛОПАТКА (22.6 x 4.3 cm, the
+    approved size) fills its top. ЛОПАТКА is fitted exactly as before (same sizes, candidates and gates: it stays where it
+    was); the pig (white silhouette, ink outline, its text inside - truffle_pig) is then fitted in the room left under it,
+    as large as passes on BOTH sides at one size, mirror-symmetric (pair_fit): >= 2 cm to ЛОПАТКА, every line / keyline,
+    the wheel opening's lip, the door shut line and the door number plate, flat within 15 deg, projected level (art up =
+    world z), fully visible in that side's side and front 3/4 view. The pig faces the car's nose on both sides (its
+    silhouette mirrored on the left, its text never mirrored)."""
     ff = ["front_fender"]
     for s in ("L", "R"):
-        sd = "left" if s == "L" else "right"
-        views = [f"side_{sd}", f"front34_{sd}"]
-        lop = lambda h: cut_label("ЛОПАТКА", px(h))
-        size_l, ok_l, best_l, art_l, rep_l = fit_search(
-            f"label_lopatka_{s}", lop, [0.036, 0.034, 0.032, 0.030, 0.028, 0.026],
-            lambda h: side_cands((-1.00, -0.99, -1.01, -0.98, -1.02, -0.97),
-                                 (0.745, 0.740, 0.750, 0.735, 0.730, 0.755, 0.725), ff, s, h * 7),
-            parts=ff, side=s, **LOP_GATE, **LOP_KW)
-        # alternatives: the same label moved up / back on the fender (same size), where it passes the same gates
-        alts = [best_l]
-        for y in (-0.99, -0.98, -0.97, -0.96):
-            for z in (0.760, 0.755, 0.765, 0.750):
-                for cc in side_cands((y,), (z,), ff, s, size_l * 7):
-                    alts.append(cc)
-        pig_cands = lambda h: level_side_cands((-0.99, -0.98, -0.97, -0.96, -0.95, -1.00, -0.94),
-                                               (0.650, 0.660, 0.640, 0.670, 0.630, 0.680, 0.620), ff, s,
-                                               truffle_pig(px(h), face_left=(s == "L")).width / PPM, h)
-        pkw = dict(ppm=PPM, parts=ff, side=s, kind="logo", min_clear_cm=2.0, occl_views=views)
-        pgate = dict(tilt_gate=15.0, line_min=2.0, air=2.0, deco_min=2.0)
-        pig_art = lambda h, s=s: truffle_pig(px(h), face_left=(s == "L"))
-        best = None
-        cache_c = {}
+        decal_fit(f"label_lopatka_{s}", lambda h: cut_label("ЛОПАТКА", px(h)),
+                  [0.036, 0.034, 0.032, 0.030, 0.028, 0.026],
+                  lambda h, s=s, ff=ff: side_cands((-1.00, -0.99, -1.01, -0.98, -1.02, -0.97),
+                                                   (0.745, 0.740, 0.750, 0.735, 0.730, 0.755, 0.725), ff, s, h * 7),
+                  ppm=PPM, parts=ff, side=s, kind="text", tilt_gate=10.0, line_min=1.5, deco_min=3.0, min_clear_cm=1.0)
+    art_fn = lambda h, s: truffle_pig(px(h), face_left=(s == "L"))
+    cache = {}
 
-        def pc(h):
-            if h not in cache_c:
-                cache_c[h] = pig_cands(h)
-            return cache_c[h]
-        for ai, (c, n, u) in enumerate(alts):
-            r = decal(f"label_lopatka_{s}", art_l, c, n, u, dry=True, parts=ff, side=s, **LOP_KW)
-            okg, _ = _gates(r, LOP_KW, LOP_GATE["tilt_gate"], LOP_GATE["line_min"], 0.0)
-            if not (okg and r.get("decal_clear_cm", 99) >= LOP_GATE["deco_min"]):
-                continue
-            pl = _painted_texels(f"label_lopatka_{s}", art_l, c, n, u, parts=ff, side=s, **LOP_KW)
-            INK_LAYER[pl] = 1.0
-            sz, okp, bp, ap, rp = fit_search(f"pig_fender_{s}", pig_art, list(PIG_SIZES), pc, **pgate, **pkw)
-            INK_LAYER[pl] = 0.0
-            _ink_tree.clear()
-            move = 0.0 if ai == 0 else float(np.linalg.norm(np.asarray(c) - np.asarray(best_l[0])))
-            key = (okp, sz, -move)
-            if best is None or key > best[0]:
-                best = (key, (c, n, u), sz, okp, bp, ap)
-            if ai == 0 and okp and sz >= PIG_SIZES[0] - 1e-9:
-                break
-        _, (c, n, u), sz, okp, bp, ap = best
-        decal(f"label_lopatka_{s}", art_l, c, n, u, parts=ff, side=s, **LOP_KW)
-        moved = float(np.linalg.norm(np.asarray(c) - np.asarray(best_l[0])))
-        pc_, pn_, pu_ = bp
-        decal(f"pig_fender_{s}", ap, pc_, pn_, pu_, **pkw)
+    def pc(s, h):
+        if (s, h) not in cache:
+            w = art_fn(h, s).width / PPM
+            cache[(s, h)] = level_side_cands((-0.95, -0.955, -0.945, -0.96, -0.94, -0.97, -0.93),
+                                             (0.675, 0.670, 0.680, 0.665, 0.685, 0.655), ff, s, w, h)
+        return cache[(s, h)]
+    kw_fn = lambda s: dict(ppm=PPM, parts=ff, side=s, kind="logo", min_clear_cm=2.0,
+                           occl_views=[f"side_{'left' if s == 'L' else 'right'}",
+                                       f"front34_{'left' if s == 'L' else 'right'}"])
+    gate = dict(tilt_gate=15.0, line_min=2.0, air=2.0, deco_min=2.0)
+    sz, best, arts = pair_fit("pig_fender", art_fn, list(PIG_SIZES), pc, kw_fn, gate)
+    for s in ("L", "R"):
+        if best is None:
+            PIG_LOG[s] = dict(status="FAIL: no room on the fender")
+            continue
+        c, n, u = best[s]
+        decal(f"pig_fender_{s}", arts[s], c, n, u, **kw_fn(s))
         rep = CHECKS[-1]
-        PIG_LOG[s] = dict(height_cm=round(sz * 100, 1), length_cm=round(ap.width / PPM * 100, 1),
-                          centre=[round(float(v), 3) for v in pc_], status=rep["status"],
-                          lopatka_moved_cm=round(moved * 100, 1), lopatka_centre=[round(float(v), 3) for v in c],
-                          text_cap_cm=round(sz * 0.085 * 100, 2), line_clear_cm=rep.get("line_clear_cm"),
+        PIG_LOG[s] = dict(height_cm=round(arts[s].height / PPM * 100, 1), length_cm=round(arts[s].width / PPM * 100, 1),
+                          centre=[round(float(v), 3) for v in c], status=rep["status"],
+                          text_cap_cm=round(sz * PIG_TEXT_CAP * 100, 2), line_clear_cm=rep.get("line_clear_cm"),
                           decal_clear_cm=rep.get("decal_clear_cm"), edge_clear_cm=rep.get("edge_clear_cm"),
-                          tilt=rep.get("max_tilt_deg"), level=rep.get("level_deg"), hidden=rep.get("hidden_frac"))
+                          tilt=rep.get("max_tilt_deg"), level=rep.get("level_deg"), hidden=rep.get("hidden_frac"),
+                          faces="nose (silhouette mirrored on the left, text not)")
         print(f"   truffle pig {s}: {PIG_LOG[s]}", flush=True)
 
 
 HOOD_LOG = {}
-GOST_ANGLES = (23.0, 18.0, -18.0, 13.0)   # «casually slapped»: 10-25 deg (round 5 search: +23 holds the largest oval)
+GOST_ANGLES = (23.0, 18.0, -18.0)   # «casually slapped»: 10-25 deg (round 5 search: +23 holds the largest oval)
 GOST_SIZES = (0.260, 0.240, 0.230, 0.220, 0.215, 0.210, 0.205, 0.200, 0.190, 0.180)
 
 
@@ -4931,8 +4900,8 @@ def hood_decals():
         out = []
         # (the plate fills the flat middle of the hood; outboard of x ~0.53 the hood rolls 30+ deg into its side
         #  crease and beside the vent it slopes as much - the flat strip beside the plate is where a stamp lies flat)
-        for x in (0.43, 0.41, 0.45, 0.47):
-            for y in (-1.33, -1.36, -1.39, -1.42, -1.45, -1.48):
+        for x in (0.43, 0.41, 0.45):
+            for y in (-1.33, -1.36, -1.39, -1.42):
                 c = surf_point("top", float(x), float(y), hood)
                 out.append((c, hood_normal(c), (0, 1, 0)))
         return out
@@ -5095,6 +5064,48 @@ def _rear_point(x, z, parts, side=None):
     return tuple(P[k][int(np.argmax(P[k, 1]))])
 
 
+def pair_fit(name, make_art, sizes, cands_fn, kw_fn, gate):
+    """One size and mirror-symmetric placements for a decal on both sides: the largest size (binary search over the
+    descending `sizes`) at which some candidate i passes every gate on the left AND its mirror image (candidate i of
+    the right side's list, built mirrored by cands_fn) passes on the right; among those the pair whose worse side
+    scores best. kw_fn(s): the decal keywords of side s. Returns (size, {s: (c, n, u)}, {s: art}) or (size, None, art)
+    when even the smallest size has no passing pair."""
+    res = {}
+
+    def trial(i):
+        if i in res:
+            return res[i][0] is not None
+        h = sizes[i]
+        arts = {s: make_art(h, s) for s in ("L", "R")}
+        cl = {s: cands_fn(s, h) for s in ("L", "R")}
+        best = None
+        for j in range(min(len(cl["L"]), len(cl["R"]))):
+            sc2 = []
+            for s in ("L", "R"):
+                c, n, u = cl[s][j]
+                kw = kw_fn(s)
+                r = decal(f"{name}_{s}", arts[s], c, n, u, dry=True, **kw)
+                ok, sc = _gates(r, kw, gate.get("tilt_gate"), gate.get("line_min", 1.0), gate.get("air", 0.0))
+                ok = ok and r.get("decal_clear_cm", 99) >= gate.get("deco_min", 2.0)
+                if not ok:
+                    break
+                sc2.append(min(sc, r.get("decal_clear_cm", 99) - gate.get("deco_min", 2.0) + 1.0))
+            if len(sc2) == 2 and (best is None or min(sc2) > best[0] + 0.05):
+                best = (min(sc2), {s: cl[s][j] for s in ("L", "R")})
+        res[i] = (None if best is None else best[1], arts)
+        return best is not None
+    lo, hi = 0, len(sizes) - 1
+    if not trial(hi):
+        return sizes[hi], None, res[hi][1]
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if trial(mid):
+            hi = mid
+        else:
+            lo = mid + 1
+    return sizes[lo], res[lo][0], res[lo][1]
+
+
 def region_labels():
     """Client round 5, item 4: the closed cuts the round-5 lines form get their butcher-cut names, in the style of the
     existing labels (cut_label: Podkova ExtraBold, maroon ink, the ——◆—— underline where the neighbouring labels of
@@ -5150,51 +5161,78 @@ def region_labels():
         return out
     put("label_guzka_rear", "ГУЗКА", [0.040, 0.038, 0.036, 0.034, 0.032, 0.030, 0.028, 0.026, 0.024], gc, rb,
         underline=False, views=("rear", "rear34_left", "rear34_right"), tilt=12.0, min_clear_cm=1.0, depth_tol=0.06)
-    # side labels: one size per name for both sides, mirror-symmetric positions (the right side fitted at the left
-    # side's size; if it does not pass there, both take the next size down)
-    for s in ("L", "R"):
+    # side labels: one size per name for both sides, mirror-symmetric positions (pair_fit)
+    def put_pair(name, word, sizes, cands_fn, parts, underline=True, views_fn=lambda s: (), wrap=False, tilt=10.0,
+                 **kw):
+        kw_fn = lambda s: dict(ppm=PPM, parts=parts, side=s, kind="text", wrap=wrap,
+                               occl_views=list(views_fn(s)) or None, **kw)
+        gate = dict(G, tilt_gate=(90.0 if wrap else tilt), **({"min_clear_cm": kw["min_clear_cm"]} if "min_clear_cm" in kw
+                                                              else {}))
+        sz, best, arts = pair_fit(name, lambda h, s: cut_label(word, px(h), underline=underline), sizes, cands_fn,
+                                  kw_fn, gate)
+        for s in ("L", "R"):
+            rec = dict(label=word, name=f"{name}_{s}", cap_cm=round(sz * 100, 1), ok=best is not None)
+            if best is not None:
+                c, n, u = best[s]
+                decal(f"{name}_{s}", arts[s], c, n, u, **kw_fn(s))
+                r = CHECKS[-1]
+                rec.update(centre=[round(float(v), 3) for v in c], status=r["status"], size_cm=r["size_cm"],
+                           line_clear_cm=r.get("line_clear_cm"), decal_clear_cm=r.get("decal_clear_cm"),
+                           edge_clear_cm=r.get("edge_clear_cm"), level_deg=r.get("level_deg"),
+                           hidden=r.get("hidden_frac"))
+                if wrap:
+                    rec.update(wrap_turn_deg=r.get("wrap_turn_deg"), wrap_stretch_pct=r.get("wrap_stretch_pct"))
+            else:
+                rec.update(status="skipped (no room with air)")
+            LABEL_LOG.append(rec)
+            print(f"   region label {name}_{s}: {rec}", flush=True)
+    # ЩЕКА: the front bumper corner (the URL's cut), wrapped; under the URL (or above it)
+    sp = ["front_bumper_corner", "front_bumper", "front_fender"]
+
+    def shc(s, h):
+        out = []
+        for y in (-1.80, -1.79, -1.81, -1.78, -1.82, -1.77, -1.76):
+            for z in (0.395, 0.390, 0.400, 0.385, 0.405, 0.530, 0.540, 0.520):
+                c = surf_point("side", y, z, sp, s)
+                out.append((tuple(c), tuple(mean_normal(c, sp, s, 0.05)), (0, 0, 1)))
+        return out
+    put_pair("label_shcheka", "ЩЕКА", [0.034, 0.032, 0.030, 0.028, 0.026, 0.024], shc, sp,
+             views_fn=lambda s: ("front", f"front34_{'left' if s == 'L' else 'right'}"), wrap=True, min_clear_cm=1.5)
+    # КРЕСТЕЦ: behind the tail lamp - the rear bumper's outer corner under the loop, outboard of its riser (the plain
+    # under-flare recess kept >= 1 cm clear), wrapped
+    rc = ["rear_bumper", "rear_bumper_corner"]
+    ufl = np.flatnonzero(underflare_mask())
+    ko = dict(pts=POSF[ufl[::max(1, len(ufl) // 20000)]], min_cm=1.0, what="the plain under-flare zone")
+
+    def krc(s, h):
         sg = 1.0 if s == "L" else -1.0
-        sd = "left" if s == "L" else "right"
-        # ЩЕКА: the front bumper corner (the URL's cut), wrapped
-        sp = ["front_bumper_corner", "front_bumper", "front_fender"]
+        out = []
+        for x in (0.575, 0.565, 0.585, 0.555, 0.595, 0.545):
+            for z in (0.615, 0.625, 0.605, 0.635, 0.595, 0.645, 0.585):
+                c = _rear_point(sg * x, z, rc, s)
+                if c is None:
+                    c = (sg * x, 2.1, z)
+                out.append((c, tuple(mean_normal(c, rc, s, 0.05)), (0, 0, 1)))
+        return out
+    put_pair("label_krestec", "КРЕСТЕЦ", [0.034, 0.032, 0.030, 0.028, 0.026, 0.024], krc, rc,
+             views_fn=lambda s: ("rear", f"rear34_{'left' if s == 'L' else 'right'}"), wrap=True, min_clear_cm=1.5,
+             keepout=ko)
+    # ПОДБРЮШИНА: the lower sill band (the holo band under the belly line), level, no underline (as ГРУДИНКА /
+    # ОКОРОК on the same band): the free stretch of the front door's lower strip between ГРУДИНКА and the SMP pill,
+    # or the band above ОКОРОК ahead of the rear wheel
+    bp = ["rear_door", "front_door_low"]
 
-        def shc(h, s=s):
-            out = []
-            for y in (-1.80, -1.79, -1.81, -1.78, -1.82, -1.77, -1.76):
-                for z in (0.395, 0.390, 0.400, 0.385, 0.405, 0.530, 0.540, 0.520):
-                    c = surf_point("side", y, z, sp, s)
-                    out.append((tuple(c), tuple(mean_normal(c, sp, s, 0.05)), (0, 0, 1)))
-            return out
-        put(f"label_shcheka_{s}", "ЩЕКА", [0.034, 0.032, 0.030, 0.028, 0.026, 0.024], shc, sp, side=s,
-            views=("front", f"front34_{sd}"), wrap=True, min_clear_cm=1.5)
-        # КРЕСТЕЦ: behind the tail lamp - the rear bumper's outer corner under the loop, outboard of the riser
-        rc = ["rear_bumper", "rear_bumper_corner"]
-        ufl = np.flatnonzero(underflare_mask())
-        ko = dict(pts=POSF[ufl[::max(1, len(ufl) // 20000)]], min_cm=1.0, what="the plain under-flare zone")
-
-        def krc(h, s=s, sg=sg):
-            out = []
-            for x in (0.575, 0.565, 0.585, 0.555, 0.595, 0.545):
-                for z in (0.615, 0.625, 0.605, 0.635, 0.595, 0.645):
-                    c = _rear_point(sg * x, z, rc, s)
-                    if c is not None:
-                        out.append((c, tuple(mean_normal(c, rc, s, 0.05)), (0, 0, 1)))
-            return out
-        put(f"label_kresteC_{s}".replace("C_", "c_"), "КРЕСТЕЦ", [0.034, 0.032, 0.030, 0.028, 0.026, 0.024], krc, rc,
-            side=s, views=("rear", f"rear34_{sd}"), wrap=True, min_clear_cm=1.5, keepout=ko)
-        # ПОДБРЮШИНА: the lower sill band (the holo band under the belly line), level, no underline (as ГРУДИНКА /
-        # ОКОРОК on the same band)
-        bp = ["rear_door", "front_door_low"]
-
-        def pdc(h, s=s):
-            out = []
-            for y, z, pp in ((0.85, 0.45, ["rear_door"]), (0.82, 0.46, ["rear_door"]), (0.88, 0.44, ["rear_door"]),
-                             (0.80, 0.44, ["rear_door"]), (0.85, 0.47, ["rear_door"]), (0.27, 0.31, ["rear_door"]),
-                             (-0.21, 0.30, ["front_door_low"])):
-                out += side_cands((y,), (z,), pp, s, h * 10)
-            return out
-        put(f"label_podbryushina_{s}", "ПОДБРЮШИНА", [0.040, 0.038, 0.036, 0.034, 0.032, 0.030, 0.028, 0.026, 0.024],
-            pdc, bp, underline=False, side=s, views=(f"side_{sd}",), tilt=10.0, min_clear_cm=1.0)
+    def pdc(s, h):
+        out = []
+        for y, z, pp in ((-0.21, 0.300, ["front_door_low"]), (-0.215, 0.302, ["front_door_low"]),
+                         (-0.205, 0.298, ["front_door_low"]), (-0.21, 0.304, ["front_door_low"]),
+                         (-0.22, 0.300, ["front_door_low"]), (-0.20, 0.300, ["front_door_low"]),
+                         (0.85, 0.45, ["rear_door"]), (0.82, 0.46, ["rear_door"]), (0.88, 0.44, ["rear_door"])):
+            out += side_cands((y,), (z,), pp, s, h * 10)
+        return out
+    put_pair("label_podbryushina", "ПОДБРЮШИНА", [0.034, 0.032, 0.030, 0.028, 0.026, 0.025, 0.024, 0.023, 0.022],
+             pdc, bp, underline=False, views_fn=lambda s: (f"side_{'left' if s == 'L' else 'right'}",), tilt=10.0,
+             min_clear_cm=1.0)
 
 
 URL_CORNER_SIZES = [round(0.060 - 0.002 * i, 3) for i in range(16)]       # art height (ascender to descender), m
