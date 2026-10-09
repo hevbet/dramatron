@@ -882,7 +882,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.5,
-   "line_clear_cm": 12.5,
+   "line_clear_cm": 12.6,
    "decal_clear_cm": 2.7,
    "hidden_frac": {
     "side_left": 0.0,
@@ -914,7 +914,7 @@
    "level_view": "side",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.4,
-   "line_clear_cm": 12.5,
+   "line_clear_cm": 12.6,
    "decal_clear_cm": 2.7,
    "hidden_frac": {
     "side_right": 0.0,
@@ -1035,7 +1035,7 @@
    "level_view": "rear",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 4.4,
-   "line_clear_cm": 23.2,
+   "line_clear_cm": 21.3,
    "decal_clear_cm": 18.5,
    "status": "OK"
   },
@@ -1670,7 +1670,7 @@
    "visible_face_clear_mm": 18
   },
   {
-   "name": "ws_number@Konopelko_00",
+   "name": "ws_number@Konopelko_86",
    "box": [
     2360,
     1232,
@@ -1687,7 +1687,7 @@
    "status": "OK"
   },
   {
-   "name": "rw_number@Konopelko_00",
+   "name": "rw_number@Konopelko_86",
    "box": [
     2344,
     2188,
@@ -1704,7 +1704,7 @@
    "status": "OK"
   },
   {
-   "name": "name_L@Konopelko_00",
+   "name": "name_L@Konopelko_86",
    "box": [
     460,
     1088,
@@ -1732,7 +1732,7 @@
    ]
   },
   {
-   "name": "name_R@Konopelko_00",
+   "name": "name_R@Konopelko_86",
    "box": [
     456,
     2072,
@@ -1762,7 +1762,7 @@
  ],
  "belly_dropped": [],
  "line_notes": [
-  "belly line phase: a gap middle on every shut line it crosses (y [-0.837, 0.224, 1.188]: fender / front door step, front / rear door, rear door / rear quarter), stretches [1.0479, 1.0217, 0.9761] (unchanged from y 1.62 on); front fender: one 6.2 cm dash on its strip y -0.950..-0.854 between the wheel opening's lip and the step down to the door (0.6 cm of paint air to each) - the line runs from the wheel opening",
+  "belly line phase: a gap middle on every shut line it crosses (y [-0.837, 0.224, 1.188]: fender / front door step, front / rear door, rear door / rear quarter), stretches [1.0163, 1.0217, 0.9761] (unchanged from y 1.62 on); front fender: one 6.2 cm dash on its strip y -0.950..-0.854 between the wheel opening's lip and the step down to the door (0.6 cm of paint air to each) - the line runs from the wheel opening; the door behind the step, y -0.837..-0.747, which the fender hides in the front 3/4 views, is one gap: the first door dash starts at y -0.730 (its cap 0.6 cm clear of the fender's silhouette in both)",
   "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 1.0310)",
   "shoulder line: gap middles on the shut lines / fuel-flap edges it crosses at y +0.252, +1.223, +1.321, +1.509 (both sides alike; the fuel flap is on the right)"
  ],
@@ -1943,14 +1943,25 @@
  "keylines": [
   {
    "side": "L",
-   "length_cm": 624.0,
+   "length_cm": 625.6,
    "pieces_m": [
     [
      0.0,
-     6.24
+     4.953
+    ],
+    [
+     4.989,
+     6.256
     ]
    ],
-   "gaps": [],
+   "gaps": [
+    {
+     "at_m": 4.955,
+     "len_cm": 3.2,
+     "why": "lamp / grille neck",
+     "y": 1.873
+    }
+   ],
    "ends": "open (meets the mirrored keyline on the centreline) / open (meets the mirrored keyline on the centreline)",
    "neck": {
     "narrowed_cm": 14.8,
@@ -1960,9 +1971,9 @@
     "air_to_lamp_min_cm": 0.23
    },
    "tail": {
-    "narrowed_cm": 60.7,
-    "width_min_cm": 0.61,
-    "air_to_lamp_min_cm": 0.51
+    "narrowed_cm": 65.7,
+    "width_min_cm": 0.43,
+    "air_to_lamp_min_cm": 0.22
    },
    "air_near_min_cm": 0.4,
    "air_line_min_cm": 988.2,
@@ -1970,14 +1981,25 @@
   },
   {
    "side": "R",
-   "length_cm": 624.9,
+   "length_cm": 626.3,
    "pieces_m": [
     [
      0.0,
-     6.249
+     4.954
+    ],
+    [
+     4.99,
+     6.263
     ]
    ],
-   "gaps": [],
+   "gaps": [
+    {
+     "at_m": 4.956,
+     "len_cm": 3.2,
+     "why": "lamp / grille neck",
+     "y": 1.873
+    }
+   ],
    "ends": "open (meets the mirrored keyline on the centreline) / open (meets the mirrored keyline on the centreline)",
    "neck": {
     "narrowed_cm": 14.7,
@@ -1987,9 +2009,9 @@
     "air_to_lamp_min_cm": 0.24
    },
    "tail": {
-    "narrowed_cm": 61.5,
-    "width_min_cm": 0.44,
-    "air_to_lamp_min_cm": 0.51
+    "narrowed_cm": 66.1,
+    "width_min_cm": 0.43,
+    "air_to_lamp_min_cm": 0.22
    },
    "air_near_min_cm": 0.4,
    "air_line_min_cm": 988.2,
@@ -1999,15 +2021,15 @@
  "closures": [
   {
    "line": "loop_L",
-   "length_cm": 114.7,
-   "dashes": 10,
+   "length_cm": 116.3,
+   "dashes": 11,
    "truncated": [],
    "hidden_by_part": [],
    "partly_hidden_by_body": [
     [
      29,
      "rear",
-     48
+     29
     ]
    ],
    "start": [
@@ -2018,26 +2040,31 @@
    "end": [
     0.274,
     2.275,
-    0.471
+    0.473
    ],
-   "air_to_lamp_cm": 1.4,
-   "riser_x": 0.47,
+   "air_to_lamp_cm": 0.5,
+   "strap_air_cm": {
+    "3d": 2.99,
+    "rear": 2.77,
+    "rear34_left": 2.56,
+    "rear34_right": 0.46
+   },
+   "riser_x": 0.43,
    "lamp_gap_cm": [
-    2.51,
-    3.16
+    1.56,
+    3.22
    ],
    "stretches": [
-    0.9777,
+    0.9914,
     0.9875,
     1.2077,
     1.2773,
-    1.0764,
-    1.1314,
-    0.5728,
-    1.4557,
-    1.2163,
-    0.9784,
-    0.9172
+    1.0153,
+    1.2116,
+    0.5055,
+    1.5479,
+    1.2165,
+    1.1083
    ],
    "seam_gaps_cm": [
     4.5,
@@ -2045,76 +2072,74 @@
     4.5,
     4.5,
     4.5,
-    4.5,
-    5.5
+    4.5
    ],
    "seams_m": [
     -1.492,
     -0.52,
     -0.421,
     -0.233,
-    0.325,
-    0.621,
-    0.749
+    0.326,
+    0.622
    ],
    "zone_m": [
     [
-     0.196,
-     0.241
+     0.19,
+     0.246
     ]
    ],
    "zone_gap_cm": [
-    10.1
+    11.1
    ],
-   "spline_turn_r_min_cm": 5.2,
+   "spline_turn_r_min_cm": 5.0,
    "handover": {
     "s": 5.8575,
     "x": 0.27383267879486084
    },
-   "status": "OK"
+   "status": "FAIL"
   },
   {
    "line": "belly_rear_L",
-   "length_cm": 30.7,
+   "length_cm": 32.1,
    "dashes": 3,
    "truncated": [],
    "hidden_by_part": [],
    "partly_hidden_by_body": [],
    "start": [
-    0.941,
-    1.548,
+    0.942,
+    1.545,
     0.812
    ],
    "end": [
-    0.786,
-    1.675,
+    0.785,
+    1.685,
     0.907
    ],
-   "air_to_lamp_cm": 20.1,
-   "stretch": 1.0652,
+   "air_to_lamp_cm": 19.1,
+   "stretch": 1.0157,
    "T": [
-    0.786,
-    1.675,
+    0.785,
+    1.685,
     0.907
    ],
    "T_on": "shoulder line",
-   "leaves_belly_line_at_y": 1.61,
+   "leaves_belly_line_at_y": 1.64,
    "angle_at_T_deg": 87.3,
-   "turn_r_min_cm": 6.4,
-   "T_ahead_of_bend_cm": 12.7,
+   "turn_r_min_cm": 2.8,
+   "T_ahead_of_bend_cm": 12.3,
    "status": "OK"
   },
   {
    "line": "loop_R",
-   "length_cm": 115.4,
-   "dashes": 10,
+   "length_cm": 116.8,
+   "dashes": 11,
    "truncated": [],
    "hidden_by_part": [],
    "partly_hidden_by_body": [
     [
      29,
      "rear",
-     46
+     28
     ]
    ],
    "start": [
@@ -2125,26 +2150,31 @@
    "end": [
     -0.274,
     2.275,
-    0.471
+    0.473
    ],
-   "air_to_lamp_cm": 1.1,
-   "riser_x": 0.47,
+   "air_to_lamp_cm": 0.5,
+   "strap_air_cm": {
+    "3d": 3.0,
+    "rear": 2.75,
+    "rear34_left": 0.49,
+    "rear34_right": 2.53
+   },
+   "riser_x": 0.43,
    "lamp_gap_cm": [
-    2.51,
-    3.16
+    1.56,
+    3.22
    ],
    "stretches": [
-    0.9787,
+    0.992,
     0.9873,
     1.2019,
     1.2678,
-    1.0736,
-    1.1313,
-    0.5728,
-    1.4557,
-    1.2163,
-    0.9784,
-    0.8977
+    1.0129,
+    1.2115,
+    0.5055,
+    1.5479,
+    1.2165,
+    1.0969
    ],
    "seam_gaps_cm": [
     4.5,
@@ -2152,63 +2182,61 @@
     4.5,
     4.5,
     4.5,
-    4.5,
-    5.5
+    4.5
    ],
    "seams_m": [
     -1.495,
     -0.522,
     -0.422,
     -0.233,
-    0.325,
-    0.621,
-    0.749
+    0.326,
+    0.622
    ],
    "zone_m": [
     [
-     0.196,
-     0.241
+     0.19,
+     0.246
     ]
    ],
    "zone_gap_cm": [
-    10.1
+    11.1
    ],
-   "spline_turn_r_min_cm": 5.2,
+   "spline_turn_r_min_cm": 5.0,
    "handover": {
     "s": 5.8575,
     "x": 0.27383267879486084
    },
-   "status": "OK"
+   "status": "FAIL"
   },
   {
    "line": "belly_rear_R",
-   "length_cm": 30.8,
+   "length_cm": 32.1,
    "dashes": 3,
    "truncated": [],
    "hidden_by_part": [],
    "partly_hidden_by_body": [],
    "start": [
-    -0.941,
-    1.548,
+    -0.942,
+    1.545,
     0.812
    ],
    "end": [
-    -0.786,
-    1.675,
+    -0.785,
+    1.685,
     0.907
    ],
-   "air_to_lamp_cm": 20.1,
-   "stretch": 1.0652,
+   "air_to_lamp_cm": 19.1,
+   "stretch": 1.0157,
    "T": [
-    -0.786,
-    1.675,
+    -0.785,
+    1.685,
     0.907
    ],
    "T_on": "shoulder line",
-   "leaves_belly_line_at_y": 1.61,
+   "leaves_belly_line_at_y": 1.64,
    "angle_at_T_deg": 87.3,
-   "turn_r_min_cm": 6.4,
-   "T_ahead_of_bend_cm": 12.7,
+   "turn_r_min_cm": 2.8,
+   "T_ahead_of_bend_cm": 12.3,
    "status": "OK"
   },
   {
@@ -2447,7 +2475,7 @@
    ],
    "status": "OK",
    "text_cap_cm": 1.15,
-   "line_clear_cm": 12.5,
+   "line_clear_cm": 12.6,
    "decal_clear_cm": 2.7,
    "edge_clear_cm": 2.3,
    "tilt": 9.4,
@@ -2468,7 +2496,7 @@
    ],
    "status": "OK",
    "text_cap_cm": 1.15,
-   "line_clear_cm": 12.5,
+   "line_clear_cm": 12.6,
    "decal_clear_cm": 2.7,
    "edge_clear_cm": 2.4,
    "tilt": 9.4,
@@ -2575,17 +2603,17 @@
   }
  },
  "line_ends": [
-  "shoulder_L: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued); on the way it carries the T of the belly line's stem at y +1.675 (a dash middle, 12.7 cm ahead of the loop's bend: the T dash, a gap, then the dash that bends down); gap middles on every shut line / fuel-flap edge it crosses (y +0.252, +1.223, +1.321, +1.509; the right side's fuel flap mirrored onto the left, so both sides keep one rhythm)",
-  "tail-lamp loop_L: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [2.51, 3.16] cm min / median), down the rear bumper (riser at |x| 0.47) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (114.7 cm, 10 whole dashes); one gap ([10.1] cm of clear paint incl. caps) covers the flare step's fold at the lamp's foot and the stretch the flare's top plate hides in the rear 3/4 view (loop arc [[0.196, 0.241]] m, by ray casting against the body): no loop dash starts or ends behind the plate's silhouette; gap middles on the shut lines it crosses ([-1.492, -0.52, -0.421, -0.233, 0.325, 0.621, 0.749] m); its white keyline runs on with it round the lamp (on the lamp's side, narrowed where the lamp comes close), down the riser and along the rear bumper line to the centreline",
+  "shoulder_L: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued); on the way it carries the T of the belly line's stem at y +1.685 (a dash middle, 12.3 cm ahead of the loop's bend: the T dash, a gap, then the dash that bends down); gap middles on every shut line / fuel-flap edge it crosses (y +0.252, +1.223, +1.321, +1.509; the right side's fuel flap mirrored onto the left, so both sides keep one rhythm)",
+  "tail-lamp loop_L: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [1.56, 3.22] cm min / median), down the rear bumper (riser at |x| 0.43) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (116.3 cm, 11 whole dashes); one gap ([11.1] cm of clear paint incl. caps) covers the flare step's fold at the lamp's foot and the stretch the flare's top plate hides in the rear 3/4 view (loop arc [[0.19, 0.246]] m, by ray casting against the body): no loop dash starts or ends behind the plate's silhouette; gap middles on the shut lines it crosses ([-1.492, -0.52, -0.421, -0.233, 0.326, 0.622] m); its white keyline runs on with it round the lamp (on the lamp's side, narrowed where the lamp comes close), down the riser and along the rear bumper line to the centreline",
   "front_L: starts as the shoulder line's continuation (above) - behind and under the lamp, along the bumper crease, up the lamp / grille neck, over the grille - and ends on the car's centreline x = 0 in the middle of a dash shared with the mirrored right half - CLOSED; it carries the T of the belly line's front closure (below)",
   "greenhouse_L: starts on the hood centreline (meets the right half there), runs the A-pillar, the roof edge, the C-pillar and the trunk lid to the trunk centreline (meets the right half on the middle of a dash) - CLOSED loop round the greenhouse; the windscreen header and the rear-window cross line join it in Y junctions on its dashes, each crossing the roof to the other side - the roof is a closed cut zone",
-  "belly / swoosh_L: FRONT end - CLOSED: from the front wheel opening's rear lip it starts with one 6.2 cm dash on the front fender's strip (y [-0.95, -0.854], 0.6 cm of paint air to the lip and to the fender / door step), then a gap middle on each shut line it crosses (y [-0.837, 0.224, 1.188], stretches [1.0479, 1.0217, 0.9761]); ahead of the wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises up the corner's outboard part (y -1.795, outboard of the corner URL) to the front cut line, which it meets in a T: its last dash ends on the middle of a front-line dash at [0.916, -1.795, 0.571] (34.5 cm, 3 whole dashes); REAR end - CLOSED: from y +1.544 (the middle of one of its gaps) on the rear flare's top step it turns in across the step in one arc (radius 0.065 m, from y 1.61) and climbs the body side straight up to the shoulder line, meeting it square - a T at 87.3 deg, its last dash a whole straight 6.1 cm dash ending on the middle of the shoulder dash at [0.786, 1.675, 0.907] (30.7 cm, 3 dashes, stretch 1.0652, smallest turn radius 6.4 cm); the recess under / behind the flare stays plain pink",
+  "belly / swoosh_L: FRONT end - CLOSED: from the front wheel opening's rear lip it starts with one 6.2 cm dash on the front fender's strip (y [-0.95, -0.854], 0.6 cm of paint air to the lip and to the fender / door step), then a gap middle on each shut line it crosses (y [-0.837, 0.224, 1.188], stretches [1.0163, 1.0217, 0.9761]); ahead of the wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises up the corner's outboard part (y -1.795, outboard of the corner URL) to the front cut line, which it meets in a T: its last dash ends on the middle of a front-line dash at [0.916, -1.795, 0.571] (34.5 cm, 3 whole dashes); REAR end - CLOSED: from y +1.544 (the middle of one of its gaps) on the rear flare's top step it turns in across the step in one arc (radius 0.02 m, from y 1.64) and climbs the body side straight up to the shoulder line, meeting it square - a T at 87.3 deg, its last dash a whole straight 5.5 cm dash ending on the middle of the shoulder dash at [0.785, 1.685, 0.907] (32.1 cm, 3 dashes, stretch 1.0157, smallest turn radius 2.8 cm); the recess under / behind the flare stays plain pink",
   "rear bumper_L: from the centreline (one dash centred on x = 0, shared with the other half) outboard along the bumper to |x| 0.274, where it turns up into the tail-lamp loop's riser (same line, same dashes) - CONNECTED; the shoulder line's white keyline runs along its upper side to the centreline, where the mirrored keyline carries on",
-  "shoulder_R: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued); on the way it carries the T of the belly line's stem at y +1.675 (a dash middle, 12.7 cm ahead of the loop's bend: the T dash, a gap, then the dash that bends down); gap middles on every shut line / fuel-flap edge it crosses (y +0.252, +1.223, +1.321, +1.509; the right side's fuel flap mirrored onto the left, so both sides keep one rhythm)",
-  "tail-lamp loop_R: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [2.51, 3.16] cm min / median), down the rear bumper (riser at |x| 0.47) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (115.4 cm, 10 whole dashes); one gap ([10.1] cm of clear paint incl. caps) covers the flare step's fold at the lamp's foot and the stretch the flare's top plate hides in the rear 3/4 view (loop arc [[0.196, 0.241]] m, by ray casting against the body): no loop dash starts or ends behind the plate's silhouette; gap middles on the shut lines it crosses ([-1.495, -0.522, -0.422, -0.233, 0.325, 0.621, 0.749] m); its white keyline runs on with it round the lamp (on the lamp's side, narrowed where the lamp comes close), down the riser and along the rear bumper line to the centreline",
+  "shoulder_R: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued); on the way it carries the T of the belly line's stem at y +1.685 (a dash middle, 12.3 cm ahead of the loop's bend: the T dash, a gap, then the dash that bends down); gap middles on every shut line / fuel-flap edge it crosses (y +0.252, +1.223, +1.321, +1.509; the right side's fuel flap mirrored onto the left, so both sides keep one rhythm)",
+  "tail-lamp loop_R: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [1.56, 3.22] cm min / median), down the rear bumper (riser at |x| 0.43) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (116.8 cm, 11 whole dashes); one gap ([11.1] cm of clear paint incl. caps) covers the flare step's fold at the lamp's foot and the stretch the flare's top plate hides in the rear 3/4 view (loop arc [[0.19, 0.246]] m, by ray casting against the body): no loop dash starts or ends behind the plate's silhouette; gap middles on the shut lines it crosses ([-1.495, -0.522, -0.422, -0.233, 0.326, 0.622] m); its white keyline runs on with it round the lamp (on the lamp's side, narrowed where the lamp comes close), down the riser and along the rear bumper line to the centreline",
   "front_R: starts as the shoulder line's continuation (above) - behind and under the lamp, along the bumper crease, up the lamp / grille neck, over the grille - and ends on the car's centreline x = 0 in the middle of a dash shared with the mirrored right half - CLOSED; it carries the T of the belly line's front closure (below)",
   "greenhouse_R: starts on the hood centreline (meets the right half there), runs the A-pillar, the roof edge, the C-pillar and the trunk lid to the trunk centreline (meets the right half on the middle of a dash) - CLOSED loop round the greenhouse; the windscreen header and the rear-window cross line join it in Y junctions on its dashes, each crossing the roof to the other side - the roof is a closed cut zone",
-  "belly / swoosh_R: FRONT end - CLOSED: from the front wheel opening's rear lip it starts with one 6.2 cm dash on the front fender's strip (y [-0.95, -0.854], 0.6 cm of paint air to the lip and to the fender / door step), then a gap middle on each shut line it crosses (y [-0.837, 0.224, 1.188], stretches [1.0479, 1.0217, 0.9761]); ahead of the wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises up the corner's outboard part (y -1.795, outboard of the corner URL) to the front cut line, which it meets in a T: its last dash ends on the middle of a front-line dash at [-0.916, -1.796, 0.571] (34.6 cm, 3 whole dashes); REAR end - CLOSED: from y +1.544 (the middle of one of its gaps) on the rear flare's top step it turns in across the step in one arc (radius 0.065 m, from y 1.61) and climbs the body side straight up to the shoulder line, meeting it square - a T at 87.3 deg, its last dash a whole straight 6.1 cm dash ending on the middle of the shoulder dash at [-0.786, 1.675, 0.907] (30.8 cm, 3 dashes, stretch 1.0652, smallest turn radius 6.4 cm); the recess under / behind the flare stays plain pink",
+  "belly / swoosh_R: FRONT end - CLOSED: from the front wheel opening's rear lip it starts with one 6.2 cm dash on the front fender's strip (y [-0.95, -0.854], 0.6 cm of paint air to the lip and to the fender / door step), then a gap middle on each shut line it crosses (y [-0.837, 0.224, 1.188], stretches [1.0163, 1.0217, 0.9761]); ahead of the wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises up the corner's outboard part (y -1.795, outboard of the corner URL) to the front cut line, which it meets in a T: its last dash ends on the middle of a front-line dash at [-0.916, -1.796, 0.571] (34.6 cm, 3 whole dashes); REAR end - CLOSED: from y +1.544 (the middle of one of its gaps) on the rear flare's top step it turns in across the step in one arc (radius 0.02 m, from y 1.64) and climbs the body side straight up to the shoulder line, meeting it square - a T at 87.3 deg, its last dash a whole straight 5.5 cm dash ending on the middle of the shoulder dash at [-0.785, 1.685, 0.907] (32.1 cm, 3 dashes, stretch 1.0157, smallest turn radius 2.8 cm); the recess under / behind the flare stays plain pink",
   "rear bumper_R: from the centreline (one dash centred on x = 0, shared with the other half) outboard along the bumper to |x| 0.274, where it turns up into the tail-lamp loop's riser (same line, same dashes) - CONNECTED; the shoulder line's white keyline runs along its upper side to the centreline, where the mirrored keyline carries on"
  ],
  "shoulder_crease": {
@@ -2844,7 +2872,7 @@
    }
   },
   {
-   "skin": "Konopelko_00",
+   "skin": "Konopelko_86",
    "plate": "number_door_L",
    "unit": "cm",
    "plate_size": [
@@ -2852,15 +2880,15 @@
     28.3
    ],
    "this": {
-    "num": "00",
+    "num": "86",
     "scale": 0.6731,
     "ink": [
-     32.5,
+     30.8,
      14.8
     ],
     "air": {
-     "L": 2.8,
-     "R": 3.4,
+     "L": 3.6,
+     "R": 4.2,
      "T": 5.0,
      "B": 5.2
     }
@@ -2881,7 +2909,7 @@
    }
   },
   {
-   "skin": "Konopelko_00",
+   "skin": "Konopelko_86",
    "plate": "number_door_R",
    "unit": "cm",
    "plate_size": [
@@ -2889,15 +2917,15 @@
     28.3
    ],
    "this": {
-    "num": "00",
+    "num": "86",
     "scale": 0.6731,
     "ink": [
-     32.5,
+     30.8,
      14.8
     ],
     "air": {
-     "L": 2.8,
-     "R": 3.4,
+     "L": 3.6,
+     "R": 4.2,
      "T": 5.0,
      "B": 5.2
     }
@@ -2918,7 +2946,7 @@
    }
   },
   {
-   "skin": "Konopelko_00",
+   "skin": "Konopelko_86",
    "plate": "number_roof",
    "unit": "cm",
    "plate_size": [
@@ -2926,15 +2954,15 @@
     71.4
    ],
    "this": {
-    "num": "00",
+    "num": "86",
     "scale": 0.6466,
     "ink": [
-     78.8,
+     74.8,
      35.8
     ],
     "air": {
-     "L": 6.6,
-     "R": 8.1,
+     "L": 8.6,
+     "R": 10.2,
      "T": 13.6,
      "B": 13.5
     }
@@ -2955,7 +2983,7 @@
    }
   },
   {
-   "skin": "Konopelko_00",
+   "skin": "Konopelko_86",
    "plate": "ws_number",
    "unit": "px",
    "plate_size": [
@@ -2963,15 +2991,15 @@
     110.0
    ],
    "this": {
-    "num": "00",
+    "num": "86",
     "scale": 0.6178,
     "ink": [
-     116.0,
+     110.0,
      52.8
     ],
     "air": {
-     "L": 9.8,
-     "R": 11.8,
+     "L": 12.8,
+     "R": 14.8,
      "T": 22.0,
      "B": 22.8
     }
@@ -2992,7 +3020,7 @@
    }
   },
   {
-   "skin": "Konopelko_00",
+   "skin": "Konopelko_86",
    "plate": "rw_number",
    "unit": "px",
    "plate_size": [
@@ -3000,17 +3028,17 @@
     94.0
    ],
    "this": {
-    "num": "00",
+    "num": "86",
     "scale": 0.6265,
     "ink": [
-     100.5,
+     95.2,
      45.8
     ],
     "air": {
-     "L": 8.5,
-     "R": 10.5,
-     "T": 18.5,
-     "B": 19.2
+     "L": 11.0,
+     "R": 13.2,
+     "T": 18.8,
+     "B": 19.0
     }
    },
    "ref": {
@@ -3029,7 +3057,7 @@
    }
   },
   {
-   "skin": "Konopelko_00",
+   "skin": "Konopelko_86",
    "plate": "livery_icon",
    "unit": "px",
    "plate_size": [
@@ -3037,15 +3065,15 @@
     80.0
    ],
    "this": {
-    "num": "00",
+    "num": "86",
     "scale": 0.6809,
     "ink": [
-     92.8,
+     87.8,
      42.5
     ],
     "air": {
-     "L": 8.2,
-     "R": 10.0,
+     "L": 10.8,
+     "R": 12.5,
      "T": 14.0,
      "B": 14.5
     }
