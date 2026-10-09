@@ -1705,41 +1705,43 @@
    "main_cm": 449.9,
    "main_stretch": [
     1.0588,
-    1.0363,
-    0.9983,
-    0.9956,
+    1.0405,
+    0.9989,
+    0.9919,
     0.8949
    ],
    "hood_seam_cm": 85.0,
    "trunk_centre": "dash middle",
    "r_main_cm": 6.1,
+   "head_strip_gap_cm": 4.8,
    "head_strip_cross_cm": 61.9,
    "head_stretches": [
     1.0,
-    0.9692
+    0.9809
    ],
    "head_cm": 67.9,
-   "head_stretch": 0.9692,
+   "head_stretch": 0.9809,
    "head_centre": "gap middle",
    "head_turn_r_cm": 5.5,
+   "rear_strip_gap_cm": 5.0,
    "rear_strip_cross_cm": 67.5,
    "rear_stretches": [
     1.0,
-    0.9781
+    0.9774
    ],
    "rear_cm": 76.6,
-   "rear_stretch": 0.9781,
+   "rear_stretch": 0.9774,
    "rear_centre": "dash middle",
    "rear_turn_r_cm": 7.3,
    "main_hw_min_cm": 0.8,
    "main_glass_clear_min_cm": 1.5,
    "main_other_air_min_cm": 0.59,
-   "head_hw_min_cm": 0.88,
+   "head_hw_min_cm": 1.21,
    "head_glass_clear_min_cm": 2.14,
-   "head_other_air_min_cm": 0.01,
-   "rear_hw_min_cm": 0.84,
+   "head_other_air_min_cm": 0.32,
+   "rear_hw_min_cm": 1.14,
    "rear_glass_clear_min_cm": 1.99,
-   "rear_other_air_min_cm": 0.29
+   "rear_other_air_min_cm": 0.39
   }
  ],
  "keylines": [
