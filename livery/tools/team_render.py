@@ -386,7 +386,7 @@ class Studio:
             ("strip", "azel", -mirror, R_(9), R_(48), R_(1.4), W_(30.0), 0.0),
             ("strip", "azel", mirror, R_(25), R_(42), R_(1.0), W_(22.0), 0.0),
             ("strip", "azel", -mirror, R_(25), R_(42), R_(1.0), W_(22.0), 0.0),
-            ("back", "azel", ca + math.pi, R_(30), R_(60), R_(17), W_(1.3), 0.6),
+            ("back", "azel", ca + math.pi, R_(30), R_(60), R_(17), W_(0.95), 0.6),
             ("rim", "azel", ca + math.pi + R_(68), R_(22), R_(5), R_(20), W_(9.0), 0.0),
             ("rim", "azel", ca + math.pi - R_(68), R_(22), R_(5), R_(20), W_(9.0), 0.0),
             ("fill", "azel", ca, R_(12), R_(45), R_(16), W_(0.42), 0.0),
@@ -882,6 +882,78 @@ def blur_stack_select(chans, sig_px, levels=(0.0, 1.5, 3.0, 6.0, 12.0, 24.0, 48.
     return out
 
 
+FLOOR_Y = 0.0            # the layout puts the tyre contact patches on y = 0
+
+
+def mirror_reflection(ctx, cam, eye, Ws, Hs, ms=0.5):
+    """Planar mirror pass at reduced resolution: the cars mirrored in the floor, shaded from the mirrored
+    eye, faded with height above the floor and blurred by the floor gloss lobe (blur grows with the
+    reflected path length).  Returns (Hm, Wm, 4): premultiplied rgb + coverage, and the scale."""
+    L = ctx.L
+    Wm, Hm = int(Ws * ms), int(Hs * ms)
+    Pm = L.P.copy(); Pm[:, 1] = 2 * FLOOR_Y - Pm[:, 1]
+    Xm, Ym, Dm = cam.project(Pm, ms)
+    aream = tri_screen_area(Xm, Ym, L.T)
+    gbm = raster_scene(ctx, Xm, Ym, Dm, Wm, Hm)
+    eye_m = eye.copy(); eye_m[1] = 2 * FLOOR_Y - eye_m[1]
+    mimg, mposy = shade_buffers(ctx, gbm, eye_m, aream, Wm * Hm, want_pos=True)
+    composite_glass(ctx, gbm, mimg, eye_m)
+    cov = (gbm[1] >= 0).astype(np.float32)
+    del gbm
+    hgt = np.where(cov > 0, np.nan_to_num(mposy, nan=0.0) - FLOOR_Y, 0.0).astype(np.float32)
+    fade = np.exp(-np.maximum(hgt, 0) / 0.65) * (cov > 0)
+    mimg = mimg.reshape(Hm, Wm, 3); cov2 = cov.reshape(Hm, Wm); hgt2 = hgt.reshape(Hm, Wm)
+    fade2 = fade.reshape(Hm, Wm)
+    gy, gx = np.mgrid[0:Hm, 0:Wm]
+    dirs_m = cam.pixel_dirs(gx.ravel(), gy.ravel(), ms)
+    tfl = np.where(dirs_m[:, 1] < -1e-4, (FLOOR_Y - eye[1]) / np.minimum(dirs_m[:, 1], -1e-4), 1e3)
+    depth_fl = (tfl * (dirs_m @ cam.f.astype(np.float32))).reshape(Hm, Wm)
+    del dirs_m, gx, gy, tfl
+    sm_c = ndimage.gaussian_filter(cov2, 6)
+    h_est = ndimage.gaussian_filter(hgt2 * cov2, 6) / np.maximum(sm_c, 1e-3)
+    h_est = np.where(sm_c > 1e-3, h_est, 1.0)
+    beta = 0.035                                                    # floor gloss lobe (rad)
+    sig_px = beta * 2 * h_est * cam.fpx * ms / np.maximum(depth_fl, 1.0) + 0.6
+    chans = np.concatenate([mimg * fade2[..., None], cov2[..., None]], -1).astype(np.float32)
+    return blur_stack_select(chans, sig_px).astype(np.float32), ms
+
+
+def shade_background(ctx, cam, eye, idx, Ws, mb, ms):
+    """Floor (diffuse pool x contact shadows + Fresnel reflection of the cars / studio) fading into the
+    dark cyclorama backdrop, for the flat pixel indices idx."""
+    L, env = ctx.L, ctx.env
+    py, px = np.divmod(idx, Ws)
+    gyf = (py + 0.5) * ms - 0.5; gxf = (px + 0.5) * ms - 0.5
+    refl_car = np.stack([ndimage.map_coordinates(mb[..., c], [gyf, gxf], order=1, mode="nearest")
+                         for c in range(4)], 1).astype(np.float32)
+    dirs = cam.pixel_dirs(px, py)
+    down = dirs[:, 1] < -1e-4
+    t = np.where(down, (FLOOR_Y - eye[1]) / np.minimum(dirs[:, 1], -1e-4), 0.0)
+    hx = eye[0] + dirs[:, 0] * t; hz = eye[2] + dirs[:, 2] * t
+    centre = (L.lo + L.hi) / 2
+    r = np.hypot(hx - centre[0], hz - centre[2]).astype(np.float32)
+    # floor diffuse: overhead pool x contact shadows/occlusion
+    E_up = float(sh_irradiance(ctx.sh, np.array([[0, 1, 0]], np.float32))[0].mean())
+    pool = (1.0 + (r / 5.0) ** 2) ** -2.0
+    fl = L.floor_light_at(hx, hz)
+    floor_alb = 0.020
+    floor_col = (floor_alb * E_up / np.pi * pool * fl)[:, None] * np.array([1.0, 0.99, 1.0], np.float32)
+    # floor reflection: Fresnel x (mirror image of the cars, else the studio)
+    cosv = np.clip(-dirs[:, 1], 0, 1)
+    Ff = schlick(cosv, 0.04) * 0.65
+    Rf = dirs.copy(); Rf[:, 1] = -Rf[:, 1]
+    env_r = env.radiance(Rf, 0.06, env.floor_gains)
+    refl = refl_car[:, :3] + env_r * (1 - np.clip(refl_car[:, 3:4], 0, 1))
+    floor_rad = floor_col + refl * (Ff * np.sqrt(fl))[:, None]
+    # backdrop (infinite cyclorama): the floor fades into it with distance
+    tgt_dir = normalize((cam.target - cam.eye)[None, :])[0].astype(np.float32)
+    glow = np.exp(-((1 - np.clip(dirs @ tgt_dir, -1, 1)) / 0.02))
+    back = (0.010 + 0.022 * glow)[:, None] * np.array([1.0, 0.97, 1.02], np.float32)
+    fade_far = np.clip((r - 9.0) / 9.0, 0, 1) ** 1.5
+    fade_far = np.where(down, fade_far, 1.0)[:, None]
+    return (floor_rad * (1 - fade_far) + back * fade_far).astype(np.float32)
+
+
 def render_view(ctx_factory, name, args, log=print):
     t0 = time.time()
     W, H, ss = args.width, args.height, args.ss
@@ -909,80 +981,21 @@ def render_view(ctx_factory, name, args, log=print):
     t2 = time.time()
 
     # ---- floor + backdrop for every pixel without an opaque car surface
-    zb, tid, B1, B2 = gb[:4]
-    bg = np.nonzero(tid < 0)[0]
-    py, px = np.divmod(bg, Ws)
-    floor_y = 0.0
-    # planar mirror pass (half resolution): mirrored cars seen through the floor
-    ms = 0.5
-    Wm, Hm = int(Ws * ms), int(Hs * ms)
-    Pm = L.P.copy(); Pm[:, 1] = 2 * floor_y - Pm[:, 1]
-    Xm, Ym, Dm = cam.project(Pm, ms)
-    aream = tri_screen_area(Xm, Ym, L.T)
-    gbm = raster_scene(ctx, Xm, Ym, Dm, Wm, Hm)
-    eye_m = eye.copy(); eye_m[1] = 2 * floor_y - eye_m[1]
-    mimg, mposy = shade_buffers(ctx, gbm, eye_m, aream, Wm * Hm, want_pos=True)
-    composite_glass(ctx, gbm, mimg, eye_m)
-    cov = (gbm[1] >= 0).astype(np.float32)
-    hgt = np.where(cov > 0, np.nan_to_num(mposy, nan=0.0) - floor_y, 0.0).astype(np.float32)
-    fade = np.exp(-np.maximum(hgt, 0) / 0.65) * (cov > 0)
-    mimg = mimg.reshape(Hm, Wm, 3); cov2 = cov.reshape(Hm, Wm); hgt2 = hgt.reshape(Hm, Wm)
-    fade2 = fade.reshape(Hm, Wm)
-    # blur radius: glossy lobe (rad) x reflected path length, projected to the screen
-    gy, gx = np.mgrid[0:Hm, 0:Wm]
-    dirs_m = cam.pixel_dirs(gx.ravel(), gy.ravel(), ms)
-    tfl = np.where(dirs_m[:, 1] < -1e-4, (floor_y - eye[1]) / np.minimum(dirs_m[:, 1], -1e-4), 1e3)
-    depth_fl = (tfl * (dirs_m @ cam.f.astype(np.float32))).reshape(Hm, Wm)
-    del dirs_m, gx, gy
-    sm_c = ndimage.gaussian_filter(cov2, 6)
-    h_est = ndimage.gaussian_filter(hgt2 * cov2, 6) / np.maximum(sm_c, 1e-3)
-    h_est = np.where(sm_c > 1e-3, h_est, 1.0)
-    beta = 0.035                                                    # floor gloss lobe (rad)
-    sig_px = beta * 2 * h_est * cam.fpx * ms / np.maximum(depth_fl, 1.0) + 0.6
-    chans = np.concatenate([mimg * fade2[..., None], cov2[..., None]], -1).astype(np.float32)
-    mb = blur_stack_select(chans, sig_px)
-    del chans, mimg
-    # upsample to the full buffer for the background pixels
-    gyf = (py + 0.5) * ms - 0.5; gxf = (px + 0.5) * ms - 0.5
-    refl_car = np.stack([ndimage.map_coordinates(mb[..., c], [gyf, gxf], order=1, mode="nearest") for c in range(4)], 1)
-    del mb
+    mb, ms = mirror_reflection(ctx, cam, eye, Ws, Hs)
     t3 = time.time()
-
-    dirs = cam.pixel_dirs(px, py)
-    down = dirs[:, 1] < -1e-4
-    t = np.where(down, (floor_y - eye[1]) / np.minimum(dirs[:, 1], -1e-4), 0.0)
-    hx = eye[0] + dirs[:, 0] * t; hz = eye[2] + dirs[:, 2] * t
-    centre = (L.lo + L.hi) / 2
-    r = np.hypot(hx - centre[0], hz - centre[2])
-    env = ctx.env
-    # floor diffuse: overhead pool x contact shadows/occlusion
-    E_up = float(sh_irradiance(ctx.sh, np.array([[0, 1, 0]], np.float32))[0].mean())
-    pool = (1.0 + (r / 5.0) ** 2) ** -2.0
-    fl = L.floor_light_at(hx, hz)
-    floor_alb = 0.020
-    floor_col = (floor_alb * E_up / np.pi * pool * fl)[:, None] * np.array([1.0, 0.99, 1.0], np.float32)
-    # floor reflection: Fresnel x (mirror image of the cars, else the studio)
-    cosv = np.clip(-dirs[:, 1], 0, 1)
-    Ff = schlick(cosv, 0.04) * 0.65
-    Rf = dirs.copy(); Rf[:, 1] = -Rf[:, 1]
-    env_r = env.radiance(Rf, 0.06, env.floor_gains)
-    refl = refl_car[:, :3] + env_r * (1 - np.clip(refl_car[:, 3:4], 0, 1))
-    floor_rad = floor_col + refl * Ff[:, None] * fl[:, None] ** 0.5
-    # backdrop (infinite cyclorama): the floor fades into it with distance
-    tgt_dir = normalize((cam.target - cam.eye)[None, :])[0].astype(np.float32)
-    glow = np.exp(-((1 - np.clip(dirs @ tgt_dir, -1, 1)) / 0.02))
-    back = (0.010 + 0.022 * glow)[:, None] * np.array([1.0, 0.97, 1.02], np.float32)
-    fade_far = np.clip((r - 9.0) / 9.0, 0, 1) ** 1.5
-    fade_far = np.where(down, fade_far, 1.0)[:, None]
-    img[bg] = floor_rad * (1 - fade_far) + back * fade_far
-    del dirs, refl_car, env_r
+    bg = np.nonzero(gb[1] < 0)[0]
+    for k in range(0, len(bg), 1_500_000):
+        idx = bg[k:k + 1_500_000]
+        img[idx] = shade_background(ctx, cam, eye, idx, Ws, mb, ms)
+    del mb, bg
     # glass (also over the floor seen through the windows)
     composite_glass(ctx, gb, img, eye)
     t4 = time.time()
 
     # ---- post: bloom, DOF, tone mapping, vignette, downsample
     img = img.reshape(Hs, Ws, 3)
-    depth = np.where(gb[1] >= 0, gb[0], np.inf).reshape(Hs, Ws)
+    depth = np.where(gb[1] >= 0, gb[0], np.inf).reshape(Hs, Ws) if args.dof > 0 else None
+    del gb
     img = post_process(img, depth, cam, args, ss)
     out = Image.fromarray(img)
     if ss > 1:
@@ -1031,19 +1044,22 @@ def post_process(img, depth, cam, args, ss):
     bloom = np.zeros_like(small)
     for s, wgt in ((1.5 * ss / k * 2, 0.5), (5.0 * ss / k * 2, 0.3), (16.0 * ss / k * 2, 0.2)):
         bloom += wgt * np.stack([ndimage.gaussian_filter(bright[..., c], s) for c in range(3)], -1)
-    bloom_full = np.stack([ndimage.zoom(bloom[..., c], (Hs / h4, Ws / w4), order=1) for c in range(3)], -1)
-    img = img + 0.10 * bloom_full[:Hs, :Ws]
-    del bloom_full
+    for c in range(3):
+        up = ndimage.zoom(bloom[..., c], (Hs / h4, Ws / w4), order=1)
+        img[:up.shape[0], :up.shape[1], c] += 0.10 * up[:Hs, :Ws]
+    del bloom, bright, small
     exposure = args.exposure
-    img = aces(img * exposure)
-    # vignette
+    # vignette + filmic tone mapping + gamma, in row chunks (memory)
     yy = (np.arange(Hs, dtype=np.float32) + 0.5) / Hs * 2 - 1
     xx = (np.arange(Ws, dtype=np.float32) + 0.5) / Ws * 2 - 1
-    r2 = (xx[None, :] ** 2) * 0.75 + (yy[:, None] ** 2) * 0.9
-    vig = 1 - 0.28 * np.clip(r2, 0, 2) ** 1.6 / 2 ** 1.6 * 2
-    img = img * np.clip(vig, 0.6, 1)[..., None]
-    img = np.power(np.clip(img, 0, 1), 1 / 2.2)
-    return np.clip(img * 255 + 0.5, 0, 255).astype(np.uint8)
+    out = np.empty((Hs, Ws, 3), np.uint8)
+    for r0 in range(0, Hs, 256):
+        r1 = min(Hs, r0 + 256)
+        r2 = (xx[None, :] ** 2) * 0.75 + (yy[r0:r1, None] ** 2) * 0.9
+        vig = 1 - 0.30 * (np.clip(r2, 0, 1.65) / 1.65) ** 1.8
+        v = aces(img[r0:r1] * exposure) * vig[..., None]
+        out[r0:r1] = np.clip(np.power(np.clip(v, 0, 1), 1 / 2.2) * 255 + 0.5, 0, 255).astype(np.uint8)
+    return out
 
 
 # ---------------------------------------------------------------- title band
