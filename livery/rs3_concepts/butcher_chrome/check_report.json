@@ -1035,7 +1035,7 @@
    "level_view": "rear",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 4.4,
-   "line_clear_cm": 24.9,
+   "line_clear_cm": 23.2,
    "decal_clear_cm": 18.5,
    "status": "OK"
   },
@@ -1062,7 +1062,7 @@
    "level_view": "rear",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.1,
-   "line_clear_cm": 4.3,
+   "line_clear_cm": 2.5,
    "decal_clear_cm": 16.7,
    "hidden_frac": {
     "rear": 0.0,
@@ -1113,19 +1113,19 @@
     3.7
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.2,
+   "edge_clear_cm": 1.8,
    "max_tilt_deg": 0.0,
-   "level_deg": -0.01,
+   "level_deg": -0.03,
    "level_rows_deg": [
-    0.0,
-    -0.01,
-    -0.0
+    -0.03,
+    0.01,
+    -0.01
    ],
-   "level_view": "side",
+   "level_view": "front",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 3.8,
-   "line_clear_cm": 2.2,
-   "decal_clear_cm": 65.7,
+   "mask_clear_cm": 1.8,
+   "line_clear_cm": 2.8,
+   "decal_clear_cm": 66.8,
    "hidden_frac": {
     "front": 0.0,
     "front34_right": 0.0,
@@ -1134,15 +1134,11 @@
    "occl_ok": true,
    "status": "OK",
    "wrapped": true,
-   "wrap_turn_deg": 34.1,
+   "wrap_turn_deg": 30.1,
    "wrap_stretch_pct": [
-    -0.02,
-    4.34
-   ],
-   "view_level_deg": {
-    "front": -33.1,
-    "front34_right": -11.2
-   }
+    -0.52,
+    16.78
+   ]
   },
   {
    "name": "url_corner_L",
@@ -1158,19 +1154,19 @@
     3.7
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 3.2,
+   "edge_clear_cm": 1.8,
    "max_tilt_deg": 0.0,
-   "level_deg": 0.02,
+   "level_deg": 0.04,
    "level_rows_deg": [
-    0.02,
-    0.02,
-    0.01
+    0.01,
+    0.04,
+    -0.0
    ],
-   "level_view": "side",
+   "level_view": "front",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 4.8,
-   "line_clear_cm": 2.8,
-   "decal_clear_cm": 66.1,
+   "mask_clear_cm": 2.0,
+   "line_clear_cm": 2.2,
+   "decal_clear_cm": 67.5,
    "hidden_frac": {
     "front": 0.0,
     "front34_left": 0.0,
@@ -1179,15 +1175,11 @@
    "occl_ok": true,
    "status": "OK",
    "wrapped": true,
-   "wrap_turn_deg": 28.5,
+   "wrap_turn_deg": 23.2,
    "wrap_stretch_pct": [
-    -0.02,
-    4.34
-   ],
-   "view_level_deg": {
-    "front": 31.5,
-    "front34_left": 10.2
-   }
+    -0.46,
+    16.55
+   ]
   },
   {
    "name": "label_hrebet_roof",
@@ -1230,23 +1222,23 @@
    ],
    "side": null,
    "size_cm": [
-    13.8,
-    2.6
+    16.1,
+    3.0
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 8.4,
-   "max_tilt_deg": 8.8,
-   "level_deg": 0.19,
+   "edge_clear_cm": 5.2,
+   "max_tilt_deg": 6.8,
+   "level_deg": 0.09,
    "level_rows_deg": [
-    -0.07,
-    0.07,
-    0.19
+    -0.06,
+    -0.03,
+    0.09
    ],
-   "level_view": "rear",
+   "level_view": "top",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 9.9,
-   "line_clear_cm": 11.1,
-   "decal_clear_cm": 2.2,
+   "mask_clear_cm": 6.9,
+   "line_clear_cm": 11.6,
+   "decal_clear_cm": 4.7,
    "hidden_frac": {
     "rear": 0.0,
     "rear34_left": 0.0,
@@ -1254,86 +1246,6 @@
    },
    "occl_ok": true,
    "status": "OK"
-  },
-  {
-   "name": "label_shcheka_L",
-   "kind": "text",
-   "parts": [
-    "front_bumper_corner",
-    "front_bumper",
-    "front_fender"
-   ],
-   "side": "L",
-   "size_cm": [
-    13.9,
-    5.2
-   ],
-   "coverage": 1.0,
-   "edge_clear_cm": 3.0,
-   "max_tilt_deg": 0.0,
-   "level_deg": -0.04,
-   "level_rows_deg": [
-    -0.04,
-    0.03,
-    -0.01
-   ],
-   "level_view": "side",
-   "in_zone_mask": 1.0,
-   "mask_clear_cm": 3.0,
-   "line_clear_cm": 2.1,
-   "decal_clear_cm": 2.4,
-   "hidden_frac": {
-    "front": 0.0,
-    "front34_left": 0.0
-   },
-   "occl_ok": true,
-   "status": "OK",
-   "wrapped": true,
-   "wrap_turn_deg": 24.7,
-   "wrap_stretch_pct": [
-    -0.02,
-    2.99
-   ]
-  },
-  {
-   "name": "label_shcheka_R",
-   "kind": "text",
-   "parts": [
-    "front_bumper_corner",
-    "front_bumper",
-    "front_fender"
-   ],
-   "side": "R",
-   "size_cm": [
-    13.9,
-    5.2
-   ],
-   "coverage": 1.0,
-   "edge_clear_cm": 2.8,
-   "max_tilt_deg": 0.0,
-   "level_deg": -0.01,
-   "level_rows_deg": [
-    -0.01,
-    0.01,
-    -0.01
-   ],
-   "level_view": "side",
-   "in_zone_mask": 1.0,
-   "mask_clear_cm": 3.1,
-   "line_clear_cm": 2.1,
-   "decal_clear_cm": 3.0,
-   "hidden_frac": {
-    "front": 0.0,
-    "front34_right": 0.0
-   },
-   "occl_ok": true,
-   "status": "OK",
-   "wrapped": true,
-   "wrap_turn_deg": 24.7,
-   "wrap_stretch_pct": [
-    -0.01,
-    3.58
-   ]
   },
   {
    "name": "label_krestec_L",
@@ -1344,37 +1256,31 @@
    ],
    "side": "L",
    "size_cm": [
-    20.3,
-    5.2
+    16.7,
+    4.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 4.8,
-   "max_tilt_deg": 0.0,
-   "level_deg": -0.04,
+   "edge_clear_cm": 2.4,
+   "max_tilt_deg": 11.9,
+   "level_deg": 0.09,
    "level_rows_deg": [
-    0.0,
-    -0.04,
-    0.01
+    0.09,
+    0.05,
+    0.05
    ],
    "level_view": "rear",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 7.3,
-   "line_clear_cm": 3.1,
-   "decal_clear_cm": 15.3,
-   "keepout_air_cm": 3.8,
+   "mask_clear_cm": 3.0,
+   "line_clear_cm": 5.4,
+   "decal_clear_cm": 19.3,
+   "keepout_air_cm": 4.1,
    "keepout_ok": true,
    "hidden_frac": {
     "rear": 0.0,
     "rear34_left": 0.0
    },
    "occl_ok": true,
-   "status": "OK",
-   "wrapped": true,
-   "wrap_turn_deg": 29.4,
-   "wrap_stretch_pct": [
-    -7.81,
-    25.59
-   ]
+   "status": "OK"
   },
   {
    "name": "label_krestec_R",
@@ -1385,64 +1291,57 @@
    ],
    "side": "R",
    "size_cm": [
-    20.3,
-    5.2
+    16.7,
+    4.3
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 4.8,
-   "max_tilt_deg": 0.0,
-   "level_deg": 0.04,
+   "edge_clear_cm": 2.4,
+   "max_tilt_deg": 11.9,
+   "level_deg": -0.06,
    "level_rows_deg": [
-    0.01,
-    0.04,
-    0.03
+    -0.03,
+    -0.06,
+    -0.04
    ],
    "level_view": "rear",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 5.0,
-   "line_clear_cm": 3.1,
-   "decal_clear_cm": 15.1,
-   "keepout_air_cm": 4.1,
+   "mask_clear_cm": 2.0,
+   "line_clear_cm": 5.4,
+   "decal_clear_cm": 19.4,
+   "keepout_air_cm": 3.9,
    "keepout_ok": true,
    "hidden_frac": {
     "rear": 0.0,
     "rear34_right": 0.0
    },
    "occl_ok": true,
-   "status": "OK",
-   "wrapped": true,
-   "wrap_turn_deg": 28.9,
-   "wrap_stretch_pct": [
-    -8.2,
-    25.64
-   ]
+   "status": "OK"
   },
   {
    "name": "label_podbryushina_L",
    "kind": "text",
    "parts": [
-    "rear_door",
     "front_door_low"
    ],
    "side": "L",
    "size_cm": [
-    23.5,
-    2.3
+    28.0,
+    2.7
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.6,
-   "max_tilt_deg": 1.3,
-   "level_deg": 0.01,
+   "edge_clear_cm": 2.2,
+   "max_tilt_deg": 8.7,
+   "level_deg": 0.16,
    "level_rows_deg": [
-    0.0,
-    0.01,
-    0.0
+    0.16,
+    0.16,
+    0.15
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 3.9,
-   "line_clear_cm": 2.0,
-   "decal_clear_cm": 9.8,
+   "mask_clear_cm": 2.3,
+   "line_clear_cm": 3.2,
+   "decal_clear_cm": 2.2,
    "hidden_frac": {
     "side_left": 0.0
    },
@@ -1453,28 +1352,27 @@
    "name": "label_podbryushina_R",
    "kind": "text",
    "parts": [
-    "rear_door",
     "front_door_low"
    ],
    "side": "R",
    "size_cm": [
-    23.5,
-    2.3
+    28.0,
+    2.7
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 2.4,
-   "max_tilt_deg": 1.3,
-   "level_deg": -0.01,
+   "edge_clear_cm": 2.2,
+   "max_tilt_deg": 8.5,
+   "level_deg": 0.15,
    "level_rows_deg": [
-    -0.01,
-    0.0,
-    0.01
+    0.15,
+    0.15,
+    0.15
    ],
    "level_view": "side",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 4.2,
-   "line_clear_cm": 2.5,
-   "decal_clear_cm": 9.9,
+   "mask_clear_cm": 2.4,
+   "line_clear_cm": 3.1,
+   "decal_clear_cm": 2.2,
    "hidden_frac": {
     "side_right": 0.0
    },
@@ -1862,24 +1760,11 @@
    ]
   }
  ],
- "belly_dropped": [
-  {
-   "dash": 13,
-   "side": "R",
-   "why": "truncated",
-   "y": -0.86,
-   "x": -0.967
-  },
-  {
-   "dash": 13,
-   "side": "L",
-   "why": "truncated",
-   "y": -0.86,
-   "x": 0.966
-  }
- ],
+ "belly_dropped": [],
  "line_notes": [
-  "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 1.0310)"
+  "belly line phase: a gap middle on every shut line it crosses (y [-0.837, 0.224, 1.188]: fender / front door step, front / rear door, rear door / rear quarter), stretches [1.0479, 1.0217, 0.9761] (unchanged from y 1.62 on); front fender: one 6.2 cm dash on its strip y -0.950..-0.854 between the wheel opening's lip and the step down to the door (0.6 cm of paint air to each) - the line runs from the wheel opening",
+  "tail centre: one 7.5 cm dash centred on x=0 (lateral stretch 1.0310)",
+  "shoulder line: gap middles on the shut lines / fuel-flap edges it crosses at y +0.252, +1.223, +1.321, +1.509 (both sides alike; the fuel flap is on the right)"
  ],
  "sill_row": [
   {
@@ -1945,7 +1830,7 @@
  ],
  "url_notes": [
   "rear bumper: one line, 5.2 cm type",
-  "front bumper outer corners (the closed ЩЕКА cut outboard of each outer intake, mirror-symmetric at y -1.800, z 0.460): «simkarting.ru» car-right / «karting64.ru» car-left, maroon ink in the URL face on the pink, type 3.2 cm tall (cap ~2.4 cm), 23.0 / 21.3 cm long; wrapped round the corner (the face turns 28.5 deg under the type): rows level, arc-length true - measured stretch [-0.02, 4.34] % (median, 98th pct); fully visible in front + that side's 3/4 view (hidden {'front': 0.0, 'front34_left': 0.0, 'side_left': 0.0}); >= 2.2 cm to the lines, >= 2.2 cm to the wheel opening / intake; the old url_splitter plates beside the intakes are removed"
+  "front bumper outer corners (the forward-facing face of each corner, where the client's arrows point, the type running from above the outer intake's outer top corner out onto the corner face beside the intake; mirror-symmetric, centre |x| 0.819, z 0.488): «simkarting.ru» car-right / «karting64.ru» car-left, maroon ink in the URL face on the pink, type 3.2 cm tall (cap ~2.4 cm), 23.0 / 21.3 cm long - the largest size that keeps the whole address on the forward-facing part on both corners (between the intake's top and the front cut line there are ~7 cm of height, and the corner face beside the intake is only ~11 cm wide as seen from the front, so 4.5-5 cm type cannot fit); the belly line's riser now runs up the corner's outboard part, clear of the face; wrapped onto the face (it turns 23.2 / 23.2 deg under the type, <= 24): rows level with the ground, arc length true - measured stretch [-0.46, 16.55] % (median, 98th pct); every texel faces forward within 50.6 deg (the whole address well inside the front view's silhouette, no letter at its edge); front view: 61.3 / 66.8 px long, apparent slope 16.1 / -17.3 deg (perspective of the receding face - the type is level with the ground); front 3/4 views 0.6 / -1.5 deg; fully visible (hidden {'front': 0.0, 'front34_left': 0.0, 'side_left': 0.0} / {'front': 0.0, 'front34_right': 0.0, 'side_right': 0.0}); >= 2.2 cm to the lines, >= 1.8 cm to the intake / panel edges; ЩЕКА is not set on the corner (the URL has priority; no room for it with air)"
  ],
  "front_cut_line": [
   {
@@ -2058,14 +1943,15 @@
  "keylines": [
   {
    "side": "L",
-   "length_cm": 595.3,
+   "length_cm": 624.0,
    "pieces_m": [
     [
      0.0,
-     4.903
+     6.24
     ]
    ],
    "gaps": [],
+   "ends": "open (meets the mirrored keyline on the centreline) / open (meets the mirrored keyline on the centreline)",
    "neck": {
     "narrowed_cm": 14.8,
     "width_min_cm": 0.63,
@@ -2073,19 +1959,26 @@
     "gap_to_dash_min_cm": 0.3,
     "air_to_lamp_min_cm": 0.23
    },
-   "air_line_min_cm": 2.0,
+   "tail": {
+    "narrowed_cm": 60.7,
+    "width_min_cm": 0.61,
+    "air_to_lamp_min_cm": 0.51
+   },
+   "air_near_min_cm": 0.4,
+   "air_line_min_cm": 988.2,
    "air_part_min_cm": 0.2
   },
   {
    "side": "R",
-   "length_cm": 595.8,
+   "length_cm": 624.9,
    "pieces_m": [
     [
      0.0,
-     4.904
+     6.249
     ]
    ],
    "gaps": [],
+   "ends": "open (meets the mirrored keyline on the centreline) / open (meets the mirrored keyline on the centreline)",
    "neck": {
     "narrowed_cm": 14.7,
     "width_min_cm": 0.63,
@@ -2093,22 +1986,28 @@
     "gap_to_dash_min_cm": 0.3,
     "air_to_lamp_min_cm": 0.24
    },
-   "air_line_min_cm": 2.0,
+   "tail": {
+    "narrowed_cm": 61.5,
+    "width_min_cm": 0.44,
+    "air_to_lamp_min_cm": 0.51
+   },
+   "air_near_min_cm": 0.4,
+   "air_line_min_cm": 988.2,
    "air_part_min_cm": 0.2
   }
  ],
  "closures": [
   {
    "line": "loop_L",
-   "length_cm": 113.5,
-   "dashes": 9,
+   "length_cm": 114.7,
+   "dashes": 10,
    "truncated": [],
    "hidden_by_part": [],
    "partly_hidden_by_body": [
     [
      29,
-     "rear34_left",
-     68
+     "rear",
+     48
     ]
    ],
    "start": [
@@ -2117,37 +2016,57 @@
     0.907
    ],
    "end": [
-    0.275,
+    0.274,
     2.275,
-    0.472
+    0.471
    ],
    "air_to_lamp_cm": 1.4,
-   "riser_x": 0.45,
+   "riser_x": 0.47,
    "lamp_gap_cm": [
-    2.46,
-    3.18
+    2.51,
+    3.16
    ],
    "stretches": [
-    0.9966,
-    1.0,
-    1.0832,
-    0.9094,
-    0.9183,
-    0.9916
+    0.9777,
+    0.9875,
+    1.2077,
+    1.2773,
+    1.0764,
+    1.1314,
+    0.5728,
+    1.4557,
+    1.2163,
+    0.9784,
+    0.9172
    ],
    "seam_gaps_cm": [
-    6.0,
-    7.5,
-    7.5,
-    6.5
+    4.5,
+    4.5,
+    4.5,
+    4.5,
+    4.5,
+    4.5,
+    5.5
    ],
    "seams_m": [
-    0.18,
-    0.313,
-    0.607,
-    0.763
+    -1.492,
+    -0.52,
+    -0.421,
+    -0.233,
+    0.325,
+    0.621,
+    0.749
    ],
-   "spline_turn_r_min_cm": 5.5,
+   "zone_m": [
+    [
+     0.196,
+     0.241
+    ]
+   ],
+   "zone_gap_cm": [
+    10.1
+   ],
+   "spline_turn_r_min_cm": 5.2,
    "handover": {
     "s": 5.8575,
     "x": 0.27383267879486084
@@ -2156,42 +2075,46 @@
   },
   {
    "line": "belly_rear_L",
-   "length_cm": 41.3,
-   "dashes": 4,
+   "length_cm": 30.7,
+   "dashes": 3,
    "truncated": [],
    "hidden_by_part": [],
    "partly_hidden_by_body": [],
    "start": [
     0.941,
-    1.545,
+    1.548,
     0.812
    ],
    "end": [
-    0.759,
-    1.846,
-    0.887
+    0.786,
+    1.675,
+    0.907
    ],
-   "air_to_lamp_cm": 2.6,
-   "stretch": 1.037,
+   "air_to_lamp_cm": 20.1,
+   "stretch": 1.0652,
    "T": [
-    0.759,
-    1.846,
-    0.887
+    0.786,
+    1.675,
+    0.907
    ],
-   "leaves_belly_line_at_y": 1.7,
+   "T_on": "shoulder line",
+   "leaves_belly_line_at_y": 1.61,
+   "angle_at_T_deg": 87.3,
+   "turn_r_min_cm": 6.4,
+   "T_ahead_of_bend_cm": 12.7,
    "status": "OK"
   },
   {
    "line": "loop_R",
-   "length_cm": 113.8,
-   "dashes": 9,
+   "length_cm": 115.4,
+   "dashes": 10,
    "truncated": [],
    "hidden_by_part": [],
    "partly_hidden_by_body": [
     [
      29,
-     "rear34_right",
-     64
+     "rear",
+     46
     ]
    ],
    "start": [
@@ -2200,37 +2123,57 @@
     0.907
    ],
    "end": [
-    -0.276,
+    -0.274,
     2.275,
-    0.472
+    0.471
    ],
-   "air_to_lamp_cm": 1.4,
-   "riser_x": 0.45,
+   "air_to_lamp_cm": 1.1,
+   "riser_x": 0.47,
    "lamp_gap_cm": [
-    2.46,
-    3.18
+    2.51,
+    3.16
    ],
    "stretches": [
-    0.996,
-    1.0,
-    1.0832,
-    0.9094,
-    0.9183,
-    0.9796
+    0.9787,
+    0.9873,
+    1.2019,
+    1.2678,
+    1.0736,
+    1.1313,
+    0.5728,
+    1.4557,
+    1.2163,
+    0.9784,
+    0.8977
    ],
    "seam_gaps_cm": [
-    6.0,
-    7.5,
-    7.5,
-    6.5
+    4.5,
+    4.5,
+    4.5,
+    4.5,
+    4.5,
+    4.5,
+    5.5
    ],
    "seams_m": [
-    0.18,
-    0.313,
-    0.607,
-    0.763
+    -1.495,
+    -0.522,
+    -0.422,
+    -0.233,
+    0.325,
+    0.621,
+    0.749
    ],
-   "spline_turn_r_min_cm": 5.5,
+   "zone_m": [
+    [
+     0.196,
+     0.241
+    ]
+   ],
+   "zone_gap_cm": [
+    10.1
+   ],
+   "spline_turn_r_min_cm": 5.2,
    "handover": {
     "s": 5.8575,
     "x": 0.27383267879486084
@@ -2239,75 +2182,79 @@
   },
   {
    "line": "belly_rear_R",
-   "length_cm": 41.3,
-   "dashes": 4,
+   "length_cm": 30.8,
+   "dashes": 3,
    "truncated": [],
    "hidden_by_part": [],
    "partly_hidden_by_body": [],
    "start": [
     -0.941,
-    1.545,
+    1.548,
     0.812
    ],
    "end": [
-    -0.759,
-    1.846,
-    0.887
+    -0.786,
+    1.675,
+    0.907
    ],
-   "air_to_lamp_cm": 2.6,
-   "stretch": 1.037,
+   "air_to_lamp_cm": 20.1,
+   "stretch": 1.0652,
    "T": [
-    -0.759,
-    1.846,
-    0.887
+    -0.786,
+    1.675,
+    0.907
    ],
-   "leaves_belly_line_at_y": 1.7,
+   "T_on": "shoulder line",
+   "leaves_belly_line_at_y": 1.61,
+   "angle_at_T_deg": 87.3,
+   "turn_r_min_cm": 6.4,
+   "T_ahead_of_bend_cm": 12.7,
    "status": "OK"
   },
   {
    "line": "belly_front_L",
-   "length_cm": 46.4,
-   "dashes": 4,
-   "stretch": 1.0033,
-   "turn_r_min_cm": 6.7,
+   "length_cm": 34.5,
+   "dashes": 3,
+   "stretch": 1.0086,
+   "turn_r_min_cm": 6.4,
    "truncated": [],
    "hidden": [],
    "start": [
     0.954,
     -1.67,
-    0.337
+    0.339
    ],
    "end_T": [
-    0.847,
-    -1.885,
-    0.553
+    0.916,
+    -1.795,
+    0.571
    ],
-   "air_to_intake_wall_cm": 2.6,
-   "riser_gap_cm": 4.0,
+   "air_to_intake_wall_cm": 16.8,
+   "riser_y": -1.795,
    "height_z": 0.337,
    "wheel_edge_y": -1.674,
    "status": "OK"
   },
   {
    "line": "belly_front_R",
-   "length_cm": 46.6,
-   "dashes": 4,
-   "stretch": 1.0033,
-   "turn_r_min_cm": 6.7,
+   "length_cm": 34.6,
+   "dashes": 3,
+   "stretch": 1.0086,
+   "turn_r_min_cm": 6.4,
    "truncated": [],
    "hidden": [],
    "start": [
     -0.954,
     -1.67,
-    0.337
+    0.339
    ],
    "end_T": [
-    -0.847,
-    -1.885,
-    0.553
+    -0.916,
+    -1.796,
+    0.571
    ],
-   "air_to_intake_wall_cm": 2.6,
-   "riser_gap_cm": 4.0,
+   "air_to_intake_wall_cm": 16.8,
+   "riser_y": -1.795,
    "height_z": 0.337,
    "wheel_edge_y": -1.674,
    "status": "OK"
@@ -2341,21 +2288,21 @@
   {
    "label": "ГУЗКА",
    "name": "label_guzka_rear",
-   "cap_cm": 2.6,
+   "cap_cm": 3.0,
    "ok": true,
    "centre": [
     0.0,
-    2.266,
-    0.604
+    2.247,
+    0.623
    ],
    "status": "OK",
    "size_cm": [
-    13.8,
-    2.6
+    16.1,
+    3.0
    ],
-   "line_clear_cm": 11.1,
-   "decal_clear_cm": 2.2,
-   "level_deg": 0.19,
+   "line_clear_cm": 11.6,
+   "decal_clear_cm": 4.7,
+   "level_deg": 0.09,
    "hidden": {
     "rear": 0.0,
     "rear34_left": 0.0,
@@ -2365,164 +2312,116 @@
   {
    "label": "ЩЕКА",
    "name": "label_shcheka_L",
-   "cap_cm": 3.4,
-   "ok": true,
-   "centre": [
-    0.935,
-    -1.77,
-    0.395
-   ],
-   "status": "OK",
-   "size_cm": [
-    13.9,
-    5.2
-   ],
-   "line_clear_cm": 2.1,
-   "decal_clear_cm": 2.4,
-   "edge_clear_cm": 3.0,
-   "level_deg": -0.04,
-   "hidden": {
-    "front": 0.0,
-    "front34_left": 0.0
-   },
-   "wrap_turn_deg": 24.7,
-   "wrap_stretch_pct": [
-    -0.02,
-    2.99
-   ]
+   "ok": false,
+   "status": "skipped: the corner's forward-facing face carries the URL (priority); the strip between the riser and the wheel opening is ~8 cm wide - no room for the label with 2 cm of air"
   },
   {
    "label": "ЩЕКА",
    "name": "label_shcheka_R",
-   "cap_cm": 3.4,
-   "ok": true,
-   "centre": [
-    -0.935,
-    -1.77,
-    0.395
-   ],
-   "status": "OK",
-   "size_cm": [
-    13.9,
-    5.2
-   ],
-   "line_clear_cm": 2.1,
-   "decal_clear_cm": 3.0,
-   "edge_clear_cm": 2.8,
-   "level_deg": -0.01,
-   "hidden": {
-    "front": 0.0,
-    "front34_right": 0.0
-   },
-   "wrap_turn_deg": 24.7,
-   "wrap_stretch_pct": [
-    -0.01,
-    3.58
-   ]
+   "ok": false,
+   "status": "skipped: the corner's forward-facing face carries the URL (priority); the strip between the riser and the wheel opening is ~8 cm wide - no room for the label with 2 cm of air"
   },
   {
    "label": "КРЕСТЕЦ",
    "name": "label_krestec_L",
-   "cap_cm": 3.4,
+   "cap_cm": 2.8,
    "ok": true,
    "centre": [
-    0.593,
-    2.195,
-    0.583
+    0.617,
+    2.191,
+    0.531
    ],
    "status": "OK",
    "size_cm": [
-    20.3,
-    5.2
+    16.7,
+    4.3
    ],
-   "line_clear_cm": 3.1,
-   "decal_clear_cm": 15.3,
-   "edge_clear_cm": 4.8,
-   "level_deg": -0.04,
+   "line_clear_cm": 5.4,
+   "decal_clear_cm": 19.3,
+   "edge_clear_cm": 2.4,
+   "level_deg": 0.09,
    "hidden": {
     "rear": 0.0,
     "rear34_left": 0.0
    },
-   "wrap_turn_deg": 29.4,
-   "wrap_stretch_pct": [
-    -7.81,
-    25.59
-   ]
+   "max_tilt_deg": 11.9,
+   "proj_stretch_pct": 2.2
   },
   {
    "label": "КРЕСТЕЦ",
    "name": "label_krestec_R",
-   "cap_cm": 3.4,
+   "cap_cm": 2.8,
    "ok": true,
    "centre": [
-    -0.593,
-    2.195,
-    0.582
+    -0.618,
+    2.191,
+    0.531
    ],
    "status": "OK",
    "size_cm": [
-    20.3,
-    5.2
+    16.7,
+    4.3
    ],
-   "line_clear_cm": 3.1,
-   "decal_clear_cm": 15.1,
-   "edge_clear_cm": 4.8,
-   "level_deg": 0.04,
+   "line_clear_cm": 5.4,
+   "decal_clear_cm": 19.4,
+   "edge_clear_cm": 2.4,
+   "level_deg": -0.06,
    "hidden": {
     "rear": 0.0,
     "rear34_right": 0.0
    },
-   "wrap_turn_deg": 28.9,
-   "wrap_stretch_pct": [
-    -8.2,
-    25.64
-   ]
+   "max_tilt_deg": 11.9,
+   "proj_stretch_pct": 2.2
   },
   {
    "label": "ПОДБРЮШИНА",
    "name": "label_podbryushina_L",
-   "cap_cm": 2.3,
+   "cap_cm": 2.7,
    "ok": true,
    "centre": [
-    0.963,
-    0.85,
-    0.45
+    0.912,
+    -0.18,
+    0.298
    ],
    "status": "OK",
    "size_cm": [
-    23.5,
-    2.3
+    28.0,
+    2.7
    ],
-   "line_clear_cm": 2.0,
-   "decal_clear_cm": 9.8,
-   "edge_clear_cm": 2.6,
-   "level_deg": 0.01,
+   "line_clear_cm": 3.2,
+   "decal_clear_cm": 2.2,
+   "edge_clear_cm": 2.2,
+   "level_deg": 0.16,
    "hidden": {
     "side_left": 0.0
-   }
+   },
+   "max_tilt_deg": 8.7,
+   "proj_stretch_pct": 1.2
   },
   {
    "label": "ПОДБРЮШИНА",
    "name": "label_podbryushina_R",
-   "cap_cm": 2.3,
+   "cap_cm": 2.7,
    "ok": true,
    "centre": [
-    -0.963,
-    0.85,
-    0.45
+    -0.912,
+    -0.18,
+    0.298
    ],
    "status": "OK",
    "size_cm": [
-    23.5,
-    2.3
+    28.0,
+    2.7
    ],
-   "line_clear_cm": 2.5,
-   "decal_clear_cm": 9.9,
-   "edge_clear_cm": 2.4,
-   "level_deg": -0.01,
+   "line_clear_cm": 3.1,
+   "decal_clear_cm": 2.2,
+   "edge_clear_cm": 2.2,
+   "level_deg": 0.15,
    "hidden": {
     "side_right": 0.0
-   }
+   },
+   "max_tilt_deg": 8.5,
+   "proj_stretch_pct": 1.1
   }
  ],
  "regions": [
@@ -2531,9 +2430,10 @@
   "ХРЕБЕТ - roof loop (header line, rail lines, rear-window cross line) - new label",
   "rear window - inside the greenhouse loop behind the rear cross line: glass framed by 1.5-3 cm of paint, no label",
   "ПЯТАЧОК - nose: hood front between the hood cut line and the front cut line over the grille, running on over the fender tops and window frames (between the greenhouse line and the shoulder line) to the rear quarter tops, the trunk lid behind the trunk line (ХВОСТИК) and down the rear panel between the lamps (ГУЗКА): the cut lines do not separate these - they are one band round the greenhouse; the trunk lid's edge and the tail lamps bound its rear part, which carries ХВОСТИК (trunk) and ГУЗКА (rear panel / bumper, between the loop risers, above the rear bumper line) - new label ГУЗКА",
-  "ЛОПАТКА / КОРЕЙКА - the side between the shoulder line and the belly line, from the front cut line behind the headlight to the tail-lamp loop (front fender: ЛОПАТКА + the truffle-hunter pig; rear doors: КОРЕЙКА)",
-  "ЩЕКА - front bumper corner: front cut line, the belly line's riser and lower run, the wheel opening - new label (with the corner URL)",
-  "КРЕСТЕЦ - behind the tail lamp: the loop under the lamp, its riser, the trim fin and the flare's trailing edge (the recess under the flare stays plain pink; the label sits on the bumper's rear corner) - new label",
+  "ЛОПАТКА / КОРЕЙКА - the side between the shoulder line and the belly line, from the front cut line behind the headlight to the belly line's stem, which meets the shoulder line in a T ahead of the tail lamp (front fender: ЛОПАТКА + the truffle-hunter pig; rear doors: КОРЕЙКА)",
+  "between the stem and the tail lamp - the shoulder line's last ~12 cm before it bends down round the lamp, the loop's descent and the flare step's edges close a sliver of the under-cut band (~7 cm tall) and the step's top: too small for a label in the size class with 2 cm of air - no label (as the step's triangle before)",
+  "ЩЕКА - front bumper corner and face beside the outer intake: under the front cut line, above the holo band, from the outer intake to the belly line's riser (now on the corner's outboard part, so the forward-facing face is free) - it carries the corner URL, which has priority: the label is skipped (no room for it with air; the 8-10 cm strip between the riser and the wheel opening, closed by the belly line's lower run, stays plain)",
+  "КРЕСТЕЦ - behind the tail lamp: the loop under the lamp, its riser, the trim fin and the flare's trailing edge (the recess under the flare stays plain pink; the label sits on the bumper corner's vertical rear face under the bumper's fold - one face, projected) - new label",
   "ГРУДИНКА / ОКОРОК / ПОДБРЮШИНА - the lower band (holo) under the belly line and the rear bumper line, round the nose under the intakes: ГРУДИНКА front door, ОКОРОК rear door, ПОДБРЮШИНА new label"
  ],
  "truffle_pig": {
@@ -2609,72 +2509,84 @@
  "corner_urls": {
   "url_corner_R": {
    "c": [
-    -0.9194,
-    -1.8,
-    0.46
+    -0.8189,
+    -1.907,
+    0.4885
    ],
    "type_height_cm": 3.2,
    "width_cm": 23.0,
    "cap_cm": 2.4,
    "status": "OK",
    "view_level_deg": {
-    "front": -33.1,
-    "front34_right": -11.2
+    "front": -17.3,
+    "front34_right": -1.5
    },
-   "wrap_turn_deg": 34.1,
+   "wrap_turn_deg": 23.2,
+   "face_angle_max_deg": 50.6,
+   "front_view_px": [
+    66.8,
+    27.0
+   ],
    "wrap_stretch_pct": [
-    -0.02,
-    4.34
+    -0.52,
+    16.78
    ],
    "hidden": {
     "front": 0.0,
     "front34_right": 0.0,
     "side_right": 0.0
    },
-   "line_clear_cm": 2.2,
-   "edge_clear_cm": 2.2
+   "line_clear_cm": 2.8,
+   "edge_clear_cm": 1.8,
+   "decal_clear_cm": 66.8
   },
   "url_corner_L": {
    "c": [
-    0.9192,
-    -1.8,
-    0.46
+    0.8186,
+    -1.9073,
+    0.4881
    ],
    "type_height_cm": 3.2,
    "width_cm": 21.3,
    "cap_cm": 2.4,
    "status": "OK",
    "view_level_deg": {
-    "front": 31.5,
-    "front34_left": 10.2
+    "front": 16.1,
+    "front34_left": 0.6
    },
-   "wrap_turn_deg": 28.5,
+   "wrap_turn_deg": 23.2,
+   "face_angle_max_deg": 50.6,
+   "front_view_px": [
+    61.3,
+    24.8
+   ],
    "wrap_stretch_pct": [
-    -0.02,
-    4.34
+    -0.46,
+    16.55
    ],
    "hidden": {
     "front": 0.0,
     "front34_left": 0.0,
     "side_left": 0.0
    },
-   "line_clear_cm": 2.8,
-   "edge_clear_cm": 3.2
+   "line_clear_cm": 2.2,
+   "edge_clear_cm": 1.8,
+   "decal_clear_cm": 67.5
   }
  },
  "line_ends": [
-  "shoulder_L: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued)",
-  "tail-lamp loop_L: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [2.46, 3.18] cm min / median), down the rear bumper (riser at |x| 0.45) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (113.5 cm, 9 whole dashes, stretches [0.9966, 1.0, 1.0832, 0.9094, 0.9183, 0.9916])",
+  "shoulder_L: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued); on the way it carries the T of the belly line's stem at y +1.675 (a dash middle, 12.7 cm ahead of the loop's bend: the T dash, a gap, then the dash that bends down); gap middles on every shut line / fuel-flap edge it crosses (y +0.252, +1.223, +1.321, +1.509; the right side's fuel flap mirrored onto the left, so both sides keep one rhythm)",
+  "tail-lamp loop_L: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [2.51, 3.16] cm min / median), down the rear bumper (riser at |x| 0.47) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (114.7 cm, 10 whole dashes); one gap ([10.1] cm of clear paint incl. caps) covers the flare step's fold at the lamp's foot and the stretch the flare's top plate hides in the rear 3/4 view (loop arc [[0.196, 0.241]] m, by ray casting against the body): no loop dash starts or ends behind the plate's silhouette; gap middles on the shut lines it crosses ([-1.492, -0.52, -0.421, -0.233, 0.325, 0.621, 0.749] m); its white keyline runs on with it round the lamp (on the lamp's side, narrowed where the lamp comes close), down the riser and along the rear bumper line to the centreline",
   "front_L: starts as the shoulder line's continuation (above) - behind and under the lamp, along the bumper crease, up the lamp / grille neck, over the grille - and ends on the car's centreline x = 0 in the middle of a dash shared with the mirrored right half - CLOSED; it carries the T of the belly line's front closure (below)",
   "greenhouse_L: starts on the hood centreline (meets the right half there), runs the A-pillar, the roof edge, the C-pillar and the trunk lid to the trunk centreline (meets the right half on the middle of a dash) - CLOSED loop round the greenhouse; the windscreen header and the rear-window cross line join it in Y junctions on its dashes, each crossing the roof to the other side - the roof is a closed cut zone",
-  "belly / swoosh_L: FRONT end - CLOSED: ahead of the front wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises beside the outer intake (4 cm from its wall) to the front cut line under the headlight, which it meets in a T: its last dash ends on the middle of a front-line dash at [0.847, -1.885, 0.553] (46.4 cm, 4 whole dashes); REAR end - CLOSED: from y +1.546 (the middle of one of its gaps) on the rear flare's top step it leaves the flare edge at y +1.70, crosses the step diagonally and lands on the tail-lamp loop in front of the lamp in a T on the middle of a loop dash at [0.759, 1.846, 0.887] (41.3 cm, stretch 1.037); the recess under / behind the flare stays plain pink (the line runs on the flare's step and the body above it, never down the recess)",
-  "rear bumper_L: from the centreline (one dash centred on x = 0, shared with the other half) outboard along the bumper to |x| 0.274, where it turns up into the tail-lamp loop's riser (same line, same dashes) - CONNECTED (its old ends beside the trim fins, with dashes left out there, are gone)",
-  "shoulder_R: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued)",
-  "tail-lamp loop_R: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [2.46, 3.18] cm min / median), down the rear bumper (riser at |x| 0.45) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (113.8 cm, 9 whole dashes, stretches [0.996, 1.0, 1.0832, 0.9094, 0.9183, 0.9796])",
+  "belly / swoosh_L: FRONT end - CLOSED: from the front wheel opening's rear lip it starts with one 6.2 cm dash on the front fender's strip (y [-0.95, -0.854], 0.6 cm of paint air to the lip and to the fender / door step), then a gap middle on each shut line it crosses (y [-0.837, 0.224, 1.188], stretches [1.0479, 1.0217, 0.9761]); ahead of the wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises up the corner's outboard part (y -1.795, outboard of the corner URL) to the front cut line, which it meets in a T: its last dash ends on the middle of a front-line dash at [0.916, -1.795, 0.571] (34.5 cm, 3 whole dashes); REAR end - CLOSED: from y +1.544 (the middle of one of its gaps) on the rear flare's top step it turns in across the step in one arc (radius 0.065 m, from y 1.61) and climbs the body side straight up to the shoulder line, meeting it square - a T at 87.3 deg, its last dash a whole straight 6.1 cm dash ending on the middle of the shoulder dash at [0.786, 1.675, 0.907] (30.7 cm, 3 dashes, stretch 1.0652, smallest turn radius 6.4 cm); the recess under / behind the flare stays plain pink",
+  "rear bumper_L: from the centreline (one dash centred on x = 0, shared with the other half) outboard along the bumper to |x| 0.274, where it turns up into the tail-lamp loop's riser (same line, same dashes) - CONNECTED; the shoulder line's white keyline runs along its upper side to the centreline, where the mirrored keyline carries on",
+  "shoulder_R: front end y -1.420 on the front fender's flare edge - CONNECTED: runs on without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y +1.740 on the crease ahead of the tail lamp - CONNECTED: runs on without a break into the loop round the tail lamp (same dash coordinate, continued); on the way it carries the T of the belly line's stem at y +1.675 (a dash middle, 12.7 cm ahead of the loop's bend: the T dash, a gap, then the dash that bends down); gap middles on every shut line / fuel-flap edge it crosses (y +0.252, +1.223, +1.321, +1.509; the right side's fuel flap mirrored onto the left, so both sides keep one rhythm)",
+  "tail-lamp loop_R: from the shoulder line (y +1.740) down in front of the lamp, under it (side, rear corner, rear face) at 3.2 cm from its outline (measured [2.51, 3.16] cm min / median), down the rear bumper (riser at |x| 0.47) and into the rear bumper line at |x| 0.274 (handover on the middle of one of its gaps, same dash coordinate) - CONNECTED at both ends: shoulder L + loop L + rear bumper line + loop R + shoulder R + front line R + front line L are ONE closed line round the whole car (115.4 cm, 10 whole dashes); one gap ([10.1] cm of clear paint incl. caps) covers the flare step's fold at the lamp's foot and the stretch the flare's top plate hides in the rear 3/4 view (loop arc [[0.196, 0.241]] m, by ray casting against the body): no loop dash starts or ends behind the plate's silhouette; gap middles on the shut lines it crosses ([-1.495, -0.522, -0.422, -0.233, 0.325, 0.621, 0.749] m); its white keyline runs on with it round the lamp (on the lamp's side, narrowed where the lamp comes close), down the riser and along the rear bumper line to the centreline",
   "front_R: starts as the shoulder line's continuation (above) - behind and under the lamp, along the bumper crease, up the lamp / grille neck, over the grille - and ends on the car's centreline x = 0 in the middle of a dash shared with the mirrored right half - CLOSED; it carries the T of the belly line's front closure (below)",
   "greenhouse_R: starts on the hood centreline (meets the right half there), runs the A-pillar, the roof edge, the C-pillar and the trunk lid to the trunk centreline (meets the right half on the middle of a dash) - CLOSED loop round the greenhouse; the windscreen header and the rear-window cross line join it in Y junctions on its dashes, each crossing the roof to the other side - the roof is a closed cut zone",
-  "belly / swoosh_R: FRONT end - CLOSED: ahead of the front wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises beside the outer intake (4 cm from its wall) to the front cut line under the headlight, which it meets in a T: its last dash ends on the middle of a front-line dash at [-0.847, -1.885, 0.553] (46.6 cm, 4 whole dashes); REAR end - CLOSED: from y +1.546 (the middle of one of its gaps) on the rear flare's top step it leaves the flare edge at y +1.70, crosses the step diagonally and lands on the tail-lamp loop in front of the lamp in a T on the middle of a loop dash at [-0.759, 1.846, 0.887] (41.3 cm, stretch 1.037); the recess under / behind the flare stays plain pink (the line runs on the flare's step and the body above it, never down the recess)",
-  "rear bumper_R: from the centreline (one dash centred on x = 0, shared with the other half) outboard along the bumper to |x| 0.274, where it turns up into the tail-lamp loop's riser (same line, same dashes) - CONNECTED (its old ends beside the trim fins, with dashes left out there, are gone)"
+  "belly / swoosh_R: FRONT end - CLOSED: from the front wheel opening's rear lip it starts with one 6.2 cm dash on the front fender's strip (y [-0.95, -0.854], 0.6 cm of paint air to the lip and to the fender / door step), then a gap middle on each shut line it crosses (y [-0.837, 0.224, 1.188], stretches [1.0479, 1.0217, 0.9761]); ahead of the wheel it runs on along the bumper corner at its own height from the wheel opening's edge (y -1.674, a gap middle on the lip), turns up in a round elbow and rises up the corner's outboard part (y -1.795, outboard of the corner URL) to the front cut line, which it meets in a T: its last dash ends on the middle of a front-line dash at [-0.916, -1.796, 0.571] (34.6 cm, 3 whole dashes); REAR end - CLOSED: from y +1.544 (the middle of one of its gaps) on the rear flare's top step it turns in across the step in one arc (radius 0.065 m, from y 1.61) and climbs the body side straight up to the shoulder line, meeting it square - a T at 87.3 deg, its last dash a whole straight 6.1 cm dash ending on the middle of the shoulder dash at [-0.786, 1.675, 0.907] (30.8 cm, 3 dashes, stretch 1.0652, smallest turn radius 6.4 cm); the recess under / behind the flare stays plain pink",
+  "rear bumper_R: from the centreline (one dash centred on x = 0, shared with the other half) outboard along the bumper to |x| 0.274, where it turns up into the tail-lamp loop's riser (same line, same dashes) - CONNECTED; the shoulder line's white keyline runs along its upper side to the centreline, where the mirrored keyline carries on"
  ],
  "shoulder_crease": {
   "L": {
