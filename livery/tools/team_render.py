@@ -7,7 +7,7 @@ Usage:
                            [--width 2400 --height 1350] [--ss 2] [--jobs 4] [--title]
                            [--gap 2.45] [--stagger M] [--dof F] [--exposure E]
                            [--camera az,el,dist[,tx,ty,tz]] [--eye x,y,z --target x,y,z]
-                           [--kn5 path] [--no-interior] [--no-ks-detail] [--fonts DIR]
+                           [--kn5 path] [--no-interior] [--no-ks-detail] [--fonts DIR] [--cache DIR]
 
 Each skin folder is applied to its own instance of the car with every texture override found in
 it (Skin.dds, glass_sticker.dds, caliper.dds, rim_d.dds, tyre_d.dds, ...), exactly like
@@ -32,6 +32,10 @@ echelon, cars overlapping slightly: this preset uses a longer stagger unless --s
 top_pair, and custom (--camera az,el,dist[,target] with az measured from the car front towards
 the car left, or --eye/--target).  Post: SSAA (--ss), bloom, filmic tone mapping, vignette and
 optional depth of field (--dof, 0 = off).  --title adds the team band at the bottom.
+
+Cost: the per-layout visibility (128 shadow maps) takes ~1 min per layout on 4 CPUs (--cache keeps it
+between runs); a 2400x1350 view at --ss 2 renders in ~2-3.5 min, the four views in parallel (--jobs 4)
+in ~4 min with ~1.7 GB per worker.
 
 World space = AC/kn5: x = car LEFT, y = up, z = FRONT.  Writes <view>.png and sheet.png.
 """
@@ -64,7 +68,7 @@ ALL_VIEWS = ["front34_pair", "rear34_pair", "side_pair", "top_pair"]
 PRESETS = {
     "front34_pair": dict(az=34.0, el=6.0, dist=11.0, target=(0.0, 0.62, 0.0), stagger=0.8),
     "rear34_pair": dict(az=214.0, el=8.5, dist=11.0, target=(0.0, 0.66, 0.0), stagger=0.8),
-    "side_pair": dict(az=90.0, el=5.0, dist=15.0, target=(0.0, 0.62, 0.0), stagger=3.6),
+    "side_pair": dict(az=90.0, el=5.0, dist=15.0, target=(0.0, 0.62, 0.0), stagger=4.0),
     "top_pair": dict(az=-90.0, el=80.0, dist=15.0, target=(0.0, 0.3, 0.0), stagger=0.8),
 }
 
@@ -74,7 +78,7 @@ PRESETS = {
 # (F0 = base colour lifted by mt_lift, lobe mt_s rad)
 MAT_DEFAULT = dict(kd=1.0, cc=0.0, cc_s=0.02, sp=0.0, sp_s=0.3, sp_tint=0.0, mt=0.0, mt_s=0.2, mt_lift=0.0)
 MATS = {
-    "skin": dict(cc=1.0, cc_s=0.010, sp=0.5, sp_s=0.28, sp_tint=0.85),       # pearl base + clearcoat
+    "skin": dict(cc=1.0, cc_s=0.010, sp=0.35, sp_s=0.28, sp_tint=0.85),      # pearl base + clearcoat
     "glass_sticker": dict(cc=0.75, cc_s=0.02),
     "ext_sticker": dict(cc=0.75, cc_s=0.02),
     "caliper": dict(cc=1.0, cc_s=0.03),
@@ -378,15 +382,18 @@ class Studio:
         mirror = math.pi - ca                    # where a vertical side panel reflects the camera
         R_ = math.radians
         W_ = lambda v: np.array([v, v, v * 1.03], np.float32)
+        # the strip pair for the side facing away from the camera only shows up mirrored in hoods and
+        # roofs (washing out their decals): dim it when the camera clearly sees one side
+        far = float(np.interp(abs(math.sin(ca)), [0.25, 0.5], [1.0, 0.2]))
         self.lights = [
             # (group, kind, centre az, centre el, half-width u, half-width v, rgb, vertical gradient)
             ("top", "top", 0.0, 0.0, 0.50, 0.72, W_(4.2), 0.0),
-            ("top", "top", 0.0, 0.0, 0.26, 0.50, W_(3.4), 0.0),
+            ("top", "top", 0.0, 0.0, 0.26, 0.50, W_(2.4), 0.0),
             ("strip", "azel", mirror, R_(9), R_(48), R_(1.4), W_(30.0), 0.0),
-            ("strip", "azel", -mirror, R_(9), R_(48), R_(1.4), W_(30.0), 0.0),
+            ("strip", "azel", -mirror, R_(9), R_(48), R_(1.4), W_(30.0) * far, 0.0),
             ("strip", "azel", mirror, R_(25), R_(42), R_(1.0), W_(22.0), 0.0),
-            ("strip", "azel", -mirror, R_(25), R_(42), R_(1.0), W_(22.0), 0.0),
-            ("back", "azel", ca + math.pi, R_(30), R_(60), R_(17), W_(0.95), 0.6),
+            ("strip", "azel", -mirror, R_(25), R_(42), R_(1.0), W_(22.0) * far, 0.0),
+            ("back", "azel", ca + math.pi, R_(30), R_(60), R_(17), W_(0.45), 0.5),
             ("rim", "azel", ca + math.pi + R_(68), R_(22), R_(5), R_(20), W_(9.0), 0.0),
             ("rim", "azel", ca + math.pi - R_(68), R_(22), R_(5), R_(20), W_(9.0), 0.0),
             ("fill", "azel", ca, R_(12), R_(45), R_(16), W_(0.42), 0.0),
@@ -395,6 +402,7 @@ class Studio:
         # roof (a photographer shoots through it), so its specular share drops with camera elevation
         self.spec_gains = {"top": float(np.interp(cam_el_deg, [30, 75], [1.0, 0.22]))}
         self.floor_gains = {g: 0.03 for g in ("top", "strip", "back", "rim", "fill")}
+        self.glass_gains = dict(self.spec_gains, strip=0.55)
 
     def radiance(self, d, sig, gains=None):
         d = np.asarray(d, np.float32)
@@ -512,7 +520,7 @@ class Layout:
         offs = []
         for i in range(n_cars):
             k = (n_cars - 1) / 2 - i
-            offs.append(np.array([k * gap, -model.floor_y, (k / max(1, (n_cars - 1) / 2)) * stagger / 2 if n_cars > 1 else 0.0]))
+            offs.append(np.array([k * gap, -model.floor_y, k / ((n_cars - 1) / 2) * stagger / 2 if n_cars > 1 else 0.0]))
         self.offsets = offs
         self.P = np.concatenate([model.P + o for o in offs])
         self.VN = np.concatenate([model.VN] * n_cars)
@@ -537,7 +545,8 @@ class Layout:
         if cache_dir:
             import hashlib
             st = os.stat(model.path)
-            key = f"{model.path}|{st.st_size}|{st.st_mtime}|{model.interior}|{n_cars}|{gap:.4f}|{stagger:.4f}|{VIS_K}|512|v1"
+            offs_key = ";".join(",".join(f"{v:.4f}" for v in o) for o in offs)
+            key = f"{model.path}|{st.st_size}|{st.st_mtime}|{model.interior}|{offs_key}|{VIS_K}|512|v2"
             cache = os.path.join(cache_dir, "vis_" + hashlib.md5(key.encode()).hexdigest()[:16] + ".npy")
         if cache and os.path.exists(cache):
             self.vis = np.load(cache)
@@ -628,7 +637,7 @@ class Camera:
         return normalize(d).astype(np.float32)
 
 
-def preset_camera(name, args, L_target=None):
+def preset_camera(name, args):
     if name == "custom":
         if args.eye and args.target:
             eye = [float(t) for t in args.eye.split(",")]; tgt = [float(t) for t in args.target.split(",")]
@@ -739,7 +748,7 @@ class ShadeCtx:
         occ = (self.occ[tri[:, 0]] * bw[:, 0] + self.occ[tri[:, 1]] * bw[:, 1] + self.occ[tri[:, 2]] * bw[:, 2])
         E = sh_irradiance(self.sh, ns) * occ[:, None]
         so = self.spec_occ(tri, bw, Rd)
-        F = schlick(NV, 0.04)
+        F = np.minimum(schlick(NV, 0.04), 0.55)      # grazing Fresnel limited (lobe width / horizon occlusion)
         out = np.zeros_like(alb)
         Fcc = F * p["cc"] * refl
         mt = p["mt"]
@@ -763,7 +772,8 @@ class ShadeCtx:
             f0 = alb[sel] + (1 - alb[sel]) * p["mt_lift"][sel][:, None]
             fm = f0 + (1 - f0) * schlick(NV[sel], 0.0)[:, None]
             out[sel] += envlobe(sel, p["mt_s"]) * fm * (mt[sel] * (1 - Fcc[sel]))[:, None]
-        return np.nan_to_num(out, nan=0.0, posinf=0.0), pos
+        out = np.minimum(np.nan_to_num(out, nan=0.0, posinf=0.0), 8.0)   # display-white anyway; limits bloom
+        return out, pos
 
     def shade_glass(self, tt, b1, b2, eye):
         """Returns (reflected radiance, transmittance) for the nearest glass layer."""
@@ -774,8 +784,8 @@ class ShadeCtx:
         NV = np.clip((ns * V).sum(1), 0, 1)
         Rd = (2 * NV[:, None] * ns - V).astype(np.float32)
         so = self.spec_occ(tri, bw, Rd)
-        F = schlick(NV, GLASS_F0)
-        r = env.radiance(Rd, 0.004, env.spec_gains)
+        F = np.minimum(schlick(NV, GLASS_F0), 0.6)
+        r = env.radiance(Rd, 0.004, env.glass_gains)
         r = r * so[:, None] + OCC_RAD[None, :] * (1 - so[:, None])
         Tm = np.empty((len(tt), 3), np.float32)
         isl = L.lens[tt]
@@ -789,7 +799,7 @@ class ShadeCtx:
         haze[is_red] = E[is_red] / np.pi * np.array([0.10, 0.006, 0.008], np.float32)
         refl = r * F[:, None] + haze
         T = Tm * (1 - F)[:, None]
-        return np.nan_to_num(refl), T
+        return np.minimum(np.nan_to_num(refl), 8.0), T
 
 
 # ---------------------------------------------------------------- render passes
@@ -901,7 +911,7 @@ def mirror_reflection(ctx, cam, eye, Ws, Hs, ms=0.5):
     cov = (gbm[1] >= 0).astype(np.float32)
     del gbm
     hgt = np.where(cov > 0, np.nan_to_num(mposy, nan=0.0) - FLOOR_Y, 0.0).astype(np.float32)
-    fade = np.exp(-np.maximum(hgt, 0) / 0.65) * (cov > 0)
+    fade = np.exp(-np.maximum(hgt, 0) / 0.55) * (cov > 0)
     mimg = mimg.reshape(Hm, Wm, 3); cov2 = cov.reshape(Hm, Wm); hgt2 = hgt.reshape(Hm, Wm)
     fade2 = fade.reshape(Hm, Wm)
     gy, gx = np.mgrid[0:Hm, 0:Wm]
@@ -936,7 +946,7 @@ def shade_background(ctx, cam, eye, idx, Ws, mb, ms):
     E_up = float(sh_irradiance(ctx.sh, np.array([[0, 1, 0]], np.float32))[0].mean())
     pool = (1.0 + (r / 5.0) ** 2) ** -2.0
     fl = L.floor_light_at(hx, hz)
-    floor_alb = 0.020
+    floor_alb = 0.030
     floor_col = (floor_alb * E_up / np.pi * pool * fl)[:, None] * np.array([1.0, 0.99, 1.0], np.float32)
     # floor reflection: Fresnel x (mirror image of the cars, else the studio)
     cosv = np.clip(-dirs[:, 1], 0, 1)
@@ -951,7 +961,8 @@ def shade_background(ctx, cam, eye, idx, Ws, mb, ms):
     back = (0.010 + 0.022 * glow)[:, None] * np.array([1.0, 0.97, 1.02], np.float32)
     fade_far = np.clip((r - 9.0) / 9.0, 0, 1) ** 1.5
     fade_far = np.where(down, fade_far, 1.0)[:, None]
-    return (floor_rad * (1 - fade_far) + back * fade_far).astype(np.float32)
+    depth = np.where(down, t * (dirs @ cam.f.astype(np.float32)), 1e4).astype(np.float32)
+    return (floor_rad * (1 - fade_far) + back * fade_far).astype(np.float32), depth
 
 
 def render_view(ctx_factory, name, args, log=print):
@@ -967,9 +978,11 @@ def render_view(ctx_factory, name, args, log=print):
     cam_el = math.degrees(math.atan2(dv[1], math.hypot(dv[0], dv[2])))
     ctx = ctx_factory(stagger, cam_az, cam_el)
     L, m = ctx.L, ctx.m
-    margins = (0.075, 0.075, 0.13, 0.28 if args.title else 0.20)
+    margins = (0.07, 0.07, 0.11, 0.25 if args.title else 0.17)
     if name == "top_pair":
         margins = (0.08, 0.08, 0.07, 0.20 if args.title else 0.08)
+    elif name == "side_pair":
+        margins = (0.045, 0.045, 0.12, 0.25 if args.title else 0.17)
     cam.fit(L, Ws, Hs, margins, args.zoom)
     eye = cam.eye.astype(np.float32)
     X, Y, D = cam.project(L.P)
@@ -984,19 +997,33 @@ def render_view(ctx_factory, name, args, log=print):
     mb, ms = mirror_reflection(ctx, cam, eye, Ws, Hs)
     t3 = time.time()
     bg = np.nonzero(gb[1] < 0)[0]
+    want_depth = args.dof > 0
+    if want_depth:
+        depth = np.where(gb[1] >= 0, gb[0], 1e4).astype(np.float32)
     for k in range(0, len(bg), 1_500_000):
         idx = bg[k:k + 1_500_000]
-        img[idx] = shade_background(ctx, cam, eye, idx, Ws, mb, ms)
+        img[idx], dpt = shade_background(ctx, cam, eye, idx, Ws, mb, ms)
+        if want_depth:
+            depth[idx] = dpt
     del mb, bg
     # glass (also over the floor seen through the windows)
-    composite_glass(ctx, gb, img, eye)
+    gh = composite_glass(ctx, gb, img, eye)
+    layer = None
+    if want_depth:
+        layer = np.where(gb[1] >= 0, L.CAR[np.maximum(gb[1], 0)], -1).astype(np.int8)
+        gl = gh[gb[1][gh] < 0]
+        layer[gl] = L.CAR[gb[5][gl]]
+        depth[gl] = gb[4][gl]
     t4 = time.time()
 
     # ---- post: bloom, DOF, tone mapping, vignette, downsample
     img = img.reshape(Hs, Ws, 3)
-    depth = np.where(gb[1] >= 0, gb[0], np.inf).reshape(Hs, Ws) if args.dof > 0 else None
     del gb
-    img = post_process(img, depth, cam, args, ss)
+    dof = None
+    if want_depth:
+        cdep = [float((np.asarray(c) - cam.eye) @ cam.f) for c in L.car_centres]
+        dof = (depth.reshape(Hs, Ws), layer.reshape(Hs, Ws), cdep)
+    img = post_process(img, dof, cam, args, ss)
     out = Image.fromarray(img)
     if ss > 1:
         out = out.resize((W, H), Image.LANCZOS)
@@ -1026,27 +1053,64 @@ def aces(x):
     return np.clip((x * (a * x + b)) / (x * (c * x + d) + e), 0, 1)
 
 
-def post_process(img, depth, cam, args, ss):
+def _dilate_max(a, r):
+    """Max filter of radius r pixels, computed on a 4x max-pooled grid (fast, slightly generous)."""
+    H, W = a.shape
+    k = 4
+    h, w = -(-H // k), -(-W // k)
+    pad = np.zeros((h * k, w * k), a.dtype); pad[:H, :W] = a
+    small = pad.reshape(h, k, w, k).max((1, 3))
+    rs = int(math.ceil(r / k))
+    if rs > 0:
+        small = ndimage.maximum_filter(small, size=2 * rs + 1)
+    return np.repeat(np.repeat(small, k, 0), k, 1)[:H, :W]
+
+
+def depth_of_field(img, depth, layer, car_depths, strength, ss):
+    """Layered depth of field focused on the nearest car: studio layer then each car back to front, every
+    layer blurred by its own circle of confusion (normalized convolution) and composited with its blurred
+    coverage, so a sharp car never bleeds into the blurred background behind it."""
+    Hs, Ws = depth.shape
+    zf = min(car_depths)
+    cmax = 20.0 * ss
+    coc = np.minimum(strength * ss * (Ws / ss / 2400.0) * 9.0 * np.abs(1 - zf / np.maximum(depth, 0.1)), cmax)
+    coc = coc.astype(np.float32)
+    levels = tuple(float(v) * ss for v in (0, 0.75, 1.5, 3, 6, 12, 20))
+    # studio (floor + backdrop): its own blur everywhere (behind the cars the nearby studio blur is used)
+    m = (layer < 0).astype(np.float32)
+    cs = ndimage.gaussian_filter(coc * m, 8 * ss) / np.maximum(ndimage.gaussian_filter(m, 8 * ss), 1e-4)
+    field = np.where(m > 0, coc, cs)
+    st = blur_stack_select(np.concatenate([img * m[..., None], m[..., None]], -1), field, levels)
+    out = st[..., :3] / np.maximum(st[..., 3:4], 1e-4)
+    for c in np.argsort(car_depths)[::-1]:                    # far car first
+        m = (layer == c).astype(np.float32)
+        if not m.any():
+            continue
+        cc = coc * m
+        field = np.maximum(cc, _dilate_max(cc, cmax) * (1 - m))
+        st = blur_stack_select(np.concatenate([img * m[..., None], m[..., None]], -1), field, levels)
+        a = np.clip(st[..., 3:4], 0, 1)
+        out = st[..., :3] + out * (1 - a)
+    return out.astype(np.float32)
+
+
+def post_process(img, dof, cam, args, ss):
     Hs, Ws = img.shape[:2]
-    # optional depth of field: focus on the nearest car centre
-    if args.dof and args.dof > 0:
-        zf = float(np.nanpercentile(depth[np.isfinite(depth)], 25)) if np.isfinite(depth).any() else 10.0
-        dd = np.where(np.isfinite(depth), depth, zf * 3)
-        coc = args.dof * ss * np.abs(1 - zf / np.maximum(dd, 0.1)) * 6.0
-        coc = ndimage.maximum_filter(coc, size=3)
-        img = blur_stack_select(img, np.minimum(coc, 24.0), levels=(0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 24.0))
+    if dof is not None and args.dof > 0:
+        img = depth_of_field(img, dof[0], dof[1], dof[2], args.dof, ss)
     # bloom from the bright part of the HDR image
     k = 4
     h4, w4 = Hs // k, Ws // k
     small = img[:h4 * k, :w4 * k].reshape(h4, k, w4, k, 3).mean((1, 3))
     lum = small.max(2, keepdims=True)
-    bright = small * np.clip((lum - 1.2) / np.maximum(lum, 1e-4), 0, None)
+    bright = small * np.clip((lum - 1.5) / np.maximum(lum, 1e-4), 0, None)
     bloom = np.zeros_like(small)
-    for s, wgt in ((1.5 * ss / k * 2, 0.5), (5.0 * ss / k * 2, 0.3), (16.0 * ss / k * 2, 0.2)):
-        bloom += wgt * np.stack([ndimage.gaussian_filter(bright[..., c], s) for c in range(3)], -1)
+    px = (Ws / ss) / 2400.0 * ss / k                 # one output pixel of a 2400-wide frame, in bloom pixels
+    for s, wgt in ((2.5 * px, 0.5), (8.0 * px, 0.3), (24.0 * px, 0.2)):
+        bloom += wgt * np.stack([ndimage.gaussian_filter(bright[..., c], max(s, 0.5)) for c in range(3)], -1)
     for c in range(3):
         up = ndimage.zoom(bloom[..., c], (Hs / h4, Ws / w4), order=1)
-        img[:up.shape[0], :up.shape[1], c] += 0.10 * up[:Hs, :Ws]
+        img[:up.shape[0], :up.shape[1], c] += 0.07 * up[:Hs, :Ws]
     del bloom, bright, small
     exposure = args.exposure
     # vignette + filmic tone mapping + gamma, in row chunks (memory)
@@ -1234,7 +1298,8 @@ def main():
     ap.add_argument("--exposure", type=float, default=1.0)
     ap.add_argument("--zoom", type=float, default=1.0, help="scale of the auto framing")
     ap.add_argument("--camera", default=None, metavar="az,el,dist[,tx,ty,tz]", help="custom camera (view «custom»)")
-    ap.add_argument("--eye", default=None); ap.add_argument("--target", default=None)
+    ap.add_argument("--eye", default=None, metavar="x,y,z", help="custom camera position (write --eye=-6,1.2,-7 when it starts negative)")
+    ap.add_argument("--target", default=None, metavar="x,y,z", help="custom camera target (with --eye)")
     ap.add_argument("--kn5", default=rr.DEFAULT_KN5)
     ap.add_argument("--no-interior", action="store_true")
     ap.add_argument("--no-ks-detail", action="store_true", help="skip the ksPerPixelMultiMap constant detail colour")
