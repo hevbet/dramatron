@@ -2323,6 +2323,7 @@ GH_RC_CROSS = 0.93          # ... crossing the roof's trim strip at this y (narr
 GH_HD_CROSS = -0.12         # the header crosses it here ...
 GH_HD_JOIN = (-0.03, 0.13)  # ... and lands on the rail line behind it (y range on the rail)
 GH_CLEAR = 0.015            # least clear paint between a dash and any glass / glass frame (client, round 3 item B)
+GH_STRIP_AIR = 0.004        # least paint air from a cross line's dash to the roof's trim strip it crosses (in a gap)
 GH_STAY_X = 0.20            # |x| of the rear wing stays where they go into the trunk lid: the middle of a dash gap
 GH_R_MIN = 0.05             # smallest turn radius of the greenhouse lines (client: >= 5 cm)
 GH_HW = 0.011               # dash half width; narrowed to GH_HW_MIN where the strip is narrow
@@ -2787,9 +2788,24 @@ def paint_greenhouse():
         do = np.minimum(_gh_trees()["out"].query(Cb, distance_upper_bound=0.08)[0], 0.08)
         ix = int(np.argmin(np.where((Lb - Sb) < 0.40, do, 9.0)))
         cross = bool(do[ix] < 0.012)
-        cx[nm] = dict(Cb=Cb, Sb=Sb, Lb=Lb, jn=jn, sgn=-float(hd), ix=ix, cross=cross, t_x=Lb - float(Sb[ix]))
+        Wg, t_x = DASH[1], Lb - float(Sb[ix])
         if cross:
-            CROSS_FREE[nm] = np.abs(Sb - Sb[ix]) < DASH[1] / 2
+            # the stretch where a dash's paint would come within GH_STRIP_AIR of the strip: one gap covers it all - its
+            # middle there, lengthened if the (oblique) crossing is longer than a gap (that stretch of arc is mapped
+            # onto one gap; the dashes keep their length)
+            hw_end = 0.005
+            z_ = np.flatnonzero(((Lb - Sb) < 0.40) & (do < hw_end + GH_STRIP_AIR))
+            seg = np.split(z_, np.flatnonzero(np.diff(z_) > 1) + 1)
+            seg = [g for g in seg if ix in g][0]
+            s0_, s1_ = float(Sb[seg.min()]), float(Sb[seg.max()])
+            Wg = max(DASH[1], (s1_ - s0_) + 2 * hw_end + 0.002)
+            t_x = Lb - 0.5 * (s0_ + s1_)
+            CROSS_FREE[nm] = np.abs((Lb - Sb) - t_x) < Wg / 2
+        Ec = Wg - DASH[1]
+        # (arc from the join -> effective arc, the long gap compressed to one ordinary gap)
+        teff = lambda t, t_x=t_x, Wg=Wg, Ec=Ec: t - Ec * np.clip((t - (t_x - Wg / 2)) / Wg, 0, 1)
+        cx[nm] = dict(Cb=Cb, Sb=Sb, Lb=Lb, jn=jn, sgn=-float(hd), ix=ix, cross=cross, t_x=float(teff(t_x)), teff=teff,
+                      gap_cm=round(Wg * 100, 1))
     # main: anchors along it - a dash centred on the hood centreline; a gap centred on the hood / fender shut line at
     # the A-pillar's foot (the hood half and the fender half of a dash straddling it did not line up); at each cross
     # line's join the phase that puts the gap on the trim strip; a gap centred on the wing stay; the trunk centreline
@@ -2814,11 +2830,13 @@ def paint_greenhouse():
     for nm, c in cx.items():
         Cb, Sb, Lb, sgn = c["Cb"], c["Sb"], c["Lb"], c["sgn"]
         sM = float(sd_main[c["jn"]])
-        anc, tg = [Lb], [[DASH[0] / 2, gap_mid]]
+        Le = float(c["teff"](Lb))
+        anc, tg = [Le], [[DASH[0] / 2, gap_mid]]
         if c["cross"]:
-            anc, tg = [c["t_x"], Lb], [[gap_mid], tg[0]]
+            anc, tg = [c["t_x"], Le], [[gap_mid], tg[0]]
         kt, ksd, kst, chs = _phase_pieces(anc, sM, tg, sign=sgn)
-        curves[nm] = (Cb, np.interp(Lb - Sb, kt, ksd))
+        curves[nm] = (Cb, np.interp(c["teff"](Lb - Sb), kt, ksd))
+        log[nm + "_strip_gap_cm"] = c["gap_cm"]
         kb, tgt = kst[-1], chs[-1]
         log[nm + "_strip_cross_cm"] = round(float(Sb[c["ix"]]) * 100, 1) if c["cross"] else None
         log[nm + "_stretches"] = kst

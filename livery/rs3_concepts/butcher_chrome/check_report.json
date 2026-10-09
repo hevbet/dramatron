@@ -1643,13 +1643,13 @@
    "length_cm": 161.3,
    "truncated": [],
    "hidden": [],
-   "air_lamp_cm": 1.4,
-   "air_grille_cm": 0.8,
-   "air_other_cm": 0.0,
-   "status": "FAIL",
+   "air_lamp_cm": 1.9,
+   "air_grille_cm": 0.9,
+   "air_other_cm": 0.6,
+   "status": "OK",
    "stretch": [
-    0.9749,
-    1.0582
+    0.993,
+    1.0513
    ],
    "neck_cm": 3.4,
    "seam_cm": 1.6,
@@ -1674,13 +1674,13 @@
    "length_cm": 161.2,
    "truncated": [],
    "hidden": [],
-   "air_lamp_cm": 1.4,
-   "air_grille_cm": 0.8,
-   "air_other_cm": 0.0,
-   "status": "FAIL",
+   "air_lamp_cm": 1.8,
+   "air_grille_cm": 0.9,
+   "air_other_cm": 0.5,
+   "status": "OK",
    "stretch": [
-    0.9749,
-    1.0601
+    0.9932,
+    1.0499
    ],
    "neck_cm": 3.4,
    "seam_cm": 1.6,
