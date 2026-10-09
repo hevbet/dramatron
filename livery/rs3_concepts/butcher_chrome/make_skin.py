@@ -2163,6 +2163,171 @@ def eyeliner_checks(C, side, sd, ink, drop=(), hw=None, neck_dash=None):
     return res
 
 
+# -------- client round 5: the lower side line (belly line) is closed at the front. Ahead of the front wheel it runs on
+# along the bumper corner at its own height (2.2 cm above the holo band's keyline) from the wheel opening's front edge
+# to the outer intake, turns up in one round elbow (radius >= BF_R_MIN) and rises beside the intake's outer side wall
+# at a constant gap BF_SLOT_GAP to the front cut line under the headlight, which it meets in a T: its last dash ends
+# on the middle of one of the front cut line's dashes. The bumper corner between the wheel opening, the lower line,
+# the riser and the front cut line is a closed cut (ЩЕКА), the front URL sits in it.
+BF_PARTS = ["front_bumper", "front_bumper_corner", "front_fender"]
+BF_SLOT_GAP = 0.040        # riser centre -> the outer intake's side wall (its visible edge, from the kn5)
+BF_R_MIN = 0.045           # smallest turn radius of the closure (the elbow)
+BF = {}
+CLOSE_LOG = []             # closure lines (front / rear): length, dashes, junctions, checks
+
+
+def paint_curve_line(C, sd, hw, parts, side, drop=()):
+    """dashed line along the dense centre curve C (dash coordinate sd, half width hw per point), on the half of the car
+    of `side`; dashes listed in drop (dash_owner index) left out whole. Returns the texels painted (alpha > 0.5)."""
+    idx = cand(parts)
+    P = POSF[idx]
+    lo, hi = C.min(0) - 0.03, C.max(0) + 0.03
+    m = np.all((P >= lo) & (P <= hi), axis=1) & ((P[:, 0] >= 0) if side == "L" else (P[:, 0] < 0))
+    idx, P = idx[m], P[m]
+    d, j = cKDTree(C).query(P, k=1, distance_upper_bound=0.03)
+    ok = np.isfinite(d)
+    idx, d, j = idx[ok], d[ok], j[ok]
+    s, h = sd[j], np.broadcast_to(hw, sd.shape)[j]
+    if len(drop):
+        keep = ~np.isin(dash_owner(s), list(drop))
+        idx, d, s, h = idx[keep], d[keep], s[keep], h[keep]
+    loc = np.mod(s, DPER)
+    along = np.where(loc < DASH[0], 0.0, np.minimum(loc - DASH[0], DPER - loc))
+    a = smoothstep_aa(np.sqrt(along ** 2 + d ** 2), h)
+    blend(idx, INK, a, obstacle=True)
+    return idx[a > 0.5]
+
+
+def curve_dash_checks(C, sd, hw, surf, side, views, skip=()):
+    """Whole dashes along a painted curve: each dash checked in three strips across its width (centre, +-55 % of the
+    half width) for holes in the outer skin > 1.2 cm (cut by an opening / a panel edge), and in each standard view that
+    faces it for being partly hidden behind another part. Returns (dashes, truncated, hidden)."""
+    S = arclen(C)
+    loc = np.mod(sd, DPER)
+    body = loc < DASH[0]
+    dnum = np.floor(sd / DPER).astype(int)
+    T = np.gradient(C, S, axis=0)
+    T /= np.linalg.norm(T, axis=1, keepdims=True)
+    Nn = surf.N[surf.tree.query(C)[1]]
+    lat = np.cross(Nn, T)
+    lat /= np.linalg.norm(lat, axis=1, keepdims=True)
+    hwv = np.broadcast_to(hw, sd.shape)
+    trunc, dashes = [], []
+    for dn in np.unique(dnum[body]):
+        r = np.flatnonzero(body & (dnum == dn))
+        dashes.append(int(dn))
+        if dn in skip:
+            continue
+        worst = 0.0
+        for off in (-0.55, 0.0, 0.55):
+            q = surf.snap(C[r] + lat[r] * off * hwv[r][:, None])
+            hole = surf.tree.query(q)[0] > 0.0025
+            if hole.any():
+                runs_h = np.split(np.flatnonzero(hole), np.flatnonzero(np.diff(np.flatnonzero(hole)) > 1) + 1)
+                worst = max(worst, max(len(h_) for h_ in runs_h) * float(np.median(np.diff(S))))
+        if worst > 0.012:
+            trunc.append(int(dn))
+    hid = []
+    for v in views:
+        e = VISD["cam"][v][0]
+        r = np.flatnonzero(body)
+        dv = e[None, :] - C[r]
+        dv /= np.linalg.norm(dv, axis=1, keepdims=True)
+        fc = np.einsum("ij,ij->i", dv, Nn[r]) > 0.4
+        if fc.sum() == 0:
+            continue
+        hb = hidden_by_part(C[r[fc]], v)
+        dk = dnum[r[fc]]
+        for dsh in np.unique(dk):
+            nh, ns = int((hb & (dk == dsh)).sum()), int((~hb & (dk == dsh)).sum())
+            if nh > 2 and ns > 4:
+                hid.append((int(dsh), v))
+    return dashes, trunc, hid
+
+
+def belly_front_closure():
+    """Paint the belly line's front closure on both sides (see above); the right side is the left curve mirrored and
+    re-glued, its T on the right front cut line's matching dash."""
+    gap_mid = DASH[0] + DASH[1] / 2
+    surfs = {s: _Surf(BF_PARTS, s, (0.60, -2.10, 0.28), (1.01, -1.55, 0.64)) for s in ("L", "R")}
+    surf = surfs["L"]
+    zb = float(b_curve(np.array([-1.80]))[0][0]) + 0.022           # (B is level ahead of the front wheel)
+    m = (np.abs(surf.P[:, 2] - zb) < 0.002) & (surf.P[:, 0] > 0.85) & (surf.P[:, 1] > -1.80)
+    y_a = float(surf.P[m, 1].max())                                 # the wheel opening's front edge at that height
+    nr = nose_rims()
+    ot = nr["rim_ot"]
+    k = (ot[:, 0] > 0.7) & (ot[:, 0] < 0.9) & (ot[:, 1] > -2.02) & (ot[:, 1] < -1.88) & (ot[:, 2] > 0.28) & \
+        (ot[:, 2] < 0.50)
+    slot = cKDTree(ot[k])
+    ds = slot.query(surf.P)[0]
+    R = []
+    for z in np.arange(zb + 0.045, 0.445, 0.01):
+        q = surf.P[(np.abs(ds - BF_SLOT_GAP) < 0.0015) & (np.abs(surf.P[:, 2] - z) < 0.003) &
+                   (surf.P[:, 1] > -1.93) & (surf.P[:, 1] < -1.80)]
+        if len(q) >= 3:
+            R.append(np.median(q, 0))
+    R = np.array(R)
+    # T: the middle of the front cut line's dash nearest above the riser
+    eC, esd = EYE["L"]["C"], EYE["L"]["sd"]
+    loc = np.mod(esd, DPER)
+    ci = np.flatnonzero((np.abs(loc - DASH[0] / 2) < 0.0025) & (eC[:, 0] > 0.75) & (eC[:, 1] < -1.80) &
+                        (eC[:, 1] > -1.96))
+    iT = int(ci[np.argmin(np.abs(eC[ci, 1] - R[-1, 1]))])
+    PT = eC[iT].copy()
+    run = surf.snap(np.array([[0.95, y, zb] for y in np.arange(y_a - 0.004, -1.861, -0.02)]))
+    G = np.vstack([run, R, PT[None]])
+    w = np.full(len(G), 6.0)
+    w[-1] = 60.0
+    C, r_fit, it = _fit_curve(G, w, surf, r_min=BF_R_MIN)
+    if np.linalg.norm(C[0] - PT) < np.linalg.norm(C[-1] - PT):
+        C = C[::-1]
+    j = int(np.argmin(np.linalg.norm(C - PT, axis=1)))
+    C = C[:j + 1]
+    C[-1] = PT
+    S = arclen(C)
+    L = float(S[-1])
+    a_e = float(S[int(np.argmin(np.abs(C[:, 1] - y_a)))])           # the wheel opening's edge along the curve
+    # last dash ends on the T (its round cap inside the front cut line's dash); a gap middle on the opening's edge
+    sd_T = DASH[0] + 60 * DPER
+    best = None
+    for jj in range(0, 12):
+        kk = (DASH[0] - gap_mid + jj * DPER) / (L - a_e)
+        if kk > 0 and (best is None or abs(kk - 1) < abs(best - 1)):
+            best = kk
+    kk = best
+    sd = sd_T - kk * (L - S)
+    r_min = _fair_radius(C, surf)[0]
+    for s in ("L", "R"):
+        if s == "L":
+            Cs, PTs = C, PT
+        else:
+            Cs = _resample(surfs["R"].snap(C * np.array([-1.0, 1.0, 1.0])), 0.002)
+            eCr, esdr = EYE["R"]["C"], EYE["R"]["sd"]
+            locr = np.mod(esdr, DPER)
+            cir = np.flatnonzero((np.abs(locr - DASH[0] / 2) < 0.0025) & (eCr[:, 0] < -0.75))
+            PTs = eCr[cir[np.argmin(np.linalg.norm(eCr[cir] - PT * np.array([-1.0, 1.0, 1.0]), axis=1))]].copy()
+            jr = int(np.argmin(np.linalg.norm(Cs - PTs, axis=1)))
+            Cs = Cs[:jr + 1]
+            Cs[-1] = PTs
+        Ss = arclen(Cs)
+        sds = sd_T - kk * (Ss[-1] - Ss)
+        hw = np.full(len(Cs), 0.011)
+        ink = paint_curve_line(Cs, sds, hw, BF_PARTS, s)
+        sd_ = "left" if s == "L" else "right"
+        dashes, trunc, hid = curve_dash_checks(Cs, sds, hw, surfs[s], s, [f"front34_{sd_}", f"side_{sd_}", "front"])
+        sgv = np.array([1.0 if s == "L" else -1.0, 1.0, 1.0])
+        air_slot = float(slot.query(Cs * sgv)[0].min() - 0.011)
+        BF[s] = dict(C=Cs, sd=sds, ink=ink, T=PTs)
+        rec = dict(line=f"belly_front_{s}", length_cm=round(float(Ss[-1]) * 100, 1), dashes=len(dashes),
+                   stretch=round(kk, 4), turn_r_min_cm=round(r_min * 100, 1), truncated=trunc, hidden=hid,
+                   start=[round(float(v), 3) for v in Cs[0]], end_T=[round(float(v), 3) for v in PTs],
+                   air_to_intake_wall_cm=round(air_slot * 100, 1), riser_gap_cm=BF_SLOT_GAP * 100,
+                   height_z=round(zb, 3), wheel_edge_y=round(y_a, 3))
+        rec["status"] = "OK" if not trunc and not hid and air_slot >= 0.0075 else "FAIL"
+        CLOSE_LOG.append(rec)
+        print(f"   belly line front closure {s}: {rec}", flush=True)
+
+
 def dash_line(idx, s, d, half_w, on, off, col, phase=0.0):
     per = on + off
     loc = np.mod(s + phase, per)
@@ -3105,10 +3270,81 @@ def frame(normal, up):
     return n, u, r
 
 
+WRAP_LOG = {}
+
+
+def wrap_coords(c, n, idx, axis_r=0.25, dz=0.002, bin_m=0.002):
+    """Art coordinates of texels idx for a decal WRAPPED round a near-vertical curved face (e.g. a bumper corner)
+    instead of projected along one normal: art rows are level (sb = world z - c_z: every row at one height, the
+    baseline parallel to the ground) and along each row sa is the true arc length ON the surface, measured along the
+    horizontal section of the skin at that row's height from the meridian through the centre c (the vertical line of
+    the skin that lies in the direction of c from an axis point axis_r behind the skin). The art is laid onto the
+    surface without stretching however much the face turns under it (no planar foreshortening). sa grows along
+    up x n (the art's left -> right as seen from outside). Returns (sa, sb, on): on = texel belongs to the outer sheet
+    (renderer-visible, facing away from the axis)."""
+    P = POSF[idx]
+    n = np.asarray(n, float)
+    nh = np.array([n[0], n[1], 0.0])
+    nh /= np.linalg.norm(nh)
+    A = np.asarray(c, float)[:2] - nh[:2] * axis_r
+    rd = np.cross(np.array([0.0, 0.0, 1.0]), nh)                # art +x direction (horizontal, along the surface)
+    v = P[:, :2] - A
+    # angle round the axis, 0 on the meridian through c, + toward rd
+    phi = np.arctan2(v @ rd[:2], v @ nh[:2])
+    radial = v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
+    out = OUTER[idx] & ((NRMF[idx, :2] * radial).sum(1) > 0.2) & (np.abs(phi) < 1.4)
+    sa = np.full(len(idx), np.nan)
+    zl = np.round((P[:, 2] - c[2]) / dz).astype(int)
+    for L in np.unique(zl[out]):
+        k = np.flatnonzero(out & (zl == L))
+        if len(k) < 8:
+            continue
+        r_ = np.linalg.norm(v[k], axis=1)
+        dphi = bin_m / max(float(np.median(r_)), 0.05)
+        b = np.floor(phi[k] / dphi).astype(int)
+        ub, inv = np.unique(b, return_inverse=True)
+        mx = np.zeros((len(ub), 2))
+        np.add.at(mx, inv, P[k, :2])
+        cnt = np.bincount(inv, minlength=len(ub))[:, None]
+        mx /= cnt
+        pb = np.zeros(len(ub))
+        np.add.at(pb, inv, phi[k])
+        pb /= cnt[:, 0]
+        # (texel noise: a light smoothing of the section polyline, then its arc length from phi = 0)
+        if len(mx) > 5:
+            mx = ndimage.uniform_filter1d(mx, 3, axis=0, mode="nearest")
+        arc = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(mx, axis=0), axis=1))])
+        a0 = float(np.interp(0.0, pb, arc))
+        sa[k] = np.interp(phi[k], pb, arc) - a0
+    ok = out & np.isfinite(sa)
+    return np.where(ok, sa, 0.0), P[:, 2] - c[2], ok
+
+
+def wrap_stretch(idx_painted, sa_of, sb_of):
+    """distortion of a wrapped decal on the surface: for neighbouring painted texels (k-NN, ~4-8 mm apart) the ratio of
+    their distance in art coordinates to their 3D distance; returns (median - 1, worst |ratio - 1| of the 98th
+    percentile) in %"""
+    P = POSF[idx_painted]
+    if len(P) < 50:
+        return 0.0, 0.0
+    sel = np.arange(0, len(P), max(1, len(P) // 4000))
+    d3, j = cKDTree(P).query(P[sel], k=60)
+    j = np.minimum(j, len(P) - 1)
+    da = np.hypot(sa_of[j] - sa_of[sel][:, None], sb_of[j] - sb_of[sel][:, None])
+    ok = np.isfinite(d3) & (d3 > 0.004)
+    if ok.sum() < 20:
+        return 0.0, 0.0
+    rat = da[ok] / d3[ok]
+    return round(float(np.median(rat) - 1) * 100, 2), round(float(np.percentile(np.abs(rat - 1), 98)) * 100, 2)
+
+
 def decal(name, art, center, normal, up, ppm, parts, side=None, depth_tol=0.09, paint_angle=82, check_angle=48,
-          min_clear_cm=1.0, check=True, obstacle_check=True, kind="logo", dry=False, keepout=None, occl_views=None):
+          min_clear_cm=1.0, check=True, obstacle_check=True, kind="logo", dry=False, keepout=None, occl_views=None,
+          wrap=False):
     """Project RGBA `art` (ppm pixels per metre) onto the body along `normal`, art 'up' = `up` (world).
-    Returns painted texel indices. Records a check: footprint coverage, edge clearance, tilt, line clearance."""
+    Returns painted texel indices. Records a check: footprint coverage, edge clearance, tilt, line clearance.
+    wrap=True: the art is wrapped round the curved face instead (wrap_coords: level rows, true arc length along each
+    row - no stretching where the face turns); `normal` then only gives the facing at the centre."""
     n, u, r = frame(normal, up)
     c = np.asarray(center, float)
     W, H = art.size
@@ -3120,9 +3356,13 @@ def decal(name, art, center, normal, up, ppm, parts, side=None, depth_tol=0.09, 
     P = POSF[idx]
     rel = P - c
     sa, sb, dep = rel @ r, rel @ u, rel @ n
+    cosn = NRMF[idx] @ n
+    if wrap:
+        sa, sb, on = wrap_coords(c, n, idx)
+        dep = np.where(on, 0.0, 9.0)                         # (only the outer sheet carries the art)
+        cosn = np.where(on, 1.0, -1.0)                       # (the art follows the surface: no projection tilt)
     px = (sa / wm + 0.5) * W - 0.5
     py = (0.5 - sb / hm) * H - 0.5
-    cosn = NRMF[idx] @ n
     m = (px > -2) & (px < W + 1) & (py > -2) & (py < H + 1) & (np.abs(dep) < depth_tol) & (cosn > math.cos(math.radians(paint_angle)))
     a = np.asarray(art.convert("RGBA")).astype(np.float32) / 255.0
     pre = a.copy()
@@ -3141,6 +3381,14 @@ def decal(name, art, center, normal, up, ppm, parts, side=None, depth_tol=0.09, 
         CHECKS.append(_check(name, art, a[..., 3], c, n, u, r, wm, hm, idx, sa, sb, dep, cosn, depth_tol,
                              check_angle, painted, parts, side, min_clear_cm, obstacle_check, kind, keepout,
                              occl_views))
+        if wrap and len(painted):
+            # wrapped: no projection tilt; report how much the face turns under the art and the measured stretch
+            pk = al > 0.05
+            nn = NRMF[sel[pk]]
+            nh_ = np.array([n[0], n[1], 0.0]) / max(1e-9, math.hypot(n[0], n[1]))
+            yaw = np.degrees(np.arctan2(nn[:, :2] @ np.array([-nh_[1], nh_[0]]), nn[:, :2] @ nh_[:2]))
+            st = wrap_stretch(sel[pk], sa[m][pk], sb[m][pk])
+            CHECKS[-1].update(wrapped=True, wrap_turn_deg=round(float(np.ptp(yaw)), 1), wrap_stretch_pct=list(st))
     if kind == "number":       # what lies under the plate: another driver's digits are painted on the same plate later
         NUM_UNDER[name] = (sel[keep], CAN[sel[keep]].copy())
     blend(sel[keep], rgb[keep], al[keep])
@@ -3647,6 +3895,8 @@ def paint_body():
               f"centreline, stretch {k1:.4f} / {k2:.4f}, neck {E['neck_cm']} cm wide, smallest turn radius "
               f"{E['r_min_cm']} cm, guide deviation {E['dev_cm']} cm, dashes left out {sorted(drop)}", flush=True)
 
+    # --- client round 5: the belly line is closed at the front (bumper corner -> riser -> T on the front cut line)
+    belly_front_closure()
     # --- greenhouse lines (hood cut line -> A-pillars -> roof edges -> C-pillars -> trunk lid, roof cross lines): they
     #     no longer touch the shoulder line (no hood -> shoulder T-junction, no pillar landing at the mirror / door corner)
     paint_greenhouse()
@@ -4084,33 +4334,7 @@ def top_decals():
     decal_fit("label_sheika_hood", lambda h: cut_label("ШЕЙКА", px(h)), [0.075, 0.070, 0.065, 0.060, 0.055, 0.050],
               lambda h: top_cands((0.0,), (-1.19, -1.18, -1.20, -1.17, -1.21), hood, (0, 1, 0), r=0.08),
               ppm=PPM, parts=hood, kind="text", tilt_gate=10.0, line_min=2.0)      # >= 2 cm air to the hood cut line
-    # ГОСТ meat stamp (moved from the roof): oval double ring, violet worn ink, struck at GOST_ANGLE on a flat part of
-    # the hood beside the Симкарт tag, read from the front; 28-30 cm across (the largest that fits), projected along the
-    # hood's mean normal there (the oval keeps its shape), >= 2 cm from the Симкарт tag, ШЕЙКА, ПЯТАЧОК, every dashed
-    # line, and from the vent cut-out / hood edges
-    def gc(w):
-        out = []
-        hi = cand(["hood"])
-        for x in (0.42, 0.43, 0.41, 0.44, 0.40, 0.45, 0.39, 0.46):
-            for y in (-1.38, -1.37, -1.39, -1.36, -1.40, -1.35, -1.41):
-                for sg in (1,):
-                    c = surf_point("top", sg * x, y, ["hood"])
-                    # the hood's own visible top skin around the centre (not its inner flanges under it)
-                    k = (np.linalg.norm(POSF[hi] - c, axis=1) < 0.08) & (NRMF[hi, 2] > 0.3) & OUTER[hi]
-                    nv = NRMF[hi[k]].mean(0)
-                    out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 1, 0)))
-        return out
-    # sizes: the oval's own long axis (the art is drawn GOST_OVAL of its unrotated width across, inset by the ring
-    # width, then turned and cropped - the old sizes were the art width, so the oval came out ~27 cm): 28-30 cm
-    decal_fit("gost_hood", lambda w: gost_stamp(px(w / GOST_OVAL)), [0.300, 0.295, 0.290, 0.285, 0.280], gc,
-              ppm=PPM, parts=["hood"], kind="logo", depth_tol=0.015, min_clear_cm=2.0, air=2.0, line_min=2.0,
-              deco_min=2.0, occl_views=["front", "front34_left", "front34_right"])
-    # Симкарт night plate (+ thin holo pinstripe), read from the front, clear of the vent cut-out and the stamp
-    decal_fit("simkart_hood", lambda w: asset_simkart_tag(px(w), pin=True), [0.58, 0.57, 0.56, 0.55, 0.54, 0.53, 0.52,
-                                                                              0.51, 0.50],
-              lambda w: top_cands((-0.06, -0.05, -0.07, -0.04, -0.08, -0.03), (-1.43, -1.42, -1.44, -1.41, -1.45), hood,
-                                  (0, 1, 0), r=0.15),
-              ppm=PPM, parts=hood, depth_tol=0.05, air=1.5, line_min=2.0, deco_min=2.0)
+    hood_decals()
     # ЛОПАТКА (shoulder): on the side face of the front fender behind the wheel arch, under the shoulder cut line
     # (which now runs on the flare's top edge, z ~0.80: the label's centre candidates are 2.5-4.5 cm lower than before).
     # (it used to sit on the fender top, which rises ~6 deg toward the windscreen: projected there the word followed
@@ -4143,6 +4367,92 @@ def top_decals():
                                           ((0.37, 0.40), (-1.30, -1.26), 0.024, hood), ((-0.37, -0.40), (-1.62, -1.58), 0.018, hood))):
         place_fx(f"sparkle_top{k}", sparkle(px(rr)), top_cands(xs, ys, pp, (0, 1, 0), normal="z"), ppm=PPM, parts=pp)
     trunk_tail()
+
+
+HOOD_LOG = {}
+GOST_ANGLES = (23.0, 18.0, -18.0, 13.0)   # «casually slapped»: 10-25 deg (round 5 search: +23 holds the largest oval)
+GOST_SIZES = (0.260, 0.240, 0.230, 0.220, 0.215, 0.210, 0.205, 0.200, 0.190, 0.180)
+
+
+def hood_decals():
+    """Hood (client round 5, item 6). The Симкарт night plate is centred on the car's centreline: its centre on x = 0,
+    projected along the hood's normal there with the lateral component removed (the hood is symmetric, so the plate's
+    horizontal axis is square across the car and its centre stays on x = 0 in the front and top views); the largest
+    plate from its current 0.58 m up to 0.62 m that keeps >= 2 cm to ШЕЙКА, the hood cut line, the vent cut-out and
+    ПЯТАЧОК. The ГОСТ meat stamp is then struck wherever it fits like a casually slapped inspection stamp: off-centre on
+    the car-left half of the hood, turned 10-25 deg (searched both ways), the largest oval 22-30 cm across that keeps
+    >= 1.5 cm to the plate, ШЕЙКА, ПЯТАЧОК and every line and is never clipped by the hood's edge / shut line (full
+    footprint on the hood skin, >= 1.5 cm to its edge); projected along the hood's own normal under it (the oval keeps
+    its shape), its letters never mirrored."""
+    hood = ["hood"]
+    hi = cand(hood)
+
+    def hood_normal(c, r=0.08, lateral=True):
+        k = (np.linalg.norm(POSF[hi] - c, axis=1) < r) & (NRMF[hi, 2] > 0.3) & OUTER[hi]
+        nv = NRMF[hi[k]].mean(0)
+        if not lateral:
+            nv[0] = 0.0
+        return tuple(nv / np.linalg.norm(nv))
+
+    def sc(w):
+        out = []
+        for y in (-1.43, -1.42, -1.44, -1.41, -1.45, -1.40, -1.46, -1.39, -1.47):
+            c = surf_point("top", 0.0, y, hood)
+            c = (0.0, float(c[1]), float(c[2]))
+            out.append((c, hood_normal(c, 0.15, lateral=False), (0, 1, 0)))
+        return out
+    size, best = decal_fit("simkart_hood", lambda w: asset_simkart_tag(px(w), pin=True),
+                           [0.62, 0.61, 0.60, 0.59, 0.58, 0.57, 0.56, 0.55, 0.54, 0.53, 0.52], sc,
+                           ppm=PPM, parts=hood, depth_tol=0.05, air=2.0, line_min=2.0, deco_min=2.0,
+                           occl_views=["front", "top", "front34_left", "front34_right"])
+    HOOD_LOG["simkart"] = dict(size_m=size, centre=[round(float(v), 4) for v in best[0]])
+    r = CHECKS[-1]
+    P_ = POSF[PAINTED["simkart_hood"]]
+    HOOD_LOG["simkart"]["x_extent"] = [round(float(P_[:, 0].min()), 4), round(float(P_[:, 0].max()), 4)]
+    for v in ("front", "top"):
+        e, f, rgt, up, mx, my, fpx, Ws, Hs = VISD["cam"][v]
+        rel = P_ - e
+        X = (rel @ rgt) / (rel @ f)
+        rel0 = np.array([0.0, best[0][1], best[0][2]]) - e
+        x0 = (rel0 @ rgt) / (rel0 @ f)
+        HOOD_LOG["simkart"][f"centre_offset_px_{v}"] = round(float(((X.min() + X.max()) / 2 - x0) * fpx / 2), 2)
+
+    # ГОСТ stamp: candidates over the car-left half of the hood (beside the plate and beside the vent), every angle
+    def gc(w):
+        out = []
+        # (the plate fills the flat middle of the hood; outboard of x ~0.53 the hood rolls 30+ deg into its side
+        #  crease and beside the vent it slopes as much - the flat strip beside the plate is where a stamp lies flat)
+        for x in np.arange(0.40, 0.4801, 0.01):
+            for y in np.arange(-1.33, -1.541, -0.03):
+                c = surf_point("top", float(x), float(y), hood)
+                out.append((c, hood_normal(c), (0, 1, 0)))
+        return out
+    cache = {}
+
+    def gc_cached(w):
+        if "c" not in cache:
+            cache["c"] = gc(w)
+        return cache["c"]
+    found = None
+    for ang in GOST_ANGLES:
+        size_, ok, best_, art, rep = fit_search(
+            "gost_hood", lambda w, a=ang: gost_stamp(px(w / GOST_OVAL), angle=a), list(GOST_SIZES), gc_cached,
+            ppm=PPM, parts=hood, kind="logo", depth_tol=0.015, min_clear_cm=1.5, air=2.0, line_min=2.0,
+            deco_min=2.0, occl_views=["front", "top", "front34_left", "front34_right"])
+        print(f"   gost_hood @ {ang:+.0f} deg: {size_} m {'OK' if ok else 'NO FIT'} at {np.round(best_[0], 3)}", flush=True)
+        if ok and (found is None or size_ > found[0] + 1e-9):
+            found = (size_, ang, best_, art)
+        if ok and size_ >= GOST_SIZES[0] - 1e-9:
+            break
+    if found is None:
+        found = (size_, ang, best_, art)
+    size_, ang, (c, n, u), art = found
+    decal("gost_hood", art, c, n, u, ppm=PPM, parts=hood, kind="logo", depth_tol=0.015, min_clear_cm=1.5,
+          occl_views=["front", "top", "front34_left", "front34_right"])
+    HOOD_LOG["gost"] = dict(size_m=size_, angle_deg=ang, centre=[round(float(v), 4) for v in c],
+                            status=CHECKS[-1]["status"])
+    print(f"   hood: Симкарт plate {size * 100:.0f} cm centred on x = 0 ({HOOD_LOG['simkart']}); ГОСТ {size_ * 100:.0f} cm "
+          f"turned {ang:+.0f} deg at {np.round(c, 3)} -> {CHECKS[-1]['status']}", flush=True)
 
 
 def trunk_tail():
@@ -4216,108 +4526,7 @@ def rear_front_decals():
     decal_fit("label_pyatachok", lambda h: cut_label("ПЯТАЧОК", px(h), underline=False),
               [0.034, 0.032, 0.030, 0.028, 0.026, 0.024], pc, ppm=PPM, parts=hood, kind="text", min_clear_cm=0.8,
               check_angle=40, tilt_gate=10.0, line_min=2.0)          # >= 2 cm to the nose cut line over the grille
-    splitter_urls()
-    # (front bumper corners: no Симкарт line - outboard of the intakes the corner is ~10 cm wide and turns > 40 deg,
-    #  every candidate failed the flatness / edge gates)
-
-
-SPL_X = (0.44, 0.70)         # front URLs: centre |x| range searched - the forward-facing bumper face beside each outer
-#                             intake, between the intake's top edge and the nose cut line (a flat, vertical face yawed
-#                             ~27 deg outboard; outboard of |x| ~0.72 it creases into the side-facing corner)
-SPL_Z = (0.455, 0.505)       # ... and centre height range
-SPL_CACHE = {}
-
-
-def splitter_urls():
-    """Front URLs (client round 3 item C, round 4: «still too small»; verifiers: upright and undistorted from the front
-    and front 3/4, not on the side-facing corners). «simkarting.ru» (car's right) and «karting64.ru» (left), each on a
-    dark INK_D sticker plate (pink hairline) with white type filling it, so it reads as a deliberate sticker on the
-    pink, mirror-symmetric, on the forward-facing face of the bumper between the outer intake's top edge and the nose
-    cut line - the biggest forward-facing skin area of the lower nose. Where they cannot go:
-    - the carbon blade (Circle.004_SUB0, ext_plastic.dds): that region of ext_plastic.dds is shared with 14 other
-      meshes (rear wing, lower grille piece, mirrors ...), so it is not overridden;
-    - the painted lip above it (zone 'front_splitter', safe_center [2039, 4004]): under the grille it is 1-2 cm tall,
-      under the intakes it runs diagonally (~27 deg down outboard) - level it holds no box taller than ~2.5 cm;
-    - the outer corner faces (the previous spot): they face sideways (~65 deg from the front), so from the front the
-      type is squeezed to ~40 % and, seen from above, tilted 25-30 deg.
-    Measured on the position map (front elevation, renderer-visible skin facing the front camera, >= 1 cm to every cut
-    line / keyline, >= 0.6 cm to an opening): the largest level forward-facing rectangle anywhere on the lower nose is
-    ~3 x 22 cm / 2.5 x 29 cm (this face); nothing forward-facing holds 4.5-5 cm cap height (that needs ~6 x 35 cm)
-    without moving the nose cut line. Projection along the face's own normal (no distortion on the surface), art up =
-    world z: the baseline is level in 3D, parallel to the intake's top edge; seen from the front the face's 27 deg
-    yaw makes it recede ~7 deg in the elevated front camera, in that side's front 3/4 view it is square to the eye.
-    Gates: flat (<= 12 deg), >= 0.5 cm to the panel edges, >= 1.0 cm to every cut line / keyline, >= 3 cm to other
-    decals, fully seen in the front view and that side's 3/4 view; as large as passes on both sides, one size."""
-    sp = ["front_bumper", "front_bumper_corner"]
-
-    def cands(sg):
-        def f(h):
-            if (sg, "c") not in SPL_CACHE:
-                out = []
-                Q = POSF[cand(sp)]
-                Q = Q[(Q[:, 1] < -1.75)]
-                for x in np.arange(SPL_X[0], SPL_X[1] + 1e-6, 0.02):
-                    for z in np.arange(SPL_Z[0], SPL_Z[1] + 1e-6, 0.005):
-                        m = (np.abs(Q[:, 0] - sg * x) < 0.006) & (np.abs(Q[:, 2] - z) < 0.003)
-                        if not m.any():
-                            continue
-                        c = (sg * x, float(Q[m][:, 1].min()), float(z))
-                        nv = mean_normal(c, sp, None, 0.05)
-                        out.append((c, tuple(nv), (0, 0, 1)))
-                SPL_CACHE[(sg, "c")] = out
-            return SPL_CACHE[(sg, "c")]
-        return f
-
-    def art(txt):
-        def f(h):                      # h = plate height (m); the type's x-height + ascender + descender fill ~70 %
-            th = px(h * 0.70)
-            m = text_mask(txt, F_SPON(max(8, int(th * 1.30))))
-            m = m.crop(m.getbbox())
-            m = m.resize((max(1, round(m.width * th / m.height)), th), Image.LANCZOS)
-            t = solid(m, WHITE)
-            padx, pady = max(2, px(h * 0.30)), max(2, (px(h) - th) // 2)
-            return pill(t, padx, pady, INK_D, line=(255, 214, 232), lw=max(2, px(0.0016)))
-        return f
-    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.025, min_clear_cm=0.5, tilt_gate=12.0, line_min=1.0,
-              deco_min=3.0, check_angle=60)
-    sizes = [0.050, 0.045, 0.042, 0.040, 0.038, 0.036, 0.035, 0.034, 0.033, 0.032, 0.031, 0.030, 0.029, 0.028,
-             0.027, 0.026, 0.025, 0.024, 0.023, 0.022]
-    jobs = (("url_splitter_R", SIMKART_URL, -1, "front34_right"), ("url_splitter_L", K64_URL, 1, "front34_left"))
-    fits = [fit_search(nm, art(t), sizes, cands(sg), occl_views=["front", v], **kw) for nm, t, sg, v in jobs]
-    h = min(f[0] for f in fits)
-    # one common size and one mirror-symmetric position: the (|x|, z) whose worse side scores best
-    kwd = {k: v_ for k, v_ in kw.items() if k not in ("tilt_gate", "line_min", "deco_min")}
-    score = {}
-    for nm, t, sg, v in jobs:
-        a_ = art(t)(h)
-        for c, n, u in cands(sg)(h):
-            r = decal(nm, a_, c, n, u, dry=True, occl_views=["front", v], **kwd)
-            ok, sc = _gates(r, kw, kw["tilt_gate"], kw["line_min"], 0.0)
-            ok = ok and r.get("decal_clear_cm", 99) >= kw["deco_min"]
-            key = (round(abs(c[0]), 3), round(c[2], 4))
-            score.setdefault(key, {})[sg] = (sc if ok else sc - 1000, (c, n, u))
-    pairs = [(min(d[-1][0], d[1][0]), k) for k, d in score.items() if len(d) == 2]
-    best_sc, key = max(pairs)
-    for nm, t, sg, v in jobs:
-        c, n, u = score[key][sg][1]
-        a_ = art(t)(h)
-        decal(nm, a_, c, n, u, occl_views=["front", v], **kwd)
-        rep = CHECKS[-1]
-        ang = _view_level(PAINTED[nm], ["front", v])
-        rep["view_level_deg"] = ang
-        SPL_LOG[nm] = dict(c=[round(float(q), 4) for q in c], size=h, status=rep["status"], view_level_deg=ang)
-        print(f"   {nm}: «{t}» plate {h * 100:.1f} cm ({a_.width / PPM * 100:.1f} cm wide), type {h * 70:.1f} cm "
-              f"(cap ~{h * 50:.1f} cm) at {np.round(c, 3)} -> {rep['status']} tilt={rep['max_tilt_deg']} "
-              f"edge={rep['edge_clear_cm']} line={rep.get('line_clear_cm')} hidden={rep.get('hidden_frac')} "
-              f"baseline in the views {ang}", flush=True)
-    URL_NOTES.append(f"front bumper, forward-facing face beside each outer intake (|x| {key[0]:.3f}, z {key[1]:.3f}, "
-                     f"mirror-symmetric): «{SIMKART_URL}» right / «{K64_URL}» left on dark INK_D sticker plates "
-                     f"{h * 100:.1f} cm tall, white type filling them ({h * 70:.1f} cm incl. ascenders / descenders, "
-                     f"cap height ~{h * 50:.1f} cm), level in 3D (art up = world z, projected along the face's normal: "
-                     f"no distortion); baseline as seen: " + ", ".join(f"{k} {v}" for k, v in SPL_LOG.items()) +
-                     "; the largest level forward-facing rectangle of the lower nose clear of the nose cut line is ~3 x "
-                     "22 cm, so 4.5-5 cm cap height does not fit anywhere forward-facing (lip: <= 2.5 cm level; blade: "
-                     "shared ext_plastic.dds region, not overridden; corner faces: side-facing)")
+    corner_urls()
 
 
 def _view_level(painted, views):
@@ -4342,6 +4551,85 @@ def _view_level(painted, views):
 
 
 SPL_LOG = {}
+URL_CORNER_SIZES = [round(0.060 - 0.002 * i, 3) for i in range(16)]       # art height (ascender to descender), m
+
+
+def url_art(txt, h):
+    """a web address in the livery URL face (Exo 2 ExtraBold Italic), maroon ink, h = height of the type (top of the
+    ascenders to the bottom of the descenders), uniform scale"""
+    m = text_mask(txt, F_SPON(max(8, int(px(h) * 1.35))))
+    m = m.crop(m.getbbox())
+    m = m.resize((max(1, round(m.width * px(h) / m.height)), px(h)), Image.LANCZOS)
+    return solid(pad(m, 6), INK)
+
+
+def corner_urls():
+    """Front URLs (client round 5, item 3): «simkarting.ru» on the car-right and «karting64.ru» on the car-left front
+    bumper corner - the rounded pink corner face outboard of the outer intake, below the headlight, above the holo
+    band, inside the closed cut formed by the front cut line, the belly line's closure riser / lower run and the wheel
+    opening. Maroon ink in the livery URL face, straight on the pink (no plate). The corner turns ~25 deg under the
+    type, so it is WRAPPED onto the surface (wrap_coords): every row level with the ground, each row laid along the
+    skin with its true arc length - no stretching where the face turns. As large as passes on BOTH sides (one size,
+    mirror-symmetric position): >= 2 cm to every cut line / keyline, >= 1.5 cm to the wheel opening and the intake,
+    >= 3 cm to other decals, fully visible in the front view and that side's front 3/4 view."""
+    sp = ["front_bumper_corner", "front_bumper", "front_fender"]
+    jobs = (("url_corner_R", SIMKART_URL, "R", "front34_right"), ("url_corner_L", K64_URL, "L", "front34_left"))
+    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.09, min_clear_cm=1.5, wrap=True)
+    gate = dict(tilt_gate=90.0, line_min=2.0, air=1.5, deco_min=3.0)
+    cache = {}
+
+    def cands(s):
+        def f(h):
+            if s not in cache:
+                out = []
+                sg = 1 if s == "L" else -1
+                for y in (-1.79, -1.78, -1.80, -1.77, -1.81, -1.76, -1.82):
+                    for z in (0.430, 0.440, 0.420, 0.450, 0.410, 0.460):
+                        c = surf_point("side", y, z, sp, s)
+                        nv = mean_normal(c, sp, s, 0.05)
+                        out.append((tuple(c), tuple(nv), (0, 0, 1)))
+                cache[s] = out
+            return cache[s]
+        return f
+    fits = {s: fit_search(nm, lambda h, t=t: url_art(t, h), URL_CORNER_SIZES, cands(s),
+                          occl_views=["front", v], **gate, **kw) for nm, t, s, v in jobs}
+    h = min(f[0] for f in fits.values())
+    # one common size and one mirror-symmetric position: the (y, z) whose worse side scores best
+    score = {}
+    for nm, t, s, v in jobs:
+        a_ = url_art(t, h)
+        for c, n, u in cands(s)(h):
+            r = decal(nm, a_, c, n, u, dry=True, occl_views=["front", v], **kw)
+            ok, sc = _gates(r, dict(kw, **{"min_clear_cm": 1.5}), gate["tilt_gate"], gate["line_min"], gate["air"])
+            ok = ok and r.get("decal_clear_cm", 99) >= gate["deco_min"]
+            score.setdefault((round(c[1], 3), round(c[2], 3)), {})[s] = (sc if ok else sc - 1000, (c, n, u))
+    pairs = [(min(d["L"][0], d["R"][0]), k) for k, d in score.items() if len(d) == 2]
+    best_sc, key = max(pairs)
+    for nm, t, s, v in jobs:
+        c, n, u = score[key][s][1]
+        a_ = url_art(t, h)
+        decal(nm, a_, c, n, u, occl_views=["front", v, "side_left" if s == "L" else "side_right"], **kw)
+        rep = CHECKS[-1]
+        ang = _view_level(PAINTED[nm], ["front", v])
+        rep["view_level_deg"] = ang
+        f_ = F_SPON(400)
+        cap = h * (f_.getbbox("k")[3] - f_.getbbox("k")[1]) / (f_.getbbox("simkarting.ru")[3] - f_.getbbox("simkarting.ru")[1])
+        SPL_LOG[nm] = dict(c=[round(float(q), 4) for q in c], type_height_cm=round(h * 100, 1),
+                           width_cm=round(a_.width / PPM * 100, 1), cap_cm=round(cap * 100, 1), status=rep["status"],
+                           view_level_deg=ang, wrap_turn_deg=rep.get("wrap_turn_deg"),
+                           wrap_stretch_pct=rep.get("wrap_stretch_pct"), hidden=rep.get("hidden_frac"),
+                           line_clear_cm=rep.get("line_clear_cm"), edge_clear_cm=rep.get("edge_clear_cm"))
+        print(f"   {nm}: «{t}» {SPL_LOG[nm]}", flush=True)
+    L_, R_ = SPL_LOG["url_corner_L"], SPL_LOG["url_corner_R"]
+    URL_NOTES.append(f"front bumper outer corners (the closed ЩЕКА cut outboard of each outer intake, mirror-symmetric "
+                     f"at y {key[0]:+.3f}, z {key[1]:.3f}): «{SIMKART_URL}» car-right / «{K64_URL}» car-left, maroon "
+                     f"ink in the URL face on the pink, type {h * 100:.1f} cm tall (cap ~{L_['cap_cm']} cm), "
+                     f"{R_['width_cm']} / {L_['width_cm']} cm long; wrapped round the corner (the face turns "
+                     f"{L_['wrap_turn_deg']} deg under the type): rows level, arc-length true - measured stretch "
+                     f"{L_['wrap_stretch_pct']} % (median, 98th pct); fully visible in front + that side's 3/4 view "
+                     f"(hidden {L_['hidden']}); >= {min(L_['line_clear_cm'], R_['line_clear_cm'])} cm to the lines, "
+                     f">= {min(L_['edge_clear_cm'], R_['edge_clear_cm'])} cm to the wheel opening / intake; the old "
+                     f"url_splitter plates beside the intakes are removed")
 GLASS_ALPHA = {}
 
 
