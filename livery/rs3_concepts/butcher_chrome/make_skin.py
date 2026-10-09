@@ -2076,7 +2076,7 @@ def front_line_report():
     the labels nearby"""
     for s in ("L", "R"):
         e = EYE[s]
-        r = eyeliner_checks(e["C"], s, e["sd"], e["ink"], e["drop"], eyeliner_width(e["C"], s), e["neck_dash"])
+        r = eyeliner_checks(e["C"], s, e["sd"], e["ink"], e["drop"], e["hw"], e["neck_dash"])
         r.update(stretch=[round(e["k1"], 4), round(e["k2"], 4)], neck_cm=e["neck_cm"], seam_cm=e["seam_cm"],
                  hw_min_cm=e["hw_min_cm"],
                  r_min_cm=e["r_min_cm"],
@@ -2279,7 +2279,7 @@ def curve_line(ctrl3d, parts, side, half_w, col, dash=None, phase=0.0, resnap_mo
         idx, P, d, j = idx[keep], P[keep], d[keep], j[keep]
     # beyond the curve ends: no paint (rounded end only if dash)
     if dash:
-        dash_line(idx, S[j] * scale, d, half_w, dash[0], dash[1], col, phase)
+        dash_line(idx, scale(S[j]) if callable(scale) else S[j] * scale, d, half_w, dash[0], dash[1], col, phase)
     else:
         hw = half_w
         fade = 1.0
@@ -2523,6 +2523,14 @@ def _cut_at_centre(C, end):
         if C[-2, 0] > 0 > C[-1, 0]:
             C[-1] = C[-2] + (C[-1] - C[-2]) * (C[-2, 0] / (C[-2, 0] - C[-1, 0]))
         C[-1, 0] = 0.0
+    # the cut can leave one long last / first segment (a few cm); the dash painter measures the distance to the
+    # nearest curve SAMPLE, so a long segment shows as a row of dots - fill it with 2 mm samples
+    for e in ("start", "end"):
+        a, b = (C[0], C[1]) if e == "start" else (C[-2], C[-1])
+        n = int(np.linalg.norm(b - a) / 0.002)
+        if n > 1:
+            fill = a[None] + (b - a)[None] * np.linspace(0, 1, n + 1)[1:-1, None]
+            C = np.vstack([C[:1], fill, C[1:]]) if e == "start" else np.vstack([C[:-1], fill, C[-1:]])
     return C
 
 
@@ -2712,7 +2720,7 @@ def _gh_push(C, surf, fixed=None, iters=40, kinds=("ws", "rw", "sd", "out")):
     return C
 
 
-def paint_gh_line(C, sd, side, hw):
+def paint_gh_line(C, sd, side, hw, seam=None):
     """dashed line along C (dash coordinate sd, half width hw per point), on the half of the car of `side`"""
     sg = 1.0 if side == "L" else -1.0
     idx = cand(GH_PARTS)
@@ -2723,6 +2731,13 @@ def paint_gh_line(C, sd, side, hw):
     d, j = cKDTree(C).query(P, k=1, distance_upper_bound=0.03)
     ok = np.isfinite(d)
     idx, d, j = idx[ok], d[ok], j[ok]
+    if seam is not None:
+        # hood / fender: a texel only takes the paint of the curve on its own panel (no ragged spill across the
+        # shut-line groove from the dash before it)
+        Sa = arclen(C)[j]
+        ph = PARTF[idx]
+        bad = ((ph == PID["hood"]) & (Sa > seam + 0.01)) | ((ph == PID["front_fender_top"]) & (Sa < seam - 0.01))
+        idx, d, j = idx[~bad], d[~bad], j[~bad]
     s, h = sd[j], hw[j]
     loc = np.mod(s, DPER)
     along = np.where(loc < DASH[0], 0.0, np.minimum(loc - DASH[0], DPER - loc))
@@ -2753,6 +2768,10 @@ def _phase_pieces(t_anchor, s0, targets, sign=1.0):
         st.append(round(best[0], 4))
         ch.append(best[2])
     return np.array(kt), np.array(ks_), st, ch
+
+
+GH_HOOD_EDGE = 0.008      # the hood's visible edge lies this far before its part change along the line (groove)
+GH_HOOD_GAP = 0.056       # the one gap over the hood / fender shut line (m of arc)
 
 
 def _hood_seam_arc(C):
@@ -2814,18 +2833,28 @@ def paint_greenhouse():
     a_s = float(Sm[ks[-1]])
     a_hf = _hood_seam_arc(main)
     GH["hood_seam_arc"] = a_hf
-    anch = [(a_s, [gap_mid]), (L, [DASH[0] / 2, gap_mid])]
+    # hood / fender shut line: the hood's skin rolls down into the groove, so seen from outside its edge lies ~0.8 cm
+    # before the part change (renders: the groove line at 84.2 cm, the fender from 85.0 cm). One gap, lengthened to
+    # GH_HOOD_GAP, centred between the two: the paint of the dashes either side (round caps incl.) keeps >= 1 cm of
+    # clear paint from the visible shut line and from the fender's edge. (arc -> effective arc: that stretch of arc is
+    # mapped onto one ordinary gap; the dashes keep their length)
+    teff = lambda t: t
     if a_hf:
-        anch.append((a_hf, [gap_mid]))
+        c_g, Wg_ = a_hf - GH_HOOD_EDGE / 2, GH_HOOD_GAP
+        teff = lambda t, c_g=c_g, Wg_=Wg_: t - (Wg_ - DASH[1]) * np.clip((t - (c_g - Wg_ / 2)) / Wg_, 0, 1)
+        GH["hood_gap"] = (c_g - Wg_ / 2, c_g + Wg_ / 2)
+    anch = [(teff(a_s), [gap_mid]), (teff(L), [DASH[0] / 2, gap_mid])]
+    if a_hf:
+        anch.append((teff(c_g), [gap_mid]))
     for nm, c in cx.items():
         if c["cross"]:
-            anch.append((float(Sm[c["jn"]]), [float((gap_mid - c["sgn"] * c["t_x"]) % DPER)]))
+            anch.append((float(teff(Sm[c["jn"]])), [float((gap_mid - c["sgn"] * c["t_x"]) % DPER)]))
     anch.sort()
-    kt, ksd, kst, chs = _phase_pieces([a for a, _ in anch], DASH[0] / 2, [t for _, t in anch])
-    sd_main = np.interp(Sm, kt, ksd)
+    kt, ksd, kst, chs = _phase_pieces([float(a) for a, _ in anch], DASH[0] / 2, [t for _, t in anch])
+    sd_main = np.interp(teff(Sm), kt, ksd)
     tgt_m = chs[-1]
     curves = {"main": (main, sd_main)}
-    log = dict(main_cm=round(L * 100, 1), main_stretch=kst, hood_seam_cm=None if a_hf is None else round(a_hf * 100, 1),
+    log = dict(main_cm=round(L * 100, 1), main_stretch=kst, hood_seam_cm=None if a_hf is None else round(c_g * 100, 1),
                trunk_centre="dash middle" if tgt_m < DASH[0] else "gap middle", r_main_cm=round(g["r_main"] * 100, 1))
     for nm, c in cx.items():
         Cb, Sb, Lb, sgn = c["Cb"], c["Sb"], c["Lb"], c["sgn"]
@@ -2853,7 +2882,7 @@ def paint_greenhouse():
             if side == "R":
                 Cs[:, 0] = np.minimum(Cs[:, 0], 0.0)
             hw, dpart = _gh_width(Cs, sg, CROSS_FREE.get(nm))
-            ink = paint_gh_line(Cs, sd, side, hw)
+            ink = paint_gh_line(Cs, sd, side, hw, GH.get("hood_seam_arc") if nm == "main" else None)
             out[side].append(Cs)
             if side == "L":
                 log[nm + "_hw_min_cm"] = round(float(hw.min()) * 200, 2)
@@ -2865,6 +2894,7 @@ def paint_greenhouse():
                 log[nm + "_other_air_min_cm"] = round(float((do_ - hw)[on].min()) * 100, 2)
                 GH.setdefault("ink", {})[nm] = ink
     GH_LOG.append(log)
+    GH["curves"] = curves
     print(f"   greenhouse lines: {log}", flush=True)
     return out
 
@@ -2896,6 +2926,26 @@ def _arc_dist_to(mask, S):
 
 
 NECK_SEAM_AIR = 0.003       # least paint air from a front-cut-line dash to the hood corner's shut line in the neck
+NECK_TAPER_HW = 0.0045      # the dashes either side of that shut line taper down to this half width at their ends
+FENDER_SEAM_AIR = 0.005     # least paint air from a front-cut-line dash to the fender's lower shut-line groove
+FENDER_TAPER_HW = 0.006     # the dashes either side of it taper down to this half width at their ends
+
+
+def _groove_crossing(C, side, s0, s1):
+    """arc position (within s0..s1) where the curve C crosses a shut-line groove of the mesh: the closest approach
+    (< 3 mm) to the skin of the 'hidden' part (the groove walls between two panels); None if it crosses none"""
+    key = ("groove", side)
+    if key not in _idx_cache:
+        m = (PARTF == PID["hidden"]) & COV.reshape(-1)
+        m &= (POSF[:, 0] > 0.02) if side == "L" else (POSF[:, 0] < -0.02)
+        _idx_cache[key] = cKDTree(POSF[np.flatnonzero(m)])
+    S = arclen(C)
+    k = (S >= s0) & (S <= s1)
+    if not k.any():
+        return None
+    dq = _idx_cache[key].query(C[k])[0]
+    i = int(np.argmin(dq))
+    return float(S[k][i]) if dq[i] < 0.003 else None
 KEY_NECK_GAP = 0.003        # through the lamp / grille neck: clear paint between the keyline and the (narrowed) dash ...
 KEY_NECK_AIR = 0.0025       # ... and between the keyline and the lamp
 KEY_NECK_KMIN = 0.30        # narrowest keyline there, as a fraction of its normal width (1.44 cm -> 0.43 cm)
@@ -3435,9 +3485,27 @@ def paint_audi_rings():
     print(f"   Audi rings: {len(idx)} texels of ring stroke in deep ink (box painted pink)")
 
 
+UNDERFLARE = {}
+BASE_CAN = None
+
+
+def underflare_mask():
+    """texels of the recessed body surface under / behind the rear flares (both sides): rear_bumper_corner skin
+    inboard of the flare (|x| < 0.88) facing sideways (|n_x| > 0.5) between the flare's trailing section and the rear
+    bumper (y 1.85-2.12, below the flare's top), and the rear fender's ledge there (|x| < 0.86)"""
+    ax = np.abs(POSF[:, 0])
+    nxo = NRMF[:, 0] * np.sign(POSF[:, 0])
+    box = (ax > 0.70) & (POSF[:, 1] > 1.85) & (POSF[:, 1] < 2.12) & (POSF[:, 2] < 0.72) & PAINTF
+    m = box & (PARTF == PID["rear_bumper_corner"]) & (ax < 0.88) & (nxo > 0.5)
+    m |= box & (PARTF == PID["rear_fender"]) & (ax < 0.86)
+    return m
+
+
 def paint_body():
+    global BASE_CAN
     print("base: pearl pink, holo belly band, keylines, butcher lines ...")
     paint_pearl()
+    BASE_CAN = CAN.copy()
     global FRONT_ARCH_Y, OUTER
     VISD.update(view_visibility())
     OUTER = np.logical_or.reduce([VISD["vis"][v] for v in VIEWS9])
@@ -3475,13 +3543,7 @@ def paint_body():
             EYE["mirror_start_dev_cm"] = round(float(np.linalg.norm(eye[0] - Csh[s][ib])) * 100, 2)
             eye[0] = Csh[s][ib]
             eye[-1, 0] = 0.0
-        # the shoulder line starts at the branch (nothing painted ahead of it)
-        C = curve_line(c3[s], SIDE_PARTS, s, 0.011, INK, dash=DASH, phase=phase, resnap_mode="side", trim=(-1.0, S_B),
-                       scale=scale)
-        shoulder[s] = C
-        SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
         Se = arclen(eye)
-        SB_ = scale * S_B + phase
         # client round 3: the hood corner's shut line crosses the line ~1 cm from the neck's narrowest point and the
         # dash across it showed a notch (its two halves on two panels): the middle of a GAP is centred on that crossing
         # (the dashes either side of it run through the neck, narrowed; the keyline runs on beside them)
@@ -3493,6 +3555,14 @@ def paint_body():
         nr_ = nose_rims()
         sgv_ = np.array([1.0 if s == "L" else -1.0, 1.0, 1.0])
         do_e = cKDTree(np.vstack([rim_["rim_other"], nr_["rim_ot"]])).query(eye * sgv_)[0]
+        # verifier: the gap over the hood corner's shut line was ~6.5 cm (twice the rhythm) because the dashes either
+        # side kept their 1.3 cm width up to it. They now taper (to NECK_TAPER_HW) as the shut line closes in, so they
+        # can run on to NECK_SEAM_AIR of it and the gap is back to about one ordinary gap
+        near_ = np.abs(Se - E["a_gap"]) < 0.06
+        lim_ = np.where(near_, np.maximum(NECK_TAPER_HW, do_e - NECK_SEAM_AIR - 0.0008), 1.0)
+        lim_ = ndimage.minimum_filter1d(lim_, 9, mode="nearest")
+        hw_e = np.minimum(hw_e, ndimage.gaussian_filter1d(lim_, 3.0, mode="nearest"))
+        hw_e = np.minimum(hw_e, lim_ + 0.0003)
         bad_ = (np.abs(Se - E["a_gap"]) < 0.08) & (do_e - hw_e < NECK_SEAM_AIR)
         if bad_.any():
             ib_ = np.flatnonzero(bad_)
@@ -3502,11 +3572,66 @@ def paint_body():
         else:
             W, a_x = DASH[1], E["a_gap"]
         Ec = W - DASH[1]
+        # verifier: the front fender's lower shut line (the groove behind the lamp where the fender meets the bumper
+        # corner, ~17 cm after the branch) ran through the middle of a dash. A gap goes over it too: it crosses the cut
+        # line obliquely, so the gap covers the whole stretch where a dash's paint (incl. its round cap) would come
+        # closer than FENDER_SEAM_AIR to the groove - one gap, lengthened if needed (that stretch of arc mapped onto
+        # one ordinary gap, as at the neck)
+        a_f = _groove_crossing(eye, s, 0.05, 0.40)
+        Wf, a_fx = DASH[1], a_f
+        if a_f is not None:
+            dgr = _idx_cache[("groove", s)].query(eye)[0]
+            # (the groove crosses at ~30 deg: the dashes either side taper as it closes in, like at the neck, so the
+            #  gap stays close to an ordinary one)
+            near_ = np.abs(Se - a_f) < 0.07
+            lim_ = np.where(near_, np.maximum(FENDER_TAPER_HW, dgr - FENDER_SEAM_AIR - 0.0008), 1.0)
+            lim_ = ndimage.minimum_filter1d(lim_, 9, mode="nearest")
+            hw_e = np.minimum(hw_e, ndimage.gaussian_filter1d(lim_, 3.0, mode="nearest"))
+            hw_e = np.minimum(hw_e, lim_ + 0.0003)
+            badf = (np.abs(Se - a_f) < 0.10) & (dgr - hw_e < FENDER_SEAM_AIR)
+            ibf = np.flatnonzero(badf)
+            if len(ibf):
+                f0, f1 = float(Se[ibf.min()]), float(Se[ibf.max()])
+                Wf = max(DASH[1], (f1 - f0) + float(hw_e[ibf.min()]) + float(hw_e[ibf.max()]) + 0.002)
+                a_fx = 0.5 * (f0 + f1)
+        Ef = Wf - DASH[1]
         Se_eff = Se - Ec * np.clip((Se - (a_x - W / 2)) / W, 0, 1)
         a_eff = a_x - Ec / 2
-        k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se_eff[-1]), a_eff, SB_, EYE.get("L", {}).get("tgt"),
-                                                at_mid=DASH[0] + DASH[1] / 2)
-        sd = np.where(Se_eff <= a_eff, SB_ - k1 * Se_eff, s_n - k2 * (Se_eff - a_eff))
+        if a_f is not None:
+            Se_eff = Se_eff - Ef * np.clip((Se - (a_fx - Wf / 2)) / Wf, 0, 1)
+            a_eff = a_eff - Ef
+            a_feff = a_fx - Ef / 2
+        # dash coordinate: behind the fender / door shut gap (gap middle at y SH_SHUT_Y) the shoulder line keeps its
+        # rhythm; ahead of it, over the front fender and on along the front cut line to the fender's lower groove, one
+        # common stretch kf (closest to 1 that lands a gap middle on the groove); then (the existing pieces) groove ->
+        # neck gap -> centreline
+        u_sh = scale * S_sh + phase                      # (a gap middle)
+        if a_f is not None:
+            Dist = (S_sh - S_B) + a_feff
+            n_f = max(1, round(Dist / DPER))
+            kf = min((n * DPER / Dist for n in (n_f - 1, n_f, n_f + 1) if n > 0), key=lambda k: abs(k - 1))
+        else:
+            kf = scale
+        u_of = lambda S_, sc=scale, ph=phase, S_sh=S_sh, u_sh=u_sh, kf=kf: np.where(
+            np.asarray(S_) >= S_sh, sc * np.asarray(S_) + ph, u_sh - kf * (S_sh - np.asarray(S_)))
+        EYE.setdefault("fender_seam", {})[s] = dict(a_cm=None if a_f is None else round(a_f * 100, 1), kf=round(kf, 4),
+                                                    gap_cm=round(Wf * 100, 1))
+        # the shoulder line starts at the branch (nothing painted ahead of it)
+        C = curve_line(c3[s], SIDE_PARTS, s, 0.011, INK, dash=DASH, phase=0.0, resnap_mode="side", trim=(-1.0, S_B),
+                       scale=u_of)
+        shoulder[s] = C
+        SHOULDER[s] = dict(C=C, S_B=S_B, phase=phase)
+        SB_ = float(u_of(S_B))
+        if a_f is not None:     # branch -> fender groove: the stretch kf; groove (gap middle) -> neck -> centreline
+            sd_f = SB_ - kf * a_feff
+            k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se_eff[-1]) - a_feff, a_eff - a_feff, sd_f,
+                                                    EYE.get("L", {}).get("tgt"), at_mid=DASH[0] + DASH[1] / 2)
+            sd = np.where(Se_eff <= a_feff, SB_ - kf * Se_eff,
+                          np.where(Se_eff <= a_eff, sd_f - k1 * (Se_eff - a_feff), s_n - k2 * (Se_eff - a_eff)))
+        else:
+            k1, k2, s_n, s_e, tgt_e = eyeliner_dash(float(Se_eff[-1]), a_eff, SB_, EYE.get("L", {}).get("tgt"),
+                                                    at_mid=DASH[0] + DASH[1] / 2)
+            sd = np.where(Se_eff <= a_eff, SB_ - k1 * Se_eff, s_n - k2 * (Se_eff - a_eff))
         EYE.setdefault("neck_gap_cm", {})[s] = round(W * 100, 1)
         hw = hw_e
         drop = set()                       # (no dash is left out: the neck dash is narrowed instead)
@@ -3531,6 +3656,15 @@ def paint_body():
         Ck = np.vstack([EYE[s]["C"][::-1], shoulder[s][ib + 1:]])
         hwd = np.concatenate([EYE[s]["hw"][::-1], np.full(len(shoulder[s]) - ib - 1, 0.011)])
         paint_keyline(Ck, s, others[s], open_start=True, hwd=hwd)
+    # --- client (top priority): the body surface under / behind the rear flare (the recess between the flare's
+    #     trailing edge and the rear bumper, confirmed zone) is plain base pink, shaded: no holo, no keyline, no dash
+    #     stubs. Part map + mesh: the rear bumper corner's side-facing skin inboard of the flare, and the rear fender's
+    #     ledge under the flare's top, behind the flare's trailing edge; the holo / lines of the bumper band stop where the
+    #     bumper corner turns into the recess
+    rec = underflare_mask()
+    CAN[rec] = BASE_CAN[rec]
+    OBST[rec] = False
+    UNDERFLARE["texels"] = int(rec.sum())
 
 
 def pill(art, padx, pady, fill, line=(255, 214, 232), lw=None):
@@ -4087,26 +4221,33 @@ def rear_front_decals():
     #  every candidate failed the flatness / edge gates)
 
 
-SPL_X = (0.85, 0.93)         # front URLs: centre |x| range searched (the outer corner face of the bumper; a search over
-#                             |x| 0.55-0.93, z 0.355-0.52 - incl. the face above the outer intake - picked it: 1.9 cm type)
-SPL_Z = (0.40, 0.47)         # ... and centre height range (above the holo band)
+SPL_X = (0.44, 0.70)         # front URLs: centre |x| range searched - the forward-facing bumper face beside each outer
+#                             intake, between the intake's top edge and the nose cut line (a flat, vertical face yawed
+#                             ~27 deg outboard; outboard of |x| ~0.72 it creases into the side-facing corner)
+SPL_Z = (0.455, 0.505)       # ... and centre height range
 SPL_CACHE = {}
 
 
 def splitter_urls():
-    """Front URLs (client, round 3 item C): «simkarting.ru» and «karting64.ru» readable from the front and front 3/4.
-    The carbon blade (Circle.004_SUB0, ext_plastic.dds u 0..0.54, v -1..0) cannot carry them: that region of
-    ext_plastic.dds is shared with 14 other meshes (rear wing, lower grille piece, mirrors ...), so it is not
-    overridden. The painted lip above the blade (the 'front_splitter' zone and the bumper's lowest strip) is no option
-    either: level, it holds no box taller than ~2.5 cm (it slopes ~27 deg down outboard), so the URLs used to be
-    1.4 cm type on the holo there and read as artifacts (with the source skin's navy and a clipped logo restored under
-    them - gone too: the lip is plain holo now). No level, flat (<= 12 deg), forward-facing skin area of the front
-    lower bumper is wider than ~17 cm or, at that width, taller than ~3 cm (searched |x| 0.0-0.93, z 0.2-0.55): the
-    largest is the outer corner face of the bumper beside each outer intake, above the holo band - 17 x 3 cm flat
-    (10 cm tall for 12 cm). The two URLs go there, mirror-symmetric, white with a deep-ink outline on the pink,
-    baseline level in 3D (horizontal projection axis, world z up), as large as passes the gates on both sides (flat
-    <= 12 deg, >= 1 cm to the panel edges, >= 1.5 cm to every cut line / keyline, >= 3 cm to other decals, fully seen
-    in the front and that side's 3/4 view). simkarting.ru on the car's right (reads first from the front)."""
+    """Front URLs (client round 3 item C, round 4: «still too small»; verifiers: upright and undistorted from the front
+    and front 3/4, not on the side-facing corners). «simkarting.ru» (car's right) and «karting64.ru» (left), each on a
+    dark INK_D sticker plate (pink hairline) with white type filling it, so it reads as a deliberate sticker on the
+    pink, mirror-symmetric, on the forward-facing face of the bumper between the outer intake's top edge and the nose
+    cut line - the biggest forward-facing skin area of the lower nose. Where they cannot go:
+    - the carbon blade (Circle.004_SUB0, ext_plastic.dds): that region of ext_plastic.dds is shared with 14 other
+      meshes (rear wing, lower grille piece, mirrors ...), so it is not overridden;
+    - the painted lip above it (zone 'front_splitter', safe_center [2039, 4004]): under the grille it is 1-2 cm tall,
+      under the intakes it runs diagonally (~27 deg down outboard) - level it holds no box taller than ~2.5 cm;
+    - the outer corner faces (the previous spot): they face sideways (~65 deg from the front), so from the front the
+      type is squeezed to ~40 % and, seen from above, tilted 25-30 deg.
+    Measured on the position map (front elevation, renderer-visible skin facing the front camera, >= 1 cm to every cut
+    line / keyline, >= 0.6 cm to an opening): the largest level forward-facing rectangle anywhere on the lower nose is
+    ~3 x 22 cm / 2.5 x 29 cm (this face); nothing forward-facing holds 4.5-5 cm cap height (that needs ~6 x 35 cm)
+    without moving the nose cut line. Projection along the face's own normal (no distortion on the surface), art up =
+    world z: the baseline is level in 3D, parallel to the intake's top edge; seen from the front the face's 27 deg
+    yaw makes it recede ~7 deg in the elevated front camera, in that side's front 3/4 view it is square to the eye.
+    Gates: flat (<= 12 deg), >= 0.5 cm to the panel edges, >= 1.0 cm to every cut line / keyline, >= 3 cm to other
+    decals, fully seen in the front view and that side's 3/4 view; as large as passes on both sides, one size."""
     sp = ["front_bumper", "front_bumper_corner"]
 
     def cands(sg):
@@ -4115,30 +4256,32 @@ def splitter_urls():
                 out = []
                 Q = POSF[cand(sp)]
                 Q = Q[(Q[:, 1] < -1.75)]
-                for x in np.arange(SPL_X[0], SPL_X[1] + 1e-6, 0.01):
+                for x in np.arange(SPL_X[0], SPL_X[1] + 1e-6, 0.02):
                     for z in np.arange(SPL_Z[0], SPL_Z[1] + 1e-6, 0.005):
-                        m = (np.abs(Q[:, 0] - sg * x) < 0.006) & (np.abs(Q[:, 2] - z) < 0.004)
+                        m = (np.abs(Q[:, 0] - sg * x) < 0.006) & (np.abs(Q[:, 2] - z) < 0.003)
                         if not m.any():
                             continue
                         c = (sg * x, float(Q[m][:, 1].min()), float(z))
-                        nv = mean_normal(c, sp, None, 0.04)
-                        nv[2] = 0.0                       # level: horizontal projection axis, world z up
-                        out.append((c, tuple(nv / np.linalg.norm(nv)), (0, 0, 1)))
+                        nv = mean_normal(c, sp, None, 0.05)
+                        out.append((c, tuple(nv), (0, 0, 1)))
                 SPL_CACHE[(sg, "c")] = out
             return SPL_CACHE[(sg, "c")]
         return f
 
     def art(txt):
-        def f(h):
-            m = pad(text_mask(txt, F_SPON(px(h * 1.35))), 10)
-            o = Image.new("RGBA", m.size, (0, 0, 0, 0))
-            o.alpha_composite(solid(grow(m, max(3, px(0.0022))), INK_D))
-            o.alpha_composite(solid(m, WHITE))
-            return o.crop(o.getbbox())
+        def f(h):                      # h = plate height (m); the type's x-height + ascender + descender fill ~70 %
+            th = px(h * 0.70)
+            m = text_mask(txt, F_SPON(max(8, int(th * 1.30))))
+            m = m.crop(m.getbbox())
+            m = m.resize((max(1, round(m.width * th / m.height)), th), Image.LANCZOS)
+            t = solid(m, WHITE)
+            padx, pady = max(2, px(h * 0.30)), max(2, (px(h) - th) // 2)
+            return pill(t, padx, pady, INK_D, line=(255, 214, 232), lw=max(2, px(0.0016)))
         return f
-    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.06, min_clear_cm=1.0, tilt_gate=12.0, line_min=1.5,
+    kw = dict(ppm=PPM, parts=sp, kind="text", depth_tol=0.025, min_clear_cm=0.5, tilt_gate=12.0, line_min=1.0,
               deco_min=3.0, check_angle=60)
-    sizes = [0.026, 0.024, 0.023, 0.022, 0.021, 0.020, 0.019, 0.018, 0.017, 0.016, 0.015, 0.014]
+    sizes = [0.050, 0.045, 0.042, 0.040, 0.038, 0.036, 0.035, 0.034, 0.033, 0.032, 0.031, 0.030, 0.029, 0.028,
+             0.027, 0.026, 0.025, 0.024, 0.023, 0.022]
     jobs = (("url_splitter_R", SIMKART_URL, -1, "front34_right"), ("url_splitter_L", K64_URL, 1, "front34_left"))
     fits = [fit_search(nm, art(t), sizes, cands(sg), occl_views=["front", v], **kw) for nm, t, sg, v in jobs]
     h = min(f[0] for f in fits)
@@ -4157,21 +4300,49 @@ def splitter_urls():
     best_sc, key = max(pairs)
     for nm, t, sg, v in jobs:
         c, n, u = score[key][sg][1]
-        decal(nm, art(t)(h), c, n, u, occl_views=["front", v], **kwd)
+        a_ = art(t)(h)
+        decal(nm, a_, c, n, u, occl_views=["front", v], **kwd)
         rep = CHECKS[-1]
-        SPL_LOG[nm] = dict(c=[round(float(q), 4) for q in c], size=h, status=rep["status"])
-        print(f"   {nm}: «{t}» {h * 100:.1f} cm type at {np.round(c, 3)} -> {rep['status']} "
-              f"tilt={rep['max_tilt_deg']} edge={rep['edge_clear_cm']} line={rep.get('line_clear_cm')} "
-              f"hidden={rep.get('hidden_frac')}", flush=True)
-    URL_NOTES.append(f"front bumper, outer corner faces (|x| {key[0]:.3f}, z {key[1]:.3f}, mirror-symmetric): «{SIMKART_URL}» "
-                     f"right / «{K64_URL}» left, {h * 100:.1f} cm type, white with a deep-ink outline, baseline level in 3D "
-                     f"(horizontal projection axis, world z up) - parallel to the intake top edge and the holo band edge "
-                     f"beside it; "
-                     f"nothing on the splitter lip any more (level it holds no box over ~2.5 cm; the blade's "
-                     f"ext_plastic.dds region is shared with 14 other meshes, so no texture override)")
+        ang = _view_level(PAINTED[nm], ["front", v])
+        rep["view_level_deg"] = ang
+        SPL_LOG[nm] = dict(c=[round(float(q), 4) for q in c], size=h, status=rep["status"], view_level_deg=ang)
+        print(f"   {nm}: «{t}» plate {h * 100:.1f} cm ({a_.width / PPM * 100:.1f} cm wide), type {h * 70:.1f} cm "
+              f"(cap ~{h * 50:.1f} cm) at {np.round(c, 3)} -> {rep['status']} tilt={rep['max_tilt_deg']} "
+              f"edge={rep['edge_clear_cm']} line={rep.get('line_clear_cm')} hidden={rep.get('hidden_frac')} "
+              f"baseline in the views {ang}", flush=True)
+    URL_NOTES.append(f"front bumper, forward-facing face beside each outer intake (|x| {key[0]:.3f}, z {key[1]:.3f}, "
+                     f"mirror-symmetric): «{SIMKART_URL}» right / «{K64_URL}» left on dark INK_D sticker plates "
+                     f"{h * 100:.1f} cm tall, white type filling them ({h * 70:.1f} cm incl. ascenders / descenders, "
+                     f"cap height ~{h * 50:.1f} cm), level in 3D (art up = world z, projected along the face's normal: "
+                     f"no distortion); baseline as seen: " + ", ".join(f"{k} {v}" for k, v in SPL_LOG.items()) +
+                     "; the largest level forward-facing rectangle of the lower nose clear of the nose cut line is ~3 x "
+                     "22 cm, so 4.5-5 cm cap height does not fit anywhere forward-facing (lip: <= 2.5 cm level; blade: "
+                     "shared ext_plastic.dds region, not overridden; corner faces: side-facing)")
+
+
+def _view_level(painted, views):
+    """apparent baseline angle (deg, + = rising to the image right) of a painted decal in the renderer's standard
+    views: the texels' image positions, fitted by a line through the lowest-z / highest-z ... - here simply the
+    principal axis of the projected footprint (the plates are long and flat)"""
+    out = {}
+    P = POSF[painted]
+    for v in views:
+        e, f, rgt, up, mx, my, fpx, Ws, Hs = VISD["cam"][v]
+        rel = P - e
+        dv = rel @ f
+        X = (rel @ rgt) / dv
+        Y = (rel @ up) / dv
+        A = np.stack([X - X.mean(), Y - Y.mean()], 1)
+        w_, V = np.linalg.eigh(A.T @ A)
+        ax = V[:, -1]
+        if ax[0] < 0:
+            ax = -ax
+        out[v] = round(float(np.degrees(np.arctan2(ax[1], ax[0]))), 1)
+    return out
 
 
 SPL_LOG = {}
+GLASS_ALPHA = {}
 
 
 # ================================================================= glass_sticker.dds (1024, alpha kept)
@@ -4624,6 +4795,60 @@ def copy_gear(folder, od):
     print(f"   gear -> {folder}/: {len(have)} files ({', '.join(have)})")
 
 
+def line_ends():
+    """Client (logical ends): every dashed cut line along the sides, its two ends and how each one closes - joined
+    to another chart line, closed into a loop over the centreline, or stopped at a hard body edge / trim (never in open
+    paint). Same on both sides (the right side is the mirror image)."""
+    out = []
+    for s_ in ("L", "R"):
+        c = CREASE.get(s_, {})
+        e = EYE.get(s_, {})
+        fs = EYE.get("fender_seam", {}).get(s_, {})
+        out.append(f"shoulder_{s_}: front end y {EYE_BRANCH_Y:+.3f} on the front fender's flare edge - CONNECTED: runs on "
+                   f"without a break (tangent, same dash rhythm) into the front cut line round the headlight; rear end y "
+                   f"{c.get('y_end', 0):+.3f} - TERMINATED at trim: the tail lamp, a whole dash ending "
+                   f"{SH_REAR_AIR * 100:.1f} cm ahead of it")
+        out.append(f"front_{s_}: starts as the shoulder line's continuation (above) - behind and under the lamp, along "
+                   f"the bumper crease, up the lamp / grille neck, over the grille - and ends on the car's centreline x = 0 "
+                   f"in the middle of a {'dash' if e.get('tgt', 0) < DASH[0] else 'gap'} shared with the mirrored right "
+                   f"half - CLOSED: shoulder L + front L + front R + shoulder R are one line round the nose")
+        out.append(f"greenhouse_{s_}: starts on the hood centreline (meets the right half there), runs the A-pillar, the "
+                   f"roof edge, the C-pillar and the trunk lid to the trunk centreline (meets the right half on the "
+                   f"middle of a dash) - CLOSED loop round the greenhouse; the windscreen header and the rear-window "
+                   f"cross line join it in Y junctions on its dashes, each crossing the roof to the other side - the "
+                   f"roof is a closed cut zone")
+        out.append(f"swoosh / belly_{s_}: front end in the front wheel opening (y {FRONT_ARCH_Y:+.3f}) - TERMINATED at "
+                   f"a hard body edge (the arch lip, a whole dash before it); along the door's lower feature line into "
+                   f"the rear flare's attachment line; rear end at the flare's upper rear corner - TERMINATED at a hard "
+                   f"body edge: the flare's trailing edge (the recess behind the flare stays plain pink by client "
+                   f"request - no dashes may run down it)")
+        out.append(f"rear bumper_{s_}: from the centreline (one dash centred on x = 0, shared with the other half) "
+                   f"outboard along the bumper's lower edge to the black lower-trim fin - TERMINATED at trim (the dashes "
+                   f"beside the fin's slot are left out whole, its keyline runs on under the slot to the flare); the "
+                   f"flare / sill zone is closed by the body's own edges (arch lips, the flare's trailing edge)")
+    return out
+
+
+def skin_rgb():
+    """Skin.dds colours: the design (CAN) times the baked shading on the painted texels, the source elsewhere. The
+    seam padding of the UV islands (texels outside the islands, painted from the position of the nearest island texel)
+    is then refilled with the mean of the island texels within 2 px (normalised convolution, 5 x 5): a stroke that
+    crosses an island border (the keyline at the hood-corner / bumper shut seam, along the fender's front edge) bleeds
+    past the border as a smooth continuation instead of a nearest-texel staircase, so filtering / mip-mapping across
+    the border shows one clean stroke."""
+    pm = PAINTF
+    out = A0.copy().reshape(-1, 3)
+    out[pm] = CAN[pm] * SHADE.reshape(-1)[pm, None]
+    out = out.reshape(N, N, 3)
+    cov = COV & PAINT
+    pad_ = PAINT & ~COV
+    w = ndimage.uniform_filter(cov.astype(np.float32), 5)
+    fill = np.stack([ndimage.uniform_filter(out[..., k] * cov, 5) for k in range(3)], -1) / np.maximum(w, 1e-6)[..., None]
+    sel = pad_ & (w > 0.04)
+    out[sel] = fill[sel]
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
 def main():
     global RACE_NUM
     RACE_NUM = skin_number(DRIVERS[0][0])          # the body is fitted / checked with the first driver's number
@@ -4641,9 +4866,7 @@ def main():
         num = skin_number(folder)
         if num != RACE_NUM:                  # same plates and placements, this driver's digits
             paint_numbers(num)
-        out = A0.copy().reshape(-1, 3)
-        out[pm] = CAN[pm] * SHADE.reshape(-1)[pm, None]
-        skin = Image.fromarray(np.clip(out.reshape(N, N, 3), 0, 255).astype(np.uint8))
+        skin = Image.fromarray(skin_rgb())
         if folder == DRIVERS[0][0]:
             skin.resize((2048, 2048), Image.LANCZOS).save(os.path.join(HERE, "texture_preview.png"))
         od = os.path.join(HERE, folder)
@@ -4657,6 +4880,10 @@ def main():
             del GCHECKS[n_before:]
             GCHECKS.extend(mine)
         save_dxt5(gl, os.path.join(od, "glass_sticker.dds"))
+        ga = np.asarray(gl.convert("RGBA"))[..., 3]
+        GLASS_ALPHA[folder] = dict(opaque=int((ga == 255).sum()), clear=int((ga == 0).sum()),
+                                   mid=int(((ga > 0) & (ga < 255)).sum()),
+                                   holes=int(ndimage.label(ndimage.binary_fill_holes(ga == 255) & (ga < 255))[1]))
         if folder == DRIVERS[0][0]:
             gl.save(os.path.join(HERE, "glass_preview.png"))
         json.dump({"skinname": folder, "drivername": f"{drv[0]} {drv[1]}", "country": "Russia",
@@ -4698,8 +4925,10 @@ def main():
         rep.append(f"{r['status']:<6} line:front_{r['side']:<18} {r['dashes']} whole dashes, {r['length_cm']} cm to the "
                    f"centreline, stretch {r['stretch'][0]} / {r['stretch'][1]}, smallest turn radius {r['r_min_cm']} cm, "
                    f"neck between lamp and grille {r['neck_cm']} cm wide: one dash gap ({EYE.get('neck_gap_cm', {}).get(r['side'])}"
-                   f" cm) over the stretch where the hood corner's shut line runs alongside, the dashes either side narrowed smoothly to "
-                   f"{r['hw_min_cm']} cm, dashes left out {r['dropped']}; air of the paint to the lamp {r['air_lamp_cm']} cm, grille {r['air_grille_cm']} cm, "
+                   f" cm, ordinary {DASH[1] * 100:.1f}) over the stretch where the hood corner's shut line runs alongside, the "
+                   f"dashes either side tapering smoothly to {r['hw_min_cm']} cm wide at their ends there ({NECK_SEAM_AIR * 1000:.0f} mm "
+                   f"of paint air to the shut line); a gap middle also on the fender's lower shut-line groove behind the lamp "
+                   f"({EYE.get('fender_seam', {}).get(r['side'], {}).get('a_cm')} cm after the branch), dashes left out {r['dropped']}; air of the paint to the lamp {r['air_lamp_cm']} cm, grille {r['air_grille_cm']} cm, "
                    f"other parts {r['air_other_cm']} cm; guide deviation (lamp gap / crease / grille gap) "
                    f"{r['guide_dev_cm']} cm; labels " + ", ".join(f"{k} {v}" for k, v in r["label_air_cm"].items()) + " cm"
                    + ("" if r["status"] == "OK" else f"; truncated {r['truncated']} hidden {r['hidden']}"))
@@ -4711,15 +4940,19 @@ def main():
                        f"smootherstep in x - it leaves the flare edge there, hence the max offset); centre line -> crease "
                        f"median {c['off_cm'][0]} cm, max {c['off_cm'][1]} cm; rear end y {c.get('y_end', 0):.3f} "
                        f"({SH_REAR_AIR * 100:.1f} cm from the tail lamp), dash coordinate {SH_SCALE.get(s_, 1):.4f} x arc + "
-                       f"{SH_PHASE.get(s_, 0):.4f} (a gap centred on the fender / door shut gap at y {SH_SHUT_Y})")
+                       f"{SH_PHASE.get(s_, 0):.4f} behind the fender / door shut gap at y {SH_SHUT_Y} (a gap centred on it); ahead "
+                       f"of it, over the front fender and on along the front cut line to the fender's lower shut-line groove "
+                       f"behind the lamp ({EYE.get('fender_seam', {}).get(s_, {}).get('a_cm')} cm after the branch, a gap "
+                       f"middle on it too), one stretch {EYE.get('fender_seam', {}).get(s_, {}).get('kf')}")
     for r in GH_LOG:
         rep.append(f"INFO   line:greenhouse one dashed line per side, hood centreline -> A-pillar (beside the windscreen, "
                    f"{GH_GAP_WS * 100:.1f} cm; on the upper pillar, 3.1-4.6 cm of paint wide, between the windscreen frame "
                    f"and the side window's frame, narrowed) -> roof edge (in the channel between the side window and the "
                    f"roof's trim strip) -> C-pillar (beside the rear window, {GH_GAP_RW * 100:.1f} cm) -> trunk lid "
                    f"({GH_GAP_TRUNK * 100:.1f} cm from the rear window's lower edge incl. its frame) -> trunk centreline: "
-                   f"{r['main_cm']} cm, piecewise stretches {r['main_stretch']} (gaps centred on the hood / fender shut "
-                   f"line at {r['hood_seam_cm']} cm and on each wing stay, the cross lines' joins phased), trunk centreline "
+                   f"{r['main_cm']} cm, piecewise stretches {r['main_stretch']} (one {GH_HOOD_GAP * 100:.1f} cm gap centred on the "
+                   f"hood / fender shut line at {r['hood_seam_cm']} cm - between the hood's visible edge and the fender's "
+                   f"edge, >= 1 cm of clear paint to each - gaps centred on each wing stay, the cross lines' joins phased), trunk centreline "
                    f"on a {r['trunk_centre']}, smallest turn radius {r['r_main_cm']} cm; roof loop closed by the header "
                    f"({GH_GAP_HEAD * 100:.1f} cm behind the windscreen, {r['head_cm']} cm, turn radius "
                    f"{r['head_turn_r_cm']} cm, centre on a {r['head_centre']}) and the rear cross line ({r['rear_cm']} cm, "
@@ -4753,9 +4986,16 @@ def main():
                    f"the front wheel): the doors' lower feature line rising into the rear flare's top edge (ridge tracked "
                    f"y {FLARE_LOG.get('ridge_y')}), one fair spline within {FLARE_LOG.get('fair_dev_cm')} cm of the ridge; "
                    f"keyline {FLARE_KEY_IN * 100:.2f} cm under it; the keyline and dashes end together at the flare's "
-                   f"upper rear corner; recessed bumper corner behind the flare: base pink, holo only in the low band")
+                   f"upper rear corner; the recessed body surface under / behind the flare (rear bumper corner inboard of the "
+                   f"flare, the fender's ledge; {UNDERFLARE.get('texels')} texels per car): plain shaded base pink - "
+                   f"no holo, no keyline, no dashes")
     for r in LINE_NOTES:
         rep.append("INFO   line:" + r)
+    rep.extend("INFO   ends:" + r for r in line_ends())
+    for f_, g_ in GLASS_ALPHA.items():
+        rep.append(f"INFO   glass alpha {f_}: {g_['opaque']} texels opaque (255), {g_['clear']} clear (0), {g_['mid']} "
+                   f"semi-transparent, {g_['holes']} see-through islands inside a plate / banner - every sticker body "
+                   f"fully opaque (nothing of the far side's stickers shows through)")
     for r in SILL_LOG:
         rep.append(f"INFO   sill row {r['side']}: height {r['height_cm']} cm, centre z {r['z_centre']}, y {r['y_front']:+.3f}"
                    f" .. {r['y_rear']:+.3f}, equal gaps {r['gap_cm']} cm: "

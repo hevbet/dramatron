@@ -760,7 +760,7 @@
    "level_view": "top",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 2.8,
-   "line_clear_cm": 3.6,
+   "line_clear_cm": 3.7,
    "decal_clear_cm": 16.3,
    "hidden_frac": {
     "front": 0.0,
@@ -1036,29 +1036,33 @@
    ],
    "side": null,
    "size_cm": [
-    17.3,
-    2.8
+    12.1,
+    2.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 3.2,
-   "max_tilt_deg": 11.8,
-   "level_deg": -0.01,
+   "edge_clear_cm": 2.7,
+   "max_tilt_deg": 8.4,
+   "level_deg": 0.07,
    "level_rows_deg": [
-    -0.0,
-    -0.01,
-    -0.0
+    0.07,
+    0.03,
+    0.02
    ],
-   "level_view": "side",
+   "level_view": "front",
    "in_zone_mask": 1.0,
-   "mask_clear_cm": 3.3,
-   "line_clear_cm": 7.8,
-   "decal_clear_cm": 70.2,
+   "mask_clear_cm": 3.1,
+   "line_clear_cm": 1.0,
+   "decal_clear_cm": 46.0,
    "hidden_frac": {
     "front": 0.0,
     "front34_right": 0.0
    },
    "occl_ok": true,
-   "status": "OK"
+   "status": "OK",
+   "view_level_deg": {
+    "front": -10.6,
+    "front34_right": 6.1
+   }
   },
   {
    "name": "url_splitter_L",
@@ -1069,29 +1073,33 @@
    ],
    "side": null,
    "size_cm": [
-    16.0,
-    2.8
+    11.3,
+    2.2
    ],
    "coverage": 1.0,
-   "edge_clear_cm": 3.3,
-   "max_tilt_deg": 11.8,
-   "level_deg": -0.02,
+   "edge_clear_cm": 3.0,
+   "max_tilt_deg": 8.4,
+   "level_deg": -0.07,
    "level_rows_deg": [
-    -0.02,
+    -0.04,
     0.01,
-    -0.01
+    -0.07
    ],
-   "level_view": "side",
+   "level_view": "front",
    "in_zone_mask": 1.0,
    "mask_clear_cm": 3.5,
-   "line_clear_cm": 7.3,
-   "decal_clear_cm": 70.5,
+   "line_clear_cm": 1.0,
+   "decal_clear_cm": 46.3,
    "hidden_frac": {
     "front": 0.0,
     "front34_left": 0.0
    },
    "occl_ok": true,
-   "status": "OK"
+   "status": "OK",
+   "view_level_deg": {
+    "front": 10.7,
+    "front34_left": -6.1
+   }
   }
  ],
  "glass": [
@@ -1634,26 +1642,26 @@
  ],
  "url_notes": [
   "rear bumper: one line, 5.2 cm type",
-  "front bumper, outer corner faces (|x| 0.910, z 0.455, mirror-symmetric): «simkarting.ru» right / «karting64.ru» left, 1.9 cm type, white with a deep-ink outline, baseline level in 3D (horizontal projection axis, world z up) - parallel to the intake top edge and the holo band edge beside it; nothing on the splitter lip any more (level it holds no box over ~2.5 cm; the blade's ext_plastic.dds region is shared with 14 other meshes, so no texture override)"
+  "front bumper, forward-facing face beside each outer intake (|x| 0.500, z 0.480, mirror-symmetric): «simkarting.ru» right / «karting64.ru» left on dark INK_D sticker plates 2.2 cm tall, white type filling them (1.5 cm incl. ascenders / descenders, cap height ~1.1 cm), level in 3D (art up = world z, projected along the face's normal: no distortion); baseline as seen: url_splitter_R {'c': [-0.5, -2.0894, 0.48], 'size': 0.022, 'status': 'OK', 'view_level_deg': {'front': -10.6, 'front34_right': 6.1}}, url_splitter_L {'c': [0.5, -2.0892, 0.48], 'size': 0.022, 'status': 'OK', 'view_level_deg': {'front': 10.7, 'front34_left': -6.1}}; the largest level forward-facing rectangle of the lower nose clear of the nose cut line is ~3 x 22 cm, so 4.5-5 cm cap height does not fit anywhere forward-facing (lip: <= 2.5 cm level; blade: shared ext_plastic.dds region, not overridden; corner faces: side-facing)"
  ],
  "front_cut_line": [
   {
    "side": "L",
-   "dashes": 14,
+   "dashes": 15,
    "length_cm": 161.3,
    "truncated": [],
    "hidden": [],
    "air_lamp_cm": 1.9,
    "air_grille_cm": 0.9,
-   "air_other_cm": 0.6,
+   "air_other_cm": 0.5,
    "status": "OK",
    "stretch": [
-    0.993,
-    1.0513
+    1.0515,
+    1.0337
    ],
    "neck_cm": 3.4,
    "seam_cm": 1.6,
-   "hw_min_cm": 1.27,
+   "hw_min_cm": 0.9,
    "r_min_cm": 4.3,
    "guide_dev_cm": {
     "1": 0.65,
@@ -1662,29 +1670,29 @@
    },
    "dropped": [],
    "label_air_cm": {
-    "ЛОПАТКА": 31.2,
+    "ЛОПАТКА": 30.9,
     "ПЯТАЧОК": 7.1,
-    "ШЕЙКА": 84.4,
+    "ШЕЙКА": 84.3,
     "Симкарт hood tag": 51.2
    }
   },
   {
    "side": "R",
-   "dashes": 14,
+   "dashes": 15,
    "length_cm": 161.2,
    "truncated": [],
    "hidden": [],
    "air_lamp_cm": 1.8,
    "air_grille_cm": 0.9,
-   "air_other_cm": 0.5,
+   "air_other_cm": 0.4,
    "status": "OK",
    "stretch": [
-    0.9932,
-    1.0499
+    1.0507,
+    1.0324
    ],
    "neck_cm": 3.4,
    "seam_cm": 1.6,
-   "hw_min_cm": 1.28,
+   "hw_min_cm": 0.9,
    "r_min_cm": 4.3,
    "guide_dev_cm": {
     "1": 0.65,
@@ -1693,9 +1701,9 @@
    },
    "dropped": [],
    "label_air_cm": {
-    "ЛОПАТКА": 31.3,
+    "ЛОПАТКА": 31.0,
     "ПЯТАЧОК": 7.1,
-    "ШЕЙКА": 84.5,
+    "ШЕЙКА": 84.3,
     "Симкарт hood tag": 50.4
    }
   }
@@ -1704,13 +1712,13 @@
   {
    "main_cm": 449.9,
    "main_stretch": [
-    1.0588,
-    1.0405,
+    1.0708,
+    1.0419,
     0.9989,
     0.9919,
     0.8949
    ],
-   "hood_seam_cm": 85.0,
+   "hood_seam_cm": 84.6,
    "trunk_centre": "dash middle",
    "r_main_cm": 6.1,
    "head_strip_gap_cm": 4.8,
@@ -1756,14 +1764,14 @@
    ],
    "gaps": [],
    "neck": {
-    "narrowed_cm": 15.6,
-    "width_min_cm": 0.44,
-    "offset_min_cm": 1.2,
+    "narrowed_cm": 14.8,
+    "width_min_cm": 0.63,
+    "offset_min_cm": 1.07,
     "gap_to_dash_min_cm": 0.3,
-    "air_to_lamp_min_cm": 0.22
+    "air_to_lamp_min_cm": 0.23
    },
    "air_line_min_cm": 988.2,
-   "air_part_min_cm": 0.3
+   "air_part_min_cm": 0.2
   },
   {
    "side": "R",
@@ -1776,14 +1784,14 @@
    ],
    "gaps": [],
    "neck": {
-    "narrowed_cm": 15.3,
-    "width_min_cm": 0.44,
-    "offset_min_cm": 1.21,
+    "narrowed_cm": 14.7,
+    "width_min_cm": 0.63,
+    "offset_min_cm": 1.07,
     "gap_to_dash_min_cm": 0.3,
-    "air_to_lamp_min_cm": 0.22
+    "air_to_lamp_min_cm": 0.24
    },
    "air_line_min_cm": 988.2,
-   "air_part_min_cm": 0.3
+   "air_part_min_cm": 0.2
   }
  ],
  "shoulder_crease": {
