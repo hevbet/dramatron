@@ -586,8 +586,9 @@ def truffle_pig(h, face_left=False, line1="ОХОТНИК ЗА ВЕСТАМИ", 
     """«Truffle hunter» tribute sticker (client round 5, item 5; the 917/20's «Der Trüffel Jäger von Zuffenhausen» pig):
     a cute, clean side-view pig silhouette - plump rounded body, head with a disc snout, pointed ear, four short legs,
     curly tail - in white with a thin maroon ink outline and ink details (eye, nostrils, smile, inner ear); inside the
-    body, centred, «ОХОТНИК ЗА ВЕСТАМИ» and under it a smaller «из Саратова» in deep maroon, Sofia Sans Condensed Bold
-    (the livery's driver-name face: condensed, so the letters come out ~30 % larger than in Exo 2 at the same length).
+    body, centred, «ОХОТНИК ЗА ВЕСТАМИ» in two lines and under them a smaller «из Саратова» in deep maroon, Sofia
+    Sans Condensed Bold (the livery's driver-name face: condensed, so the letters come out ~30 % larger than in Exo 2
+    at the same length).
     h = art height (px). The silhouette is drawn facing right; face_left mirrors the SILHOUETTE only
     (so the pig faces the car's nose on either side) - the text is set afterwards and never mirrored."""
     S = 4
@@ -639,22 +640,41 @@ def truffle_pig(h, face_left=False, line1="ОХОТНИК ЗА ВЕСТАМИ", 
     out.alpha_composite(solid(det, INK))
     if face_left:
         out = out.transpose(Image.FLIP_LEFT_RIGHT)
-    # text, never mirrored: centred in the body (x 22-122 design units on a right-facing pig, mirrored band if left)
-    f1 = F_PIG(10 * u)
+    # text, never mirrored, in the body (centred on x 71 design units of a right-facing pig, mirrored if left):
+    # «ОХОТНИК ЗА ВЕСТАМИ» in two lines (ОХОТНИК / ЗА ВЕСТАМИ: ~1.6x the letter size of one line - the body is
+    # short and tall) and a smaller «из Саратова» under them; the block keeps inside the superellipse body with
+    # ~4 design units of white to its outline, clear of the eye and the tail
     def tm(s, f):
         bb = f.getbbox(s); mm = Image.new("L", (bb[2] - bb[0] + 8, bb[3] - bb[1] + 8), 0)
         ImageDraw.Draw(mm).text((4 - bb[0], 4 - bb[1]), s, font=f, fill=255); return mm.crop(mm.getbbox())
-    t1 = tm(line1, f1)
-    body_w = 94 * u                                  # usable text width inside the body
-    k1 = min(1.0, body_w / t1.width)
-    t1 = t1.resize((int(t1.width * k1), int(t1.height * k1)), Image.LANCZOS)
-    t2 = tm(line2, F_PIG(10 * u * k1 * 0.72))
-    gap = int(3.2 * u)
-    bxc = (69 if not face_left else 162 - 69) * u + ox
-    byc = 50 * u + ox
-    tot = t1.height + gap + t2.height
-    out.alpha_composite(solid(t1, INK), (int(bxc - t1.width / 2), int(byc - tot / 2)))
-    out.alpha_composite(solid(t2, INK), (int(bxc - t2.width / 2), int(byc - tot / 2 + t1.height + gap)))
+    w1 = line1.split(" ", 1)
+    big = [tm(w_, F_PIG(20 * u)) for w_ in w1]
+    small = tm(line2, F_PIG(20 * u * 0.66))
+    gap = 3.0 * u
+    xc = 71 if not face_left else 162 - 71
+    def half_w(dy):                     # half width of the body (design units) at dy from its centre line
+        return rx * max(0.0, 1 - abs(dy / ry) ** n) ** (1 / n)
+    k = 1.0
+    while k > 0.2:
+        hs = [im_.height * k for im_ in big] + [small.height * k]
+        tot = sum(hs) + gap * (len(hs) - 1)
+        y = 50 * u - tot / 2
+        ok = tot <= 54 * u
+        for im_, h_ in zip(big + [small], hs):
+            for dy in ((y - 50 * u) / u, (y + h_ - 50 * u) / u):
+                # (the block is centred on 71, the body on 76: the back side is the tighter one; in front the
+                #  text stays behind x 116, clear of the eye and the smile)
+                ok &= im_.width * k / 2 / u <= min(half_w(dy) - 4.0 - abs(76 - 71), 116 - 71)
+            y += h_ + gap
+        if ok:
+            break
+        k -= 0.01
+    y = 50 * u - tot / 2 + ox
+    for im_ in big + [small]:
+        im_ = im_.resize((max(1, int(im_.width * k)), max(1, int(im_.height * k))), Image.LANCZOS)
+        out.alpha_composite(solid(im_, INK), (int(xc * u + ox - im_.width / 2), int(y)))
+        y += im_.height + gap
+    t1 = big[0].resize((max(1, int(big[0].width * k)), max(1, int(big[0].height * k))))
     out = out.resize((out.width // S, out.height // S), Image.LANCZOS)
     out = out.crop(out.getbbox())
     global PIG_TEXT_CAP
@@ -1096,7 +1116,15 @@ def paint_belly():
     # client round 5: from BELLY_REAR_Y on the line's rear end is the connector to the loop round the tail lamp
     # (belly_rear_connector), and outboard of |x| = LL_END_X at the tail the loop itself has taken over the rear bumper
     # line's path (lamp_loop_curve) - no dashes of this field there
-    keep &= ~((P[:, 1] > BELLY_REAR_Y) & (P[:, 1] < 2.0) & (P[:, 2] > 0.50))
+    # (the hand-over is on the middle of one of this line's gaps - the last one at or ahead of BELLY_REAR_Y - so no dash
+    #  is cut there: the connector starts with a whole dash)
+    gm_ = DASH[0] + DASH[1] / 2
+    lnf = (np.abs(dist - 0.022) < 0.002) & (P[:, 2] > 0.50) & (np.abs(P[:, 0]) > 0.82)
+    s_y = float(np.median(s[lnf & (np.abs(P[:, 1] - BELLY_REAR_Y) < 0.005)]))
+    s_bh = gm_ + np.floor((s_y - gm_) / DPER) * DPER
+    y_bh = float(np.median(P[lnf & (np.abs(s - s_bh) < 0.003), 1]))
+    BELLY_HANDOVER.update(s=float(s_bh), y=round(y_bh, 4))
+    keep &= ~((s > s_bh) & (P[:, 1] > y_bh - 0.05) & (P[:, 1] < 2.0) & (P[:, 2] > 0.50))
     # (the handover is on the middle of one of this line's gaps near |x| = LL_END_X: no dash is cut there)
     rearl = (P[:, 1] > 2.1) & (np.abs(dist - 0.022) < 0.002) & (P[:, 2] < 0.6)
     s_x = float(np.median(s[rearl & (np.abs(np.abs(P[:, 0]) - LL_END_X) < 0.01)]))
@@ -2442,6 +2470,7 @@ LL_SEAM_EXT = (0.0, 0.005, 0.010, 0.015, 0.020, 0.025, 0.030)  # a gap over a sh
 LL_EDGE_EXT = (0.015, 0.020, 0.025, 0.030)                    # ... the gap over the flare step's edge by this
 BELLY_REAR_Y = 1.62        # the belly line's own dashes end here; the connector to the loop takes over ...
 BC_LEAVE_Y = 1.70          # ... follows its path to here and then crosses the flare's step diagonally onto the loop
+BELLY_HANDOVER = {}        # (set by paint_belly: the belly line's gap middle ahead of BELLY_REAR_Y where the connector starts)
 LOOP = {}
 LL_HANDOVER = {}           # (set by paint_belly: the rear bumper line's gap middle where the loop hands over)
 LL_RISER_XS = (0.47, 0.46, 0.48, 0.45, 0.49, 0.44, 0.50)    # riser positions tried (the evenest dash rhythm wins)
@@ -2588,14 +2617,15 @@ def belly_rear_connector(s, CL, sdl, iT=None):
     sg = 1.0 if s == "L" else -1.0
     surf = _Surf(LL_PARTS, s, (0.25, 1.40, 0.40), (1.0, 2.35, 1.0))
     CB = band_curve3d() * np.array([sg, 1.0, 1.0])
-    k = (surf.P[:, 1] > BELLY_REAR_Y - 0.02) & (surf.P[:, 1] < 1.86) & (np.abs(surf.P[:, 0]) > 0.82) & \
+    y_bh, s_bh = BELLY_HANDOVER["y"], BELLY_HANDOVER["s"]
+    k = (surf.P[:, 1] > y_bh - 0.02) & (surf.P[:, 1] < 1.86) & (np.abs(surf.P[:, 0]) > 0.82) & \
         (surf.P[:, 2] > 0.70)
     Pk = surf.P[k]
     d3 = cKDTree(CB).query(Pk)[0]
     zb, _ = b_curve(Pk[:, 1])
     on = (np.abs(d3 - 0.022) < 0.001) & (Pk[:, 2] > zb)
     lead = []
-    for y in np.arange(BELLY_REAR_Y, BC_LEAVE_Y + 0.001, 0.02):
+    for y in np.concatenate([[y_bh], np.arange(np.ceil(y_bh / 0.02 + 0.25) * 0.02, BC_LEAVE_Y + 0.001, 0.02)]):
         q = Pk[on & (np.abs(Pk[:, 1] - y) < 0.004)]
         if len(q) >= 3:
             lead.append(np.median(q, 0))
@@ -2608,7 +2638,7 @@ def belly_rear_connector(s, CL, sdl, iT=None):
     mids = [int(g[len(g) // 2]) for g in np.split(mids, np.flatnonzero(np.diff(mids) > 3) + 1) if len(g)]
     if iT is not None:
         mids = [iT]
-    s0 = float(belly_s(lead[:1])[0])
+    s0 = float(s_bh)     # (starts on the field's gap middle: its first dash is whole)
     best = None
     for iT in mids:
         T = CL[iT]
@@ -4796,7 +4826,8 @@ def top_decals():
     trunk_tail()
 
 
-PIG_SIZES = (0.130, 0.120, 0.110, 0.105, 0.100, 0.095, 0.090, 0.085, 0.080, 0.075, 0.070)   # art height, m
+PIG_SIZES = (0.130, 0.120, 0.110, 0.105, 0.100, 0.095, 0.090, 0.085, 0.080, 0.075, 0.070)   # design height, m
+#             (the 100 design units of truffle_pig; the silhouette itself - ear tip to feet - is ~0.8 of it)
 PIG_TEXT_CAP = None         # (cap height of the pig's first text line per metre of art height: set by truffle_pig)
 PIG_LOG = {}
 def fender_decals():
@@ -4837,9 +4868,11 @@ def fender_decals():
         c, n, u = best[s]
         decal(f"pig_fender_{s}", arts[s], c, n, u, **kw_fn(s))
         rep = CHECKS[-1]
+        art_fn(sz, s)          # (sets PIG_TEXT_CAP for this art: cap height per unit of the art's real height)
         PIG_LOG[s] = dict(height_cm=round(arts[s].height / PPM * 100, 1), length_cm=round(arts[s].width / PPM * 100, 1),
                           centre=[round(float(v), 3) for v in c], status=rep["status"],
-                          text_cap_cm=round(sz * PIG_TEXT_CAP * 100, 2), line_clear_cm=rep.get("line_clear_cm"),
+                          text_cap_cm=round(arts[s].height / PPM * PIG_TEXT_CAP * 100, 2),
+                          line_clear_cm=rep.get("line_clear_cm"),
                           decal_clear_cm=rep.get("decal_clear_cm"), edge_clear_cm=rep.get("edge_clear_cm"),
                           tilt=rep.get("max_tilt_deg"), level=rep.get("level_deg"), hidden=rep.get("hidden_frac"),
                           faces="nose (silhouette mirrored on the left, text not)")
@@ -5803,8 +5836,8 @@ def line_ends():
                    f"the lip), turns up in a round elbow and rises beside the outer intake ({BF_SLOT_GAP * 100:.0f} cm "
                    f"from its wall) to the front cut line under the headlight, which it meets in a T: its last dash ends "
                    f"on the middle of a front-line dash at {fr.get('end_T')} ({fr.get('length_cm')} cm, "
-                   f"{fr.get('dashes')} whole dashes); REAR end - CLOSED: from y {BELLY_REAR_Y:+.2f} on the rear "
-                   f"flare's top step it leaves the flare edge at y {BC_LEAVE_Y:+.2f}, crosses the step diagonally and "
+                   f"{fr.get('dashes')} whole dashes); REAR end - CLOSED: from y {BELLY_HANDOVER.get('y', 0):+.3f} (the middle "
+                   f"of one of its gaps) on the rear flare's top step it leaves the flare edge at y {BC_LEAVE_Y:+.2f}, crosses the step diagonally and "
                    f"lands on the tail-lamp loop in front of the lamp in a T on the middle of a loop dash at "
                    f"{br.get('T')} ({br.get('length_cm')} cm, stretch {br.get('stretch')}); the recess under / behind the "
                    f"flare stays plain pink (the line runs on the flare's step and the body above it, never down the "
