@@ -3,7 +3,7 @@
 
 Usage:
     python3 team_render.py --skins A_dir B_dir --out DIR
-                           [--views front34_pair,rear34_pair,side_pair,top_pair]
+                           [--views front34_pair,rear34_pair,side_pair,top_pair,faceoff_pair]
                            [--width 2400 --height 1350] [--ss 2] [--jobs 4] [--title]
                            [--gap M --stagger M] [--dof F] [--back-ev EV] [--exposure E] [--zoom Z]
                            [--camera az,el,dist[,tx,ty,tz]] [--eye x,y,z --target x,y,z]
@@ -23,6 +23,11 @@ Views (each one has its own car layout, camera and look; the hero car is the one
   side_pair     true profile at bumper height (0.62 m), long lens (~115 mm): car A in front, car B
                 behind it and half a car ahead (its door number clear of car A)
   top_pair      plan view straight down (90 degrees), the cars parallel in echelon
+  faceoff_pair  «Лицом к лицу»: the cars nose to nose in a V, each turned 35 degrees off the nose-to-nose line
+                towards the camera, splitter tips 1.0 m apart; eye-level camera (1.5 m) in front of the gap,
+                ~50 mm lens: both cars in front three-quarter (car A on the right shows its left front, car B
+                its right front), the gap between the noses in the centre; its own light rig (a side strip
+                per car, raised light lines and a spine strip for the hoods, two keys)
   custom        --camera az,el,dist[,target] (az from the car front towards the car left) or --eye/--target
 --gap/--stagger replace the preset layouts with two parallel cars (gap centre to centre, stagger front to back).
 
@@ -50,10 +55,11 @@ taps along the footprint) over mip pyramids padded outside the UV islands; alpha
 the filtered alpha.  Smoothed shading normals on the body.  Post: SSAA (--ss) with a triangle-filter
 float downsample (no ringing), bloom, ACES tone mapping, dithering before quantising.
 --title adds the team band at the bottom (overlaid on the floor).  --fast skips the visibility
-precomputation (previews).  sheet.png: the views without the band, cropped to the cars.
+precomputation (previews).  sheet.png: the views without the band, cropped to the cars (faceoff_pair full
+width above the grid).
 
 Cost: per layout the visibility (128 shadow maps) takes ~0.5-1 min on 4 CPUs (--cache keeps it between
-runs); the four 2400x1350 views at --ss 2 in parallel (--jobs 4) take ~6 min, peak ~2.2 GB per worker
+runs); the five 2400x1350 views at --ss 2 in parallel (--jobs 4) take ~8 min, peak ~2.2 GB per worker
 (~3.4 GB with depth of field).
 
 World space = AC/kn5: x = car LEFT, y = up, z = FRONT.  Writes <view>.png and sheet.png.
@@ -82,11 +88,13 @@ LIV = os.path.dirname(HERE)
 FONT_DIRS = [os.path.join(LIV, "rs3_concepts", "fonts"), os.path.join(LIV, "fonts"),
              os.path.join(LIV, "fonts", "extra"), os.path.join(LIV, "rs3_pink", "fonts"),
              "/usr/share/fonts/truetype/dejavu"]
-TEAM_LINE = ("КОМАНДА ЭДМ", "BUTCHER CHART CHROME")
+TEAM_LINE = ("КОМАНДА ЭДМ", "РОЗОВЫЙ ПЯТАЧОК")
 
-ALL_VIEWS = ["front34_pair", "rear34_pair", "side_pair", "top_pair"]
+ALL_VIEWS = ["front34_pair", "rear34_pair", "side_pair", "top_pair", "faceoff_pair"]
 CAPTIONS = {"front34_pair": "Три четверти спереди", "rear34_pair": "Три четверти сзади",
-            "side_pair": "Профиль", "top_pair": "Вид сверху", "custom": "Свой ракурс"}
+            "side_pair": "Профиль", "top_pair": "Вид сверху", "faceoff_pair": "Лицом к лицу",
+            "custom": "Свой ракурс"}
+SHEET_HERO = "faceoff_pair"            # the contact sheet shows this view full width above the grid
 
 
 def _behind(az_deg, left, deeper):
@@ -98,6 +106,12 @@ def _behind(az_deg, left, deeper):
 
 _F34 = _behind(34.0, 2.5, 3.6)
 _R34 = _behind(214.0, 2.5, 3.6)
+# face-off: the cars nose to nose in a V, each turned FO_TURN degrees off the nose-to-nose line towards the
+# camera (so each one is FO_YAW off parallel, nose towards the other car); FO_X puts their front corners
+# (splitter tips) 1.0 m apart (bumper corners ~1.3 m)
+FO_TURN = 35.0
+FO_YAW = 90.0 - FO_TURN
+FO_X = 2.706
 # cars: (x, z, yaw degrees; + turns the nose towards +x) for car A and car B.
 # camera: az degrees from the car front (+z) towards the car left (+x); eye_h camera height (m) or el
 # (degrees above the target); dist horizontal distance (m) from the layout centre (long lens when large).
@@ -118,6 +132,10 @@ PRESETS = {
     "top_pair": dict(az=-90.0, el=90.0, dist=15.0, ty=0.3, cars=((1.175, 0.7, 0.0), (-1.175, -0.7, 0.0)),
                      margins=(0.08, 0.08, 0.06, 0.13), dof=0.0, back_ev=0.0, exposure=1.0, floor_alb=0.14,
                      refl=0.30),
+    # rig="faceoff": one side strip per car where its visible side mirrors the camera, two keys (both cars lit)
+    "faceoff_pair": dict(az=0.0, eye_h=1.5, dist=14.6, ty=0.55, cars=((FO_X, 0.0, -FO_YAW), (-FO_X, 0.0, FO_YAW)),
+                         margins=(0.04, 0.04, 0.16, 0.28), dof=0.0, back_ev=0.0, exposure=1.0, floor_alb=0.16,
+                         refl=0.55, rig="faceoff"),
 }
 CUSTOM = dict(ty=0.62, cars=((1.225, 0.4, 0.0), (-1.225, -0.4, 0.0)), margins=(0.06, 0.06, 0.12, 0.27), dof=0.0,
               back_ev=0.0, exposure=1.0, floor_alb=0.16, refl=0.5)
@@ -624,7 +642,12 @@ class Studio:
     light under the cars).  radiance(d, sigma) is the environment convolved with a gaussian lobe of sigma
     rad (analytic)."""
 
-    def __init__(self, cam_az_deg=34.0, cam_el_deg=6.0):
+    def __init__(self, cam_az_deg=34.0, cam_el_deg=6.0, rig=None):
+        """rig (face-off and other yawed layouts): {"strips": [azimuth rad, ...]} one side strip per car where
+        its visible side mirrors the camera (replaces the single strip at the mirror of the camera azimuth);
+        "keys": [azimuth rad, ...] key softboxes (the default is one at the camera azimuth + 40 degrees);
+        "key_scale": key strength factor; "line_el": elevations of the two light lines above the camera elevation;
+        "strip_el", "strip_w": elevation and half width of the side strips (all angles in degrees)."""
         ca = math.radians(cam_az_deg)
         back = ca + math.pi
         mirror = math.pi - ca                    # where a vertical side panel reflects the camera
@@ -673,6 +696,23 @@ class Studio:
                 ("back", "azel", back, R_(22), R_(62), R_(18), W_(0.30), 0.6),
                 ("fill", "azel", ca, R_(14), R_(40), R_(14), W_(0.35), 0.0),
             ]
+            if rig:
+                keep = [lt for lt in self.lights if lt[0] not in ("strip", "key", "line")]
+                le = rig.get("line_el", (3.5, 15.0))
+                lines = [("line", "azel", back, e + R_(le[0]), R_(66), R_(0.9), W_(9.0), 0.0),
+                         ("line", "azel", back, e + R_(le[1]), R_(58), R_(1.2), W_(4.5), 0.0)]
+                strips = [("strip", "azel", az, R_(rig.get("strip_el", 17.0)), R_(rig.get("strip_w", 30.0)), R_(2.3),
+                           W_(22.0), 0.0) for az in rig.get("strips", [mirror])]
+                keys = rig.get("keys", [ca + R_(40)])
+                kw = 2.6 * rig.get("key_scale", 1.0)
+                keys = [("key", "azel", az, R_(36), R_(22), R_(15), W_(kw), -0.4) for az in keys]
+                # spine: a tall narrow strip straight behind the cars (one lengthwise streak along each hood)
+                spine = []
+                if rig.get("spine"):
+                    sp = rig["spine"]
+                    spine = [("line", "azel", back + R_(sp.get("az", 0.0)), R_((sp["el0"] + sp["el1"]) / 2),
+                              R_(sp.get("w", 0.8)), R_((sp["el1"] - sp["el0"]) / 2), W_(sp.get("rad", 8.0)), 0.0)]
+                self.lights = lines + spine + strips + keys + keep
             # reflections seen by the camera: from high above the overhead softbox would mirror flat over the
             # roof (a photographer shoots through it), so its specular share drops with camera elevation
             self.spec_gains = {"top": float(np.interp(cam_el_deg, [30, 75], [1.0, 0.18])), "key": 0.25,
@@ -1418,6 +1458,36 @@ def shade_background(ctx, cam, eye, idx, Ws, mb, ms, look):
     return (floor_rad * (1 - fade_far) + back * fade_far).astype(np.float32), depth
 
 
+def side_mirror_az(cars, eye, h=0.85, half_w=0.95):
+    """Azimuth (rad) of the direction in which the side of each car turned to the camera mirrors the eye (its
+    door at shoulder height): where that car's side strip goes so it draws one streak along the shoulder."""
+    out = []
+    for x, z, yaw in cars:
+        y = math.radians(yaw)
+        n = np.array([math.cos(y), 0.0, -math.sin(y)])            # the car's left side
+        c = np.array([x, h, z])
+        if n @ (eye - c) < 0:
+            n = -n                                                # the right side faces the camera
+        V = eye - (c + n * half_w); V = V / np.linalg.norm(V)
+        R = 2 * (n @ V) * n - V
+        out.append(math.atan2(R[0], R[2]))
+    return out
+
+
+def light_rig(look, cam, cam_az):
+    """Studio rig options of a view (None: the standard rig aligned with the camera)."""
+    if look.get("rig") != "faceoff":
+        return None
+    # the hoods of the turned cars mirror 15-48 degrees up behind the scene: the two light lines are raised to
+    # cross them and a tall narrow spine strip draws a streak along them; the keys left and right of the
+    # camera light both cars alike (a little dimmer each than the single key: the paint keeps its contrast)
+    rig = dict(strips=side_mirror_az(look["cars"], np.asarray(cam.eye, float)),
+               keys=[math.radians(cam_az + 40.0), math.radians(cam_az - 40.0)], key_scale=0.5, strip_w=30.0,
+               line_el=(20.0, 30.0), spine=dict(el0=14.0, el1=48.0, w=1.2, rad=10.0))
+    rig.update(look.get("rig_opts", {}))
+    return rig
+
+
 def render_view(factory, name, args, log=print):
     """Returns (image with the title band if --title, image without it, car bounding box in output px)."""
     t0 = time.time()
@@ -1433,7 +1503,7 @@ def render_view(factory, name, args, log=print):
     gain = np.ones(L.n, np.float32)
     if L.n > 1 and look.get("back_ev", 0.0) != 0.0:
         gain[int(np.argmax(dep))] = 2.0 ** look["back_ev"]
-    ctx = ShadeCtx(factory.model, factory.liveries, L, Studio(cam_az, cam_el), gain)
+    ctx = ShadeCtx(factory.model, factory.liveries, L, Studio(cam_az, cam_el, light_rig(look, cam, cam_az)), gain)
     margins = tuple(look.get("margins", (0.06, 0.06, 0.12, 0.27)))
     cam.fit(L, Ws, Hs, margins, args.zoom)
     eye = cam.eye.astype(np.float32)
@@ -1692,7 +1762,7 @@ def screen_order(car_xy):
 
 
 def draw_title(im, liveries, car_xy, args):
-    """Team band: «КОМАНДА ЭДМ · BUTCHER CHART CHROME» + driver number plates and names (ui_skin.json),
+    """Team band: «КОМАНДА ЭДМ · РОЗОВЫЙ ПЯТАЧОК» (TEAM_LINE) + driver number plates and names (ui_skin.json),
     drivers ordered like the cars on screen."""
     W, H = im.size
     s = min(W / 2400.0, H / 1350.0) * 0.8           # a slim band (~9 % of the frame), overlaid on the floor
@@ -1806,14 +1876,20 @@ def _crop_ext(im, box):
     return im.crop((l, t, r, b))
 
 
-def team_sheet(imgs, bboxes, views, liveries, cols=2, tw=1200, th=572):
-    """Shareable contact sheet: the team header once (team, livery, drivers from ui_skin.json), then every
-    view without its title band, cropped to the cars, with a readable caption."""
+def team_sheet(imgs, bboxes, views, liveries, cols=2, tw=1200, th=572, hero=SHEET_HERO):
+    """Shareable contact sheet: the team header once («КОМАНДА ЭДМ · РОЗОВЫЙ ПЯТАЧОК», drivers from
+    ui_skin.json), then every view without its title band, cropped to the cars, with a readable caption.
+    The hero view (when rendered with others) spans the full width above the grid, 1.5 tiles tall."""
     s = tw / 1200.0
-    pad, head, capt = int(28 * s), int(118 * s), int(64 * s)
-    rows = (len(imgs) + cols - 1) // cols
+    pad, head, capt, rgap = int(28 * s), int(118 * s), int(64 * s), int(10 * s)
+    items = list(zip(imgs, bboxes, views))
+    hero_item = items.pop(views.index(hero)) if hero in views and len(views) > 1 else None
+    hw, hh = cols * tw + (cols - 1) * pad, int(round(th * 1.5))
+    rows = (len(items) + cols - 1) // cols
     Wt = cols * tw + (cols + 1) * pad
-    Ht = head + rows * (th + capt) + (rows - 1) * int(10 * s) + pad
+    Ht = head + rows * (th + capt) + max(rows - 1, 0) * rgap + pad
+    if hero_item is not None:
+        Ht += hh + capt + (rgap if rows else 0)
     sheet = Image.new("RGB", (Wt, Ht), (11, 8, 11))
     d = ImageDraw.Draw(sheet)
     f_team = find_font("MontserratAlternates-BlackItalic.ttf", 44 * s, extra_dirs=_FONT_EXTRA)
@@ -1823,7 +1899,15 @@ def team_sheet(imgs, bboxes, views, liveries, cols=2, tw=1200, th=572):
     yb = int(66 * s)
     team = (liveries[0].info.get("team") or TEAM_LINE[0]).upper()
     d.text((pad, yb), team, font=f_team, fill=(255, 150, 198), anchor="ls")
-    x = pad + d.textlength(team, font=f_team) + int(22 * s)
+    x = pad + d.textlength(team, font=f_team) + int(20 * s)
+    # holo diamond separator (as in the title band), centred on the cap height of the subtitle
+    cap_bb = f_sub.getbbox("Р", anchor="ls")
+    cy = yb + (cap_bb[1] + cap_bb[3]) / 2
+    r_ = 7 * s
+    dm = Image.new("L", (Wt, int(head)), 0)
+    ImageDraw.Draw(dm).polygon([(x, cy), (x + r_, cy - r_), (x + 2 * r_, cy), (x + r_, cy + r_)], fill=255)
+    sheet.paste(holo_strip(Wt, int(head), 1.3).convert("RGB"), (0, 0), dm)
+    x += 2 * r_ + int(20 * s)
     _spaced(d, (x, yb), TEAM_LINE[1], f_sub, (244, 232, 242), 2 * s)
     drv = "   ·   ".join(f"№{lv.info.get('number', '')}  {str(lv.info.get('drivername', '')).upper()}" for lv in liveries)
     d.text((Wt - pad, yb), drv, font=f_drv, fill=(246, 240, 244), anchor="rs")
@@ -1833,14 +1917,21 @@ def team_sheet(imgs, bboxes, views, liveries, cols=2, tw=1200, th=572):
     while x < Wt - pad:
         d.rounded_rectangle([x, int(100 * s), min(x + int(24 * s), Wt - pad), int(103 * s)], radius=1, fill=(170, 34, 68))
         x += int(36 * s)
-    for k, (im, bb, v) in enumerate(zip(imgs, bboxes, views)):
-        r_, c_ = divmod(k, cols)
-        x = pad + c_ * (tw + pad); y = head + r_ * (th + capt + int(10 * s))
-        box = _crop_box(bb, im.size[0], im.size[1], tw / th, below=0.0 if v == "top_pair" else 0.16)
-        sheet.paste(_crop_ext(im, box).resize((tw, th), Image.LANCZOS), (x, y))
+
+    def tile(im, bb, v, x, y, w, h):
+        box = _crop_box(bb, im.size[0], im.size[1], w / h, below=0.0 if v == "top_pair" else 0.16)
+        sheet.paste(_crop_ext(im, box).resize((w, h), Image.LANCZOS), (x, y))
         cap = CAPTIONS.get(v, v).upper()
-        d.rounded_rectangle([x, y + th + int(14 * s), x + int(8 * s), y + th + int(48 * s)], radius=2, fill=(170, 34, 68))
-        _spaced(d, (x + int(20 * s), y + th + int(46 * s)), cap, f_cap, (244, 232, 242), 1.5 * s)
+        d.rounded_rectangle([x, y + h + int(14 * s), x + int(8 * s), y + h + int(48 * s)], radius=2, fill=(170, 34, 68))
+        _spaced(d, (x + int(20 * s), y + h + int(46 * s)), cap, f_cap, (244, 232, 242), 1.5 * s)
+
+    y0 = head
+    if hero_item is not None:
+        tile(*hero_item, pad, y0, hw, hh)
+        y0 += hh + capt + rgap
+    for k, (im, bb, v) in enumerate(items):
+        r_, c_ = divmod(k, cols)
+        tile(im, bb, v, pad + c_ * (tw + pad), y0 + r_ * (th + capt + rgap), tw, th)
     return sheet
 
 
