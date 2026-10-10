@@ -72,6 +72,9 @@ Rim colour (RIM_COLOUR, default graphite)
   base and no pink can bleed into them, and the nut blocks get the same constrained encode.
   --rim-colour stock (or 226,226,226) reproduces the old white-rim output.
 
+Per-skin rims (SKIN_RIMS): a plain re-run writes both skins - Pozdnyakov_23 graphite, Konopelko_86 stock white;
+--rim-colour forces one colour on every skin listed.
+
 Usage: python3 make_bolts.py [--out DIR] [--skins A,B] [--debug DIR] [--rim-colour R,G,B|graphite|stock]
 """
 import argparse
@@ -95,8 +98,7 @@ import render_rs3  # noqa: E402
 
 KN5 = render_rs3.DEFAULT_KN5
 SKINS = ("Pozdnyakov_23", "Konopelko_86")
-# per-driver rims: Pozdnyakov_23 graphite (default), Konopelko_86 stock white ->
-#   python3 make_bolts.py --skins Pozdnyakov_23 && python3 make_bolts.py --skins Konopelko_86 --rim-colour stock
+SKIN_RIMS = {"Pozdnyakov_23": "graphite", "Konopelko_86": "stock"}   # per-driver rims (a plain re-run makes both)
 RIM, BLUR, DETAIL = "rim_d.dds", "rim_blur.dds", "car_paint_rims.dds"
 
 # palette (butcher_chrome/make_skin.py): PIG (242,158,178) is the body's flesh pink
@@ -708,11 +710,20 @@ def main():
     ap.add_argument("--skins", default=",".join(SKINS))
     ap.add_argument("--debug", default=None, help="also save masks / level-0 PNGs into this folder")
     ap.add_argument("--no-blur", action="store_true", help="skip rim_blur.dds")
-    ap.add_argument("--rim-colour", default="graphite",
-                    help="in-game rim colour as a car_paint_rims texel: R,G,B | graphite (default, "
-                         f"{GRAPHITE}) | stock (white rim, old output)")
+    ap.add_argument("--rim-colour", default=None,
+                    help="in-game rim colour as a car_paint_rims texel for every skin listed: R,G,B | graphite "
+                         f"({GRAPHITE}) | stock (white rim, old output); default: per skin, SKIN_RIMS")
     a = ap.parse_args()
-    rim_col = parse_colour(a.rim_colour)
+    skins = [s for s in a.skins.split(",") if s]
+    by_col = {}
+    for skin in skins:
+        by_col.setdefault(a.rim_colour or SKIN_RIMS.get(skin, "graphite"), []).append(skin)
+    for col_name, col_skins in by_col.items():
+        print(f"=== {', '.join(col_skins)}: rim colour {col_name}")
+        run(a, parse_colour(col_name), col_skins)
+
+
+def run(a, rim_col, skins):
 
     tex, mats = load_textures()
     rim_m = mats["rim"]
@@ -792,7 +803,7 @@ def main():
         dbg[shared] = (255, 255, 0)
         Image.fromarray(dbg).save(os.path.join(a.debug, "rim_d_islands.png"))
 
-    for skin in [s for s in a.skins.split(",") if s]:
+    for skin in skins:
         d = os.path.join(a.out, skin)
         os.makedirs(d, exist_ok=True)
         for name, orig, base, levels, keep, nut_m, rim_m in jobs:
