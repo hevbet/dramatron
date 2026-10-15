@@ -199,16 +199,26 @@ def arka(h, taimcafe=True):
     return blib.arka_logo(int(h), fill=(244, 208, 92), dark=PLUM_D, taimcafe=taimcafe)
 
 
+SIMKART_URL = "simkarting.ru"      # Симкартинг web address (the old brand used simkart.vercel.app)
+
+
 def simkart(h, glow=True):
+    """«Симкартинг» wordmark (lib default word): h = letter height, С top to р descender."""
     return blib.simkart_logo(int(h), silver=(226, 224, 236), red=(238, 50, 40), glow=glow)
 
 
 def simkart_plate(w, url=True, body=PLUM_D):
-    """«Симкарт» on its night plate with chrome blade frame; url under the wordmark."""
-    logo = fit_w(simkart(int(w * 0.2)), int(w * 0.78))
+    """«Симкартинг» on its night plate with chrome blade frame; url under the wordmark.
+    «Симкартинг» is 1.37x longer than the old «Симкарт» at the same letter height and the wordmark is sized by the
+    plate's width, so it takes 0.84 w (glow included; the old word took 0.78 w): letters 0.110 w tall (0.136 w before,
+    0.102 w at 0.78 w). The url is set by type size, not stretched to 0.52 w (the shorter «simkarting.ru» would have
+    come out 1.4x taller than the old url): 0.423 x the wordmark's letter height, the old url : wordmark ratio.
+    The plate is 0.31 w tall (old 0.36 w)."""
+    logo = fit_w(simkart(int(w * 0.2)), int(w * 0.84))
     items = [logo]
     if url:
-        items.append(fit_w(text("simkart.vercel.app", F_SPON(200), (236, 236, 246)), int(w * 0.52)))
+        lb = logo.getchannel("A").point(lambda v: 255 if v > 200 else 0).getbbox()    # letters, glow excluded
+        items.append(text(SIMKART_URL, F_SPON(round(0.423 * (lb[3] - lb[1]))), (236, 236, 246)))
     inner = stack(items, int(w * 0.004))
     h = inner.height + int(w * 0.09)
     p = blade_plate(int(w), h, body, fw=max(3, int(h * 0.045)))

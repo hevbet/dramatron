@@ -194,11 +194,15 @@ def arka_logo(h, taimcafe=True):
     return stack([t, ts], int(h * 0.04))
 
 
+SIMKART_URL = "simkarting.ru"      # сайт Симкартинга (старый бренд — simkart.vercel.app)
+
+
 def simkart_logo(h, glow=True, tagline=False):
-    """«Симкарт»: «Сим» серебро с градиентом, «карт» красный, красное свечение (для тёмного фона)."""
+    """«Симкартинг» (бренд переименован из «Симкарт»): «Сим» серебро с градиентом, «картинг» красный, красное
+    свечение (для тёмного фона). h — высота букв; слово в 1.37 раза длиннее старого «Симкарт» при той же h."""
     red = (234, 50, 38)
-    wm = Image.open(os.path.join(BRAND, "simkart_word_white.png")).convert("L")
-    rm = Image.open(os.path.join(BRAND, "simkart_word_red.png")).convert("L")
+    wm = Image.open(os.path.join(BRAND, "simkarting_word_white.png")).convert("L")
+    rm = Image.open(os.path.join(BRAND, "simkarting_word_red.png")).convert("L")
     bb = ImageChops.lighter(wm, rm).getbbox()
     sz = (round((bb[2] - bb[0]) * h / (bb[3] - bb[1])), int(h))
     w = wm.crop(bb).resize(sz, Image.LANCZOS)
@@ -302,7 +306,7 @@ def karting64_logo(h):
 
 
 def karting64_url(h, col=INK):
-    """Ссылка karting64.ru — тем же шрифтом и так же, как simkart.vercel.app на пороге."""
+    """Ссылка karting64.ru — тем же шрифтом и так же, как simkarting.ru на пороге."""
     return solid(text_h("karting64.ru", F_URL, h), col)
 
 
@@ -698,10 +702,10 @@ def place_sponsors(B, car):
               height_m=0.075, parts=["front_door_low"], side=s, max_angle=60, search=(0.02, 0.02))
         B.put(f"РАФ полоса под дверью {s}", raf_logo(int(0.09 * P)), view, (xc, 0.08, 0.352),
               height_m=0.09, parts=["front_door_low"], side=s, max_angle=60)
-        # 5. Порог: simkart.vercel.app
-        B.put(f"simkart.vercel.app порог {s}", solid(text_h("simkart.vercel.app", F_URL, int(0.04 * P)), INK), view,
+        # 5. Порог: simkarting.ru (высота букв та же, что у старой simkart.vercel.app — ссылка просто короче)
+        B.put(f"simkarting.ru порог {s}", solid(text_h(SIMKART_URL, F_URL, int(0.04 * P)), INK), view,
               (xc, 0.05, 0.215), height_m=0.045, parts=["sill"], side=s, max_angle=60)
-        # 5б. Порог, перед ссылкой Симкарта: karting64.ru — тот же шрифт/кегль/цвет, что simkart.vercel.app
+        # 5б. Порог, перед ссылкой Симкартинга: karting64.ru — тот же шрифт/кегль/цвет, что simkarting.ru
         B.put(f"karting64.ru порог {s}", karting64_url(int(0.04 * P)), view,
               (xc, -0.45, 0.215), height_m=0.045, parts=["sill"], side=s, max_angle=60, search=(0.03, 0.02))
         # 6. Угол переднего бампера: SMP RACING ESPORTS (серия)
@@ -714,7 +718,7 @@ def place_sponsors(B, car):
         B.put(f"герб Саратовской обл. {s}", saratov_coa(int(0.12 * P)), view, (xc, 1.83, 0.58),
               height_m=0.12, parts=["rear_fender"], side=s, max_angle=60)
     # ---- верх
-    B.put("Симкарт капот", panel(simkart_logo(int(0.12 * P), tagline=True), int(0.05 * P), int(0.035 * P), INK, WHITE,
+    B.put("Симкартинг капот", panel(simkart_logo(int(0.12 * P), tagline=True), int(0.05 * P), int(0.035 * P), INK, WHITE,
                                  max(3, int(0.006 * P)), acc, int(0.018 * P)),
           "top", (0, -1.345, 0.94), width_m=0.80, parts=["hood"], max_angle=50)
     B.put("пузырь ЛОПАТКА капот", bubble("ЛОПАТКА", int(0.09 * P), "bl"), "top", (0.43, -1.62, 0.9),
@@ -739,9 +743,9 @@ def place_sponsors(B, car):
     B.put("МБУ + Команда ЭДМ задняя панель", row([mbu_logo(int(0.15 * P)), edm], int(0.03 * P)), "rear",
           (0.0, 2.16, 0.77), height_m=0.15, parts=["rear_panel"], max_angle=55, shrink_to=0.9)
     sim_rear = panel(row([simkart_logo(int(0.055 * P)),
-                          solid(text_h("simkart.vercel.app", F_URL, int(0.026 * P)), WHITE)], int(0.03 * P)),
+                          solid(text_h(SIMKART_URL, F_URL, int(0.026 * P)), WHITE)], int(0.03 * P)),
                      int(0.03 * P), int(0.014 * P), INK, WHITE, max(3, int(0.004 * P)))
-    B.put("Симкарт + ссылка задний бампер", sim_rear, "rear", (0.0, 2.25, 0.585), height_m=0.10,
+    B.put("Симкартинг + ссылка задний бампер", sim_rear, "rear", (0.0, 2.25, 0.585), height_m=0.10,
           parts=["rear_bumper"], max_angle=60, search=(0.05, 0.05))
     B.put("САРАТОВСКАЯ ОБЛАСТЬ задний бампер",
           solid(text_h("САРАТОВСКАЯ ОБЛАСТЬ · РЕГИОН 64", F_SPON, int(0.03 * P)), INK), "rear",
@@ -850,7 +854,7 @@ def make_glass(car, masks):
     ImageDraw.Draw(stripe).rectangle([0, 856, 1024, 872], fill=255)
     G.alpha_composite(solid(ImageChops.multiply(stripe, z_wt), PINK))
     wing = row([arka_logo(84, taimcafe=False), pig_snout(70), simkart_logo(70)], 46)
-    put("Арка · Симкарт антикрыло", wing, 522, 933, z_wt, angle=180, min_clear=6)
+    put("Арка · Симкартинг антикрыло", wing, 522, 933, z_wt, angle=180, min_clear=6)
     # ---- концевые пластины: маскот + «ХРЮ!»
     for nm_, z, box in (("L", z_el, (320, 750, 530, 858)), ("R", z_er, (100, 750, 318, 858))):
         area(ext, box, PINK)

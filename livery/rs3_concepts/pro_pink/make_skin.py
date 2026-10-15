@@ -359,7 +359,7 @@ def build_body(car, drv, inv):
     # ---------- rear door upper (above the blade): тайм-кафе «Арка» — main partner #1
     car.fit_sides("arka", lambda s: A.arka(400), (0.22, 1.25), (0.40, 1.00), 0.50, ["rear_door"],
                   prefer=(0.42, 0.78))
-    # ---------- rear door lower (plum under the blade): «Симкарт» + url — main partner #2
+    # ---------- rear door lower (plum under the blade): «Симкартинг» — main partner #2
     if not inv:   # wordmark straight on the plum
         sk_art = lambda s: A.simkart(300)
     else:         # on magenta the red «карт» would vanish -> brand night plate
@@ -377,7 +377,7 @@ def build_body(car, drv, inv):
     car.fit_sides("br_sill", lambda s: A.mono("br_engineering_black.png", 100, W), (-1.0, 1.1), (0.10, 0.32), 0.70,
                   ["sill"], prefer=(0.0, 0.21), min_clear=0.008)
     # ---------- sill, ahead of BR ENGINEERING (under the front door): karting64.ru — set exactly like the
-    # simkart.vercel.app link (F_SPON = Exo 2 ExtraBold Italic, white, no tracking). Region stops at y=-0.47 so
+    # simkarting.ru link (F_SPON = Exo 2 ExtraBold Italic, white, no tracking). Region stops at y=-0.47 so
     # there is plenty of air to BR ENGINEERING further back on the sill; level with the ground by projection.
     car.fit_sides("k64_url", lambda s: A.text("karting64.ru", A.F_SPON(300), W), (-1.0, -0.47), (0.10, 0.32), 0.34,
                   ["sill"], prefer=(-0.72, 0.21), min_clear=0.010)
@@ -431,7 +431,7 @@ def build_top(car, drv, inv):
     # ---------- roof: number (reads from the left, like TCR roof numbers) inside the butcher cut
     car.fit("roof_number_cut", roof_art(cut_col, cut_col), "top_left", 1.38, (-0.30, 1.25, -0.62, 0.62), 1.10,
             ["roof"], prefer=(0.45, 0.0), min_clear=0.03, depth_tol=0.15, blade_keep=False)
-    # ---------- hood: «Симкарт» night plate with url — main partner #2 (seen from the front / in mirrors)
+    # ---------- hood: «Симкартинг» night plate with url — main partner #2 (seen from the front / in mirrors)
     car.fit("hood_simkart", A.simkart_plate(900), "top", 0.87, (-0.70, 0.70, -1.75, -0.85), 0.86,
             ["hood"], prefer=(0.0, -1.22), min_clear=0.03, depth_tol=0.2, check_angle=40, blade_keep=False)
     # ---------- trunk lid: «Команда ЭДМ» + МБУ «Клуб Энгельсская молодёжь» (team)
@@ -451,7 +451,11 @@ def build_top(car, drv, inv):
     car.fit("rear_region64", A.region64(300, col=W), "rear", 2.15, (-0.6, 0.6, 0.55, 1.0), 0.50,
             ["rear_panel"], prefer=(0.0, 0.80), min_clear=0.015, depth_tol=0.25, check_angle=45)
     # ---------- rear bumper: website
-    car.fit("rear_url", A.text("simkart.vercel.app", A.F_SPON(300), W), "rear", 2.2, (-0.8, 0.8, 0.3, 0.8), 0.95,
+    # «simkarting.ru» (13 characters) replaced «simkart.vercel.app» (18): the cap keeps the approved type size, i.e. the
+    # old url's 0.912 m for its 2719 px of art at F_SPON(300) -> 0.335 mm per art px (a 0.95 m cap would make the
+    # shorter url 1.4x taller).
+    url = A.text(A.SIMKART_URL, A.F_SPON(300), W)
+    car.fit("rear_url", url, "rear", 2.2, (-0.8, 0.8, 0.3, 0.8), url.width * 0.912 / 2719,
             ["rear_bumper"], prefer=(0.0, 0.58), min_clear=0.015, depth_tol=0.25, check_angle=40)
 
 
@@ -539,12 +543,31 @@ def glass(car, drv, inv):
     put("smp_banner", A.smp(78), "windscreen", 508, 66)
     put("raf_banner", A.mono("raf_black.png", 92, A.WHITE), "windscreen", 205, 70)
     put("br_banner", A.mono("br_symbol_white.png", 64, A.WHITE), "windscreen", 812, 70)
-    # ---- rear window banner (seen by following cars): «Симкарт» + url
+    # ---- rear window banner (seen by following cars): «Симкартинг» + url
+    # The strip is the whole rear-window sticker (u 135.65..863.25 on the glass mesh, v 165..247 above the chrome line;
+    # all of it visible in the rear view). «Симкартинг» is 1.37x longer than the old «Симкарт», so the row is laid out
+    # from the strip's ends instead of at fixed centres (old: logo centred at u 400, url at 712 -> 9 px between the new
+    # word and the url): wordmark letters 46 px tall (С top to р descender, as before), «simkarting.ru» at the old url
+    # type size (0.67 x that), twice the letter height of air between them, the same air from both ends of the strip to
+    # the first / last letter (~56 px), both baselines on one line, the row centred between strip top and chrome line.
     fill_box(GZ["rear_window"], A.PLUM_D, GCOV["glass_sticker"])
     g.alpha_composite(A.chrome_rgb(864 - 135, 6).convert("RGBA"), (135, 247))
+    rx0, ry0, rx1, ry1 = 135.65, 165, 863.25, 247
     sk = A.fit_h(A.simkart(64), 70)
-    put("rw_simkart", sk, "rear_window", 400, 206)
-    put("rw_url", A.fit_h(A.text("simkart.vercel.app", A.F_SPON(120), A.WHITE), 28), "rear_window", 712, 206)
+    ib = sk.getchannel("A").point(lambda v: 255 if v > 200 else 0).getbbox()       # the letters (glow is <= 70 %)
+    lh = ib[3] - ib[1]
+    lbase = ib[1] + 0.755 * lh                     # baseline: flat feet of и / м (row 1728 of the 2292 px mask)
+    fu = A.F_SPON(round(0.67 * lh))
+    u = A.text(A.SIMKART_URL, fu, A.WHITE)         # ink-cropped: top row = the font bbox top
+    ub = (0, 0, u.width, u.height)
+    ubase = fu.getmetrics()[0] - fu.getbbox(A.SIMKART_URL)[1]                     # baseline row in u
+    gap = 2 * lh
+    x0 = (rx0 + rx1 - (ib[2] - ib[0] + gap + ub[2])) / 2                          # equal air at both ends
+    top = min(ib[1] - lbase, -ubase)               # ink extents relative to the common baseline
+    bot = max(ib[3] - lbase, ub[3] - ubase)
+    base = (ry0 + ry1) / 2 - (top + bot) / 2
+    put("rw_simkart", sk, "rear_window", x0 - ib[0] + sk.width / 2, base - lbase + sk.height / 2)
+    put("rw_url", u, "rear_window", x0 + (ib[2] - ib[0]) + gap + u.width / 2, base - ubase + u.height / 2)
     # ---- side windows (rear door glass): driver name + Russian flag on a blade plate at the window bottom
     for zone in ("side_L", "side_R"):
         x0, y0, x1, y1 = GZ[zone]

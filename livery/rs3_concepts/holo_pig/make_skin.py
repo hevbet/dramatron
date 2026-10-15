@@ -261,12 +261,15 @@ def arka_logo(h, taimcafe=True):
     return stack([t, ts], gap=int(h * 0.04))
 
 
+SIMKART_URL = "simkarting.ru"      # сайт Симкартинга (старый бренд — simkart.vercel.app)
+
+
 def simkart_logo(h, glow=True):
-    """«Симкарт»: «Сим» серебро-хром, «карт» красный, красное свечение (как у бренда)."""
+    """«Симкартинг» (бренд переименован из «Симкарт»): «Сим» серебро-хром, «картинг» красный, красное свечение
+    (как у бренда). h — высота букв; слово в 1.37 раза длиннее старого «Симкарт» при той же h."""
     red = (234, 50, 38)
-    w = bmask(os.path.join(BRAND, "simkart_word_white.png"), h) if False else None
-    W0 = Image.open(os.path.join(BRAND, "simkart_word_white.png")).convert("L")
-    R0 = Image.open(os.path.join(BRAND, "simkart_word_red.png")).convert("L")
+    W0 = Image.open(os.path.join(BRAND, "simkarting_word_white.png")).convert("L")
+    R0 = Image.open(os.path.join(BRAND, "simkarting_word_red.png")).convert("L")
     bb = ImageChops.lighter(W0, R0).getbbox()
     W0, R0 = W0.crop(bb), R0.crop(bb)
     sz = (int(W0.width * h / W0.height), h)
@@ -332,7 +335,7 @@ def karting64(h, flip=False):
 
 
 def url_text(s, col):
-    """Ссылка в стиле simkart.vercel.app: Exo 2 ExtraBold Italic, сплошной цвет."""
+    """Ссылка в стиле simkarting.ru: Exo 2 ExtraBold Italic, сплошной цвет."""
     return solid(text_mask(s, F_URL(300)), col)
 
 
@@ -871,9 +874,9 @@ def build(skin_name):
         ar = arka_logo(int(0.20 * D))
         layers.append(car.project(ar, view, (X, 0.555, 0.79), 0.42, ["rear_door"], f"Арка тайм-кафе дверь {S}",
                                   zones=[f"rear_door_{S}"], min_clear_cm=2))
-        # «Симкарт» — низ передней двери на сливовом рокере
+        # «Симкартинг» — низ передней двери на сливовом рокере
         sk = simkart_logo(int(0.09 * D))
-        layers.append(car.project(sk, view, (X, -0.33, 0.348), 0.50, ["front_door_low"], f"Симкарт низ двери {S}",
+        layers.append(car.project(sk, view, (X, -0.33, 0.348), 0.50, ["front_door_low"], f"Симкартинг низ двери {S}",
                                   zones=[f"front_door_low_{S}"], min_clear_cm=1))
         # DriveOil + KARTING64 — низ задней двери (рокер)
         do = driveoil(int(0.055 * D))
@@ -890,7 +893,7 @@ def build(skin_name):
         layers.append(car.project(be, view, (X + 0.05 * sgn, 0.40 if sgn > 0 else -0.40, 0.207), 0.36, ["sill"],
                                   f"BR ENGINEERING порог {S}", max_angle=62, zones=[f"sill_{S}"], min_clear_cm=0.5))
         # karting64.ru — порог, в просвете между SMP RACING ESPORTS и BR ENGINEERING; шрифт и подача как у
-        # ссылки simkart.vercel.app (Exo 2 ExtraBold Italic, сплошной белый на сливе — как на капоте).
+        # ссылки simkarting.ru (Exo 2 ExtraBold Italic, сплошной белый на сливе — как на капоте).
         # Проекция по виду сбоку: базовая линия = ось r вида = мировая ±y (z-компонента 0) → строго параллельно
         # земле (в зоне sill text_baseline_world ≈ [0.01, 1.0, -0.03], т.е. порог сам наклонён на ~1.7°).
         ku = url_text("karting64.ru", WHITE)
@@ -902,13 +905,13 @@ def build(skin_name):
             layers.append(car.project(lab, view, (X, y, z), lab.width / D, [part],
                                       f"подпись {txt} {S}", zones=[f"{part}_{S}"], min_clear_cm=1))
 
-    # --- капот: «Симкарт» на голо-плашке + ссылка
+    # --- капот: «Симкартинг» на голо-плашке + ссылка
     sk = simkart_logo(int(0.15 * D))
-    url = solid(text_mask("simkart.vercel.app", F_URL(300)), WHITE)
+    url = solid(text_mask(SIMKART_URL, F_URL(300)), WHITE)
     url = scale_to(url, h=int(0.034 * D))
     hood = on_plate(stack([sk, url], gap=int(0.012 * D)), int(0.045 * D), int(0.03 * D), r=int(0.06 * D),
                     rim_w=int(0.012 * D))
-    layers.append(car.project(hood, "top", (0.0, -1.30, 0.95), 0.70, ["hood"], "Симкарт капот",
+    layers.append(car.project(hood, "top", (0.0, -1.30, 0.95), 0.70, ["hood"], "Симкартинг капот",
                               zones=["hood"], min_clear_cm=3))
 
     # --- крыша: номер (читается с левого борта) + стикер МБУ «Клуб Энгельсская молодёжь»
@@ -932,9 +935,11 @@ def build(skin_name):
                        gap=int(0.014 * D))], gap=int(0.025 * D), vertical=False)
     layers.append(car.project(sar, "rear", (0.0, 2.16, 0.775), 0.42, ["rear_panel"], "Саратовская область задняя панель",
                               zones=["rear_panel"], max_angle=50, min_clear_cm=1))
-    # --- задний бампер: ссылка Симкарт
-    url2 = solid(text_mask("simkart.vercel.app", F_URL(300)), PLUM)
-    layers.append(car.project(url2, "rear", (0.0, 2.25, 0.585), 0.62, ["rear_bumper"], "simkart.vercel.app задний бампер",
+    # --- задний бампер: ссылка Симкартинга. «simkarting.ru» короче старого «simkart.vercel.app»: ширина берётся так,
+    # чтобы кегль остался прежним (старая ссылка — 0.62 м), иначе при 0.62 м буквы стали бы в 1.4 раза выше
+    url2 = solid(text_mask(SIMKART_URL, F_URL(300)), PLUM)
+    url2_w = 0.62 * url2.width / text_mask("simkart.vercel.app", F_URL(300)).width
+    layers.append(car.project(url2, "rear", (0.0, 2.25, 0.585), url2_w, ["rear_bumper"], "simkarting.ru задний бампер",
                               zones=["rear_bumper"], max_angle=50, min_clear_cm=1))
 
     # --- перед: BR ENGINEERING и РАФ на углах бампера
@@ -985,7 +990,7 @@ def decor_layers(car):
         b = butterfly(int(0.15 * D), flip=sgn < 0)
         res.append(CAR.project(b, "top", (0.58 * sgn, -1.62, 1.0), 0.14, ["hood"],
                                f"бабочка капот {'L' if sgn > 0 else 'R'}", max_angle=45, min_clear_cm=1.5, depth_lim=0.6))
-    # блёстки вокруг плашки «Симкарт» на капоте
+    # блёстки вокруг плашки «Симкартинг» на капоте
     for x, y, r in ((0.45, -1.20, 24), (-0.45, -1.53, 16), (0.30, -1.62, 12), (-0.48, -1.17, 12)):
         s = sparkle(r * 3)
         res.append(CAR.project(s, "top", (x, y, 1.0), s.width / 3000, ["hood"], "блёстка капот", max_angle=50,
@@ -1024,7 +1029,7 @@ def glass(info):
     g.alpha_composite(ban, (0, 0))
     box_paste(smp_lockup(300), (150, 20, 870, 136), "SMP RACING ESPORTS лобовое")
 
-    # антикрыло верх: слива + голо-канты; Арка | Симкарт; читается сзади (rot 180)
+    # антикрыло верх: слива + голо-канты; Арка | Симкартинг; читается сзади (rot 180)
     x0, y0, x1, y1 = 100, 858, 946, 1012
     w = Image.new("RGBA", (x1 - x0, y1 - y0), PLUM + (255,))
     hb = fill_img(Image.new("L", (x1 - x0, 10), 255), holo_img(x1 - x0, 10))
@@ -1046,7 +1051,7 @@ def glass(info):
     wa = wa.rotate(180)
     g.alpha_composite(wa, (x0, y0))
     bbw = wa.getbbox()
-    gr.append(dict(name="антикрыло: Арка | Симкарт", box=(104, 863, 941, 1006),
+    gr.append(dict(name="антикрыло: Арка | Симкартинг", box=(104, 863, 941, 1006),
                    clearance_px=int(min(bbw[0] + x0 - 104, bbw[1] + y0 - 863, 941 - (bbw[2] + x0), 1006 - (bbw[3] + y0))),
                    status="OK"))
     # пластины: слива + Арка (без «тайм-кафе»)
