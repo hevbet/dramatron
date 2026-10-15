@@ -118,10 +118,19 @@ def arka_logo(h, fill=(240, 209, 102), dark=(26, 26, 28), taimcafe=False):
     return out
 
 
-def simkart_logo(h, silver=(217, 216, 224), red=(234, 50, 38), glow=True, tagline=False):
-    """«Симкарт»: «Сим» серебро с градиентом, «карт» красный, красное свечение; опц. тэглайн."""
-    w = brand_mask("simkart_word_white.png", h)
-    r = brand_mask("simkart_word_red.png", h)
+SIMKART_WORDS = ("simkarting", "simkart")
+
+
+def simkart_logo(h, silver=(217, 216, 224), red=(234, 50, 38), glow=True, tagline=False, word="simkarting"):
+    """Логотип спонсора: «Сим» серебро с градиентом, остальное красным, красное свечение; опц. тэглайн.
+
+    word="simkarting" (по умолчанию) — «Симкартинг», новое имя бренда (маски simkarting_word_*.png:
+    «Сим» + «картинг», «инг» дорисован тем же шрифтом); word="simkart" — старый «Симкарт»
+    (simkart_word_*.png). Высота та же, но «Симкартинг» при той же h примерно в 1.37 раза шире."""
+    if word not in SIMKART_WORDS:
+        raise ValueError(f"simkart_logo: word={word!r}, ожидается одно из {SIMKART_WORDS}")
+    w = brand_mask(f"{word}_word_white.png", h)
+    r = brand_mask(f"{word}_word_red.png", h)
     pad = int(h * 0.3)
     size = (w.width + 2 * pad, w.height + 2 * pad)
     t = Image.new("RGBA", size, (0, 0, 0, 0))
