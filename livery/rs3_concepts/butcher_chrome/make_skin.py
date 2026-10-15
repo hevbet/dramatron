@@ -49,7 +49,7 @@ TPM = 795.0                     # texels per metre (median density) – for cm r
 PIG = np.array((242, 158, 178), np.float32)       # flesh pink, the 917/20 tone
 INK = (96, 18, 42)                                 # butcher's burgundy ink
 INK_D = (40, 10, 22)                               # deep ink (outlines)
-NIGHT = (16, 12, 20)                               # Simkart night plate
+NIGHT = (16, 12, 20)                               # Simkarting night plate
 STAMP = (104, 64, 168)                             # violet vet-stamp ink
 WHITE = (252, 250, 255)
 HOLO = np.array([(255, 120, 200), (180, 140, 255), (110, 200, 255), (110, 245, 210), (255, 230, 150),
@@ -263,20 +263,27 @@ def asset_arka(h, taimcafe=True):
     return blib.arka_logo(int(h), fill=(242, 206, 92), dark=INK_D, taimcafe=taimcafe)
 
 
-SIMKART_URL = "simkarting.ru"     # Симкарт web address
+SIMKART_URL = "simkarting.ru"     # Симкартинг web address
 K64_URL = "karting64.ru"          # KARTING64 web address
 
 
 def asset_simkart_tag(w, url=True, pin=False):
-    """Simkart wordmark on its own night plate (as on the brand site), chrome frame; url under the logo."""
+    """Simkarting wordmark on its own night plate (as on the brand site), chrome frame; url under the logo.
+    «Симкартинг» is 1.37x longer than the old «Симкарт» at the same letter height and the wordmark's size is set by the
+    plate's width, so it takes 0.88 w (glow included; the old word took 0.80 w): letters 0.116 w tall (С top to р
+    descender; 0.140 w before, 0.104 w at 0.80 w). The url keeps the approved url : wordmark ratio (type size 0.57 x
+    the wordmark's letter height): 0.066 w instead of 0.078 w. The plate is ~10 % lower per unit of width than the
+    old one (0.36 w, pinned 0.42 w; old 0.41 / 0.47 w): the doors (fixed width, 14 cm of air above and below) keep
+    their footprint less 2 cm of height, and the hood fit, which is height-limited between the hood cut line and the
+    vent insert, takes a wider plate (0.56 m instead of 0.54 m; capped there to keep the ГОСТ stamp, see
+    hood_decals)."""
     logo = blib.simkart_logo(int(w * 0.16), silver=(222, 220, 232), red=(236, 52, 40), glow=True)
-    logo = fit_w(logo, int(w * 0.80))
+    logo = fit_w(logo, int(w * 0.88))
     items = [logo]
     if url:
-        # «simkarting.ru» (13 characters) is set at 0.078 w, 11 % larger than the old 18-character address (0.07 w):
-        # it spans ~0.51 w (old 0.64 w) under the 0.80 w wordmark and the plate grows only ~3 % in height (the hood
-        # plate keeps >= 2 cm to the hood cut line at its size); font size only (uniform glyph scale, no stretching)
-        u = ink_text(SIMKART_URL, F_SPON(int(w * 0.078)), (236, 236, 244))
+        # «simkarting.ru» at 0.066 w spans ~0.43 w under the 0.88 w wordmark; font size only (uniform glyph scale,
+        # no stretching)
+        u = ink_text(SIMKART_URL, F_SPON(int(w * 0.066)), (236, 236, 244))
         items.append(u)
     inner = stack(items, int(w * 0.012))
     bw = max(4, int(w * 0.018))
@@ -2340,7 +2347,7 @@ def front_line_report():
                  r_min_cm=e["r_min_cm"],
                  guide_dev_cm=e["dev_cm"], dropped=sorted(e["drop"]))
         lab = {"ЛОПАТКА": f"label_lopatka_{s}", "ПЯТАЧОК": "label_pyatachok", "ШЕЙКА": "label_sheika_hood",
-               "Симкарт hood tag": "simkart_hood"}
+               "Симкартинг hood tag": "simkart_hood"}
         tree = cKDTree(POSF[e["ink"]])
         r["label_air_cm"] = {k: round(float(tree.query(POSF[PAINTED[v]])[0].min()) * 100, 1)
                              for k, v in lab.items() if len(PAINTED.get(v, ())) > 0}
@@ -5806,7 +5813,7 @@ def side_decals(s):
                       lambda w: level_side_cands((-0.52, -0.54, -0.50), (0.645, 0.640, 0.635, 0.655), fd, s, w, w * 0.674),
                       parts=fd, kind="number", line_min=6.0, air=2.0, **kw)
     ny_ = nb[0][1]
-    # main partner Симкарт – front door, behind the number (>= 7 cm air to the plate, inside the door)
+    # main partner Симкартинг – front door, behind the number (>= 7 cm air to the plate, inside the door)
     decal_fit(f"simkart_door_{s}", lambda w: asset_simkart_tag(px(w)), [0.42, 0.41, 0.40, 0.38, 0.36],
               lambda w: sc((ny_ + 0.23 + 0.07 + w / 2, ny_ + 0.23 + 0.09 + w / 2, ny_ + 0.23 + 0.11 + w / 2),
                            (0.625, 0.610, 0.640), fd, w),
@@ -5908,8 +5915,8 @@ def top_cands(xs, ys, parts, up, normal="mean", side=None, r=0.10):
 def top_decals():
     # Hood. The only flat part of the hood (normals within ~2 deg over 30 cm) is the strip between the hood cut line and
     # the vent's ramp, |x| <= ~0.55, y -1.29 .. -1.56 (outboard of the bulge's creases and ahead of the ramp it turns
-    # 30+ deg). Client round 5: the Симкарт plate is centred on the car's centreline in that strip and the ГОСТ stamp is
-    # struck casually beside it, turned (hood_decals).
+    # 30+ deg). Client round 5: the Симкартинг plate is centred on the car's centreline in that strip and the ГОСТ stamp
+    # is struck casually beside it, turned (hood_decals).
     hood = ["hood"]
     # ШЕЙКА: the neck cut between the hood cut line and the windscreen
     decal_fit("label_sheika_hood", lambda h: cut_label("ШЕЙКА", px(h)), [0.075, 0.070, 0.065, 0.060, 0.055, 0.050],
@@ -6003,14 +6010,14 @@ GOST_SIZES = (0.260, 0.240, 0.230, 0.220, 0.215, 0.210, 0.205, 0.200, 0.190, 0.1
 
 
 def hood_decals():
-    """Hood (client round 5, item 6). The Симкарт night plate is centred on the car's centreline: its centre on x = 0,
-    projected along the hood's normal there with the lateral component removed (the hood is symmetric, so the plate's
+    """Hood (client round 5, item 6). The Симкартинг night plate is centred on the car's centreline: its centre on x =
+    0, projected along the hood's normal there with the lateral component removed (the hood is symmetric, so the plate's
     horizontal axis is square across the car and its centre stays on x = 0 in the front and top views); the largest
-    plate from its current 0.58 m up to 0.62 m that keeps >= 2 cm to ШЕЙКА, the hood cut line, the vent cut-out and
+    plate from its size list (0.52 .. 0.56 m) that keeps >= 2 cm to ШЕЙКА, the hood cut line, the vent cut-out and
     ПЯТАЧОК. The ГОСТ meat stamp is then struck wherever it fits like a casually slapped inspection stamp: off-centre on
     the car-left half of the hood, turned 10-25 deg (searched both ways), the largest oval that lies flat there (the
-    centred plate leaves the strip outboard of it, x 0.32-0.53: beyond it the hood rolls 30+ deg into its side crease, so
-    the oval is ~22 cm now, 29 cm before) and keeps >= 2 cm to the plate, ШЕЙКА, ПЯТАЧОК and every line and is never
+    centred plate leaves the strip outboard of it, x 0.32-0.53: beyond it the hood rolls 30+ deg into its side crease,
+    so the oval is ~22 cm now, 29 cm before) and keeps >= 2 cm to the plate, ШЕЙКА, ПЯТАЧОК and every line and is never
     clipped by the hood's edge / shut line (full footprint on the hood skin, >= 1.5 cm to its edge); projected along the
     hood's own normal under it (the oval keeps its shape), its letters never mirrored."""
     hood = ["hood"]
@@ -6038,9 +6045,12 @@ def hood_decals():
     xb = np.round(POSF[hu, 0] / 0.005).astype(int)
     edge = np.array([POSF[hu[xb == b]][int(np.argmax(POSF[hu[xb == b], 1]))] for b in np.unique(xb)])
     HOOD_LOG["scoop_edge_y"] = round(float(np.median(edge[:, 1])), 4)
+    # «Симкартинг»: the plate is ~10 % lower per unit of width than the «Симкарт» one, so this height-limited fit would
+    # reach 0.60 m (63 cm pinned, 6.9 cm letters) - and the ГОСТ stamp beside it drops to 21 cm turned -18 deg (tilt
+    # 8 deg, 2.1 cm air). Capped at 0.56 m (59 cm pinned, 6.5 cm letters; the old word had 7.6 cm at 0.54 m): the ГОСТ
+    # stamp stays as approved, 23 cm at +23 deg (dry-run checked; the hood sparkles are placed as before).
     size, best = decal_fit("simkart_hood", lambda w: asset_simkart_tag(px(w), pin=True),
-                           [0.62, 0.61, 0.60, 0.59, 0.58, 0.575, 0.57, 0.565, 0.56, 0.555, 0.55, 0.545, 0.54, 0.535, 0.53,
-                            0.52], sc,
+                           [0.56, 0.555, 0.55, 0.545, 0.54, 0.535, 0.53, 0.52], sc,
                            ppm=PPM, parts=hood, depth_tol=0.05, air=2.0, line_min=2.0, deco_min=2.0,
                            keepout=dict(pts=edge, min_cm=2.0, what="the vent insert's edge"),
                            occl_views=["front", "top", "front34_left", "front34_right"])
@@ -6090,8 +6100,8 @@ def hood_decals():
           occl_views=["front", "top", "front34_left", "front34_right"])
     HOOD_LOG["gost"] = dict(size_m=size_, angle_deg=ang, centre=[round(float(v), 4) for v in c],
                             status=CHECKS[-1]["status"])
-    print(f"   hood: Симкарт plate {size * 100:.0f} cm centred on x = 0 ({HOOD_LOG['simkart']}); ГОСТ {size_ * 100:.0f} cm "
-          f"turned {ang:+.0f} deg at {np.round(c, 3)} -> {CHECKS[-1]['status']}", flush=True)
+    print(f"   hood: Симкартинг plate {size * 100:.0f} cm centred on x = 0 ({HOOD_LOG['simkart']}); "
+          f"ГОСТ {size_ * 100:.0f} cm turned {ang:+.0f} deg at {np.round(c, 3)} -> {CHECKS[-1]['status']}", flush=True)
 
 
 def trunk_tail():
@@ -6120,7 +6130,7 @@ def rear_front_decals():
                                               ink_text("ЭДМ", F_TEAM(px(0.062)), INK)], px(0.008))], px(0.02))
     decal_best("team_edm_rear", team, [((0.0, 2.17, z), nflat((0.0, 2.17, z), rp), (0, 0, 1)) for z in (0.775, 0.785)],
                ppm=PPM, parts=rp, depth_tol=0.10)
-    # rear bumper: Simkart url, as big as stays flat (< 12 deg) on the curved bumper
+    # rear bumper: Simkarting url, as big as stays flat (< 12 deg) on the curved bumper
     rb = ["rear_bumper"]
 
     # (the vertical band of the bumper is z ~0.51-0.57; above it the bumper rolls over to the top)
@@ -6915,14 +6925,33 @@ def glass_sticker(driver, num):
     gplace(G, "ws_number", number_plate(150 * S, 110 * S, num), k(ws_box), rot=glass_level_rot("Circle.077", ws_box),
            edge=S)
 
-    # rear window banner: Симкарт on night band, chrome edge (reads from behind)
+    # rear window banner: Симкартинг on night band, chrome edge (reads from behind). The strip is the whole rear-window
+    # sticker (u 135..862 on the glass mesh, all of it visible in the rear view). «Симкартинг» is 1.37x longer than the
+    # old «Симкарт», so the row is laid out from the strip's ends instead of at fixed centres (the old word sat at
+    # u 380, the url at 700: 144 px of air on the left, 53 px on the right): wordmark letters 44 px tall (С top to р
+    # descender; old 35 px), «simkarting.ru» at 0.85 x that as type size (37 px; old 34 px), twice the letter height of
+    # air between them and the same air from both ends of the strip to the first / last letter (~41 px), the two
+    # baselines on one line, the row centred between the chrome line and the strip's lower edge (glow >= 5 px inside).
     d.rectangle(k([135, 168, 864, 253]), fill=NIGHT + (255,))
     d.rectangle(k([135, 168, 864, 172]), fill=(250, 248, 255, 255))
-    lg = fit_h(blib.simkart_logo(50 * S, glow=True), 54 * S)
-    gplace(G, "rw_simkart", lg, k([140, 172, 864, 253]), cx=380 * S, edge=0)
-    # («simkarting.ru» is 13 characters, the old address 18: set at 34 px instead of 28 px -> 31 px letters, 223 px long)
-    gplace(G, "rw_url", ink_text(SIMKART_URL, F_SPON(34 * S), (236, 236, 244)), k([140, 172, 864, 253]),
-           cx=700 * S, edge=0)
+    rx0, ry0, rx1, ry1 = 135, 172, 862, 253                 # the visible strip under the chrome line
+    lh, u_k, gap_k = 44 * S, 0.85, 2.0                      # letter height, url type size / lh, gap / lh
+    lg = blib.simkart_logo(lh, glow=True)
+    ib = lg.getchannel("A").point(lambda v: 255 if v > 200 else 0).getbbox()   # the letters (the glow is <= 70 %)
+    lbase = ib[1] + 0.755 * (ib[3] - ib[1])                 # baseline: flat feet of и / м, row 1728 of the 3..2288 ink
+    fu = F_SPON(round(u_k * lh))
+    u = ink_text(SIMKART_URL, fu, (236, 236, 244))
+    ub = u.getbbox()
+    ubase = 4 - fu.getbbox(SIMKART_URL)[1] + fu.getmetrics()[0]     # baseline row in u (text_mask pads 4 px)
+    gap = gap_k * lh
+    x0 = ((rx0 + rx1) * S - (ib[2] - ib[0] + gap + ub[2] - ub[0])) / 2  # equal air at both ends
+    top = min(ib[1] - lbase, ub[1] - ubase)                 # ink extents relative to the common baseline
+    bot = max(ib[3] - lbase, ub[3] - ubase)
+    base = (ry0 + ry1) / 2 * S - (top + bot) / 2
+    gplace(G, "rw_simkart", lg, k([rx0, ry0, rx1, ry1]), cx=x0 - ib[0] + lg.width / 2,
+           cy=base - lbase + lg.height / 2, edge=0)
+    gplace(G, "rw_url", u, k([rx0, ry0, rx1, ry1]), cx=x0 + (ib[2] - ib[0]) + gap - ub[0] + u.width / 2,
+           cy=base - ubase + u.height / 2, edge=0)
 
     # rear number: rear-window disc decal (Circle.038). Rotation computed from the mesh (-16.8 deg = exactly level).
     # The rear wing hides the disc below a line from ty ~683 (left) to ~715 (right) in the straight rear view and a

@@ -216,11 +216,15 @@ def asset_br_stacked(h, col):
 
 
 def asset_simkart_patch(length):
-    """Симкарт wordmark on its night plate with a chrome frame (the car's door patch, no url)."""
+    """Симкартинг wordmark on its night plate with a chrome frame (the car's door patch, no url), `length` px long.
+    The plate is built around the wordmark as the old «Симкарт» patch was (in units of the wordmark's height, glow
+    included: frame 0.082, 0.16 of air above and below, ~0.40 beside it - the wordmark takes 0.86 of the length): the
+    1.37x longer «Симкартинг» makes the patch longer (3.9 : 1, was 3.0 : 1) instead of its letters smaller when the
+    caller fits it into a box by height."""
     logo = blib.simkart_logo(int(length * 0.16), silver=(222, 220, 232), red=(236, 52, 40), glow=True)
-    logo = fit_w(logo, int(length * 0.82))
-    bw = max(3, int(length * 0.018))
-    H = logo.height + int(length * 0.07) + 2 * bw
+    logo = fit_w(logo, int(length * 0.86))
+    bw = max(3, round(logo.height * 0.082))
+    H = logo.height + round(logo.height * 0.318) + 2 * bw
     plate = chrome_frame(int(length), H, int(H * 0.22), bw, NIGHT)
     plate.alpha_composite(logo, ((plate.width - logo.width) // 2, (plate.height - logo.height) // 2))
     return plate
@@ -909,10 +913,11 @@ def suit16_prints(prints, c):
     bx, ang = L["legR"]
     br = fit_box(asset_mono("br_engineering_black.png", 30, INK), 238, 30)
     prints.place("leg BR ENGINEERING", br, ((bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2), ang, bx)
-    # sleeve: vertical SMP RACING -> Симкарт night patch, reading wrist->shoulder like the original
+    # sleeve: vertical SMP RACING -> Симкартинг night patch, reading wrist->shoulder like the original (the patch is
+    # 132 px thick as before, ~513 px long - was 406 - in the 596 px long slot of the old logo)
     bx, ang = L["sleeve"]
     sk = fit_box(asset_simkart_patch(560), 560, 132)
-    prints.place("sleeve Симкарт", sk, ((bx[0] + bx[2]) / 2 + 4, (bx[1] + bx[3]) / 2), ang, bx)
+    prints.place("sleeve Симкартинг", sk, ((bx[0] + bx[2]) / 2 + 4, (bx[1] + bx[3]) / 2), ang, bx)
 
 
 def make_suit16(c, des, driver):

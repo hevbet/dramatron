@@ -1,7 +1,7 @@
 """Скин Pozdnyakov_26 для Audi RS3 LMS — ливрея «ГРАНЬ» (как BR03 Pozdnyakov_64).
 
 Графитовая база, сквозная красная лента с жёлтой кромкой по бортам, капоту, крыше и багажнику.
-Опоры: тайм-кафе «Арка», «Симкарт», Саратовская область (флаг на номерах, герб, надпись на порогах),
+Опоры: тайм-кафе «Арка», «Симкартинг», Саратовская область (флаг на номерах, герб, надпись на порогах),
 команда ЭДМ, SMP Racing Esports, РАФ, DriveOil. Геометрия развёртки RS3 — как в ../rs3/make_skin.py.
 
 Запуск: python3 make_skin.py <папка исходного скина SMP01>
@@ -261,15 +261,20 @@ def pepe_banner(h, maxw):
 # правая колонка (левый борт) читается +90, левая колонка (правый борт) −90; «вниз» кузова = +x
 for side, ang in ((1, 90), (-1, -90)):
     X = (lambda x: x) if side == 1 else (lambda x: N - x)
-    # задняя дверь: главный спонсор борта; на левом борту — Симкарт, на правом — Арка (второй — на капоте/багажнике)
+    # задняя дверь: главный спонсор борта; на левом борту — Симкартинг, на правом — Арка (второй — на капоте/багажнике)
+    # «Симкартинг» в 1.37 раза длиннее старого «Симкарт» (h 118 у (3255, 1440)): там он вылезал на шов передней
+    # двери и на красную ленту. Свободная панель задней двери (body_mask минус лента, ручка — препятствие) шире
+    # у оконной линии, поэтому блок поднят и сдвинут назад: h 100 у (3178, 1387) — буквы и тэглайн в >= 36 px от
+    # шва, окна, ленты и ручки (старый блок: 6 px и поверх ручки). URL и МБУ подняты вместе с тэглайном (−90 px по x),
+    # промежутки тэглайн → URL / МБУ те же, что были.
     if side == 1:
-        place(blib.simkart_logo(118, tagline=True), X(3255), 1440, ang)
-        place(T("SIMKARTING.RU", 24, 330, WHITE, weight="Bold Italic", track=0.05), X(3425), 1530, ang)
+        place(blib.simkart_logo(100, tagline=True), X(3178), 1387, ang)
+        place(T("SIMKARTING.RU", 24, 330, WHITE, weight="Bold Italic", track=0.05), X(3335), 1530, ang)
     else:
         place(blib.arka_logo(150, taimcafe=True), X(3270), 1440, ang)
     place(number_plate(300), X(3265), 2275, ang)                        # передняя дверь
     place(team_lockup(64), X(3270), 2640, ang)                          # перед номером — команда ЭДМ
-    place(mbu(96), X(3460), 1745, ang)                                 # задняя дверь, за спонсором — МБУ
+    place(mbu(96), X(3370 if side == 1 else 3460), 1745, ang)          # задняя дверь, за спонсором — МБУ
     place(T("САРАТОВСКАЯ ОБЛАСТЬ", 56, 1300, WHITE, track=0.08), X(3920), 1980, ang)   # порог
 
 # ---------------------------------------------------------------- 5. капот, крыша, багажник, бамперы, стекло
@@ -301,10 +306,27 @@ gd = ImageDraw.Draw(glass)
 gd.rectangle([0, 0, G, bh], fill=tuple(int(v) for v in BASE) + (255,))
 gd.rectangle([0, bh - int(G * 0.012), G, bh], fill=YELLOW + (255,))
 gd.rectangle([0, bh - int(G * 0.024), G, bh - int(G * 0.012)], fill=RED + (255,))
+# Арка + Симкартинг: пара по центру видимой полосы. Полоса на стекле (меш Circle.059, UV из kn5) — u 118.75..898.0
+# при 1024 (рендер front / 3/4: видна целиком). Старая раскладка от центра текстуры (Симкарт с G/2 + 0.03G) с
+# «Симкартингом» уводила «инг» за u 898. Теперь: те же размеры, тот же просвет между буквами Арки и Симкартинга
+# (86 px), а пара центрирована в полосе — поровну воздуха с концов (~38 px). Если пара не влезает с воздухом
+# >= 24 px с концов, Симкартинг уменьшается.
+vis0, vis1 = G * 118.75 / 1024, G * 898.0 / 1024
+ink = lambda im: im.getchannel("A").point(lambda v: 255 if v > 200 else 0).getbbox()   # буквы без свечения
 ar = blib.arka_logo(int(bh * 0.55))
-sk = blib.simkart_logo(int(bh * 0.42))
-glass.alpha_composite(ar, (G // 2 - ar.width - int(G * 0.03), max(0, (bh - ar.height) // 2 - 6)))
-glass.alpha_composite(sk, (G // 2 + int(G * 0.03), max(0, (bh - sk.height) // 2 - 6)))
+ab = ink(ar)
+gap, air = G * 86 / 1024, G * 24 / 1024
+skh = int(bh * 0.42)
+while True:
+    sk = blib.simkart_logo(skh)
+    ib = ink(sk)
+    row = (ab[2] - ab[0]) + gap + (ib[2] - ib[0])
+    if row <= vis1 - vis0 - 2 * air or skh <= 20:
+        break
+    skh -= 1
+x0 = (vis0 + vis1 - row) / 2
+glass.alpha_composite(ar, (int(round(x0 - ab[0])), max(0, (bh - ar.height) // 2 - 6)))
+glass.alpha_composite(sk, (int(round(x0 + (ab[2] - ab[0]) + gap - ib[0])), max(0, (bh - sk.height) // 2 - 6)))
 blib.save_dxt5(glass, os.path.join(OUT, "glass_sticker.dds"))
 
 ic = Image.new("RGB", (185, 185), tuple(int(v) for v in BASE))
@@ -316,7 +338,7 @@ ic.save(os.path.join(OUT, "livery.png"))
 
 with open(os.path.join(OUT, "ui_skin.json"), "w", encoding="utf-8") as fh:
     json.dump({"skinname": SKIN, "drivername": "Станислав Поздняков", "country": "Russia",
-               "team": "Команда ЭДМ · Арка · Симкарт", "number": NUM, "priority": 1}, fh, ensure_ascii=False, indent=2)
+               "team": "Команда ЭДМ · Арка · Симкартинг", "number": NUM, "priority": 1}, fh, ensure_ascii=False, indent=2)
 
 with zipfile.ZipFile(os.path.join(HERE, SKIN + ".zip"), "w", zipfile.ZIP_DEFLATED) as z:
     for f in sorted(os.listdir(OUT)):

@@ -14,7 +14,7 @@ the original, into out/<skin>/ for both skins (identical files):
 Design (palette from make_skin.py): deep maroon-plum shirt and helmet shell; flesh-pink accents (PIG);
 «арка» + SMP RACING ESPORTS on a pink butcher price tag with a dashed burgundy cut line (the car's
 cut-chart motif) and a holo hairline; SMP RACING ESPORTS in its own white/blue (on a deep-ink pill where
-it sits on pink, as on the car); Симкарт on its night plate with a chrome frame (as on the car).
+it sits on pink, as on the car); Симкартинг on its night plate with a chrome frame (as on the car).
 
 Rules kept
   * alpha channel of every file is copied unchanged from the original (DDS: the DXT5 alpha blocks are
@@ -58,7 +58,7 @@ SKINS = ("Pozdnyakov_23", "Konopelko_86")
 PIG = np.array((242, 158, 178), np.float32)       # flesh pink, the 917/20 tone
 INK = (96, 18, 42)                                 # butcher's burgundy ink
 INK_D = (40, 10, 22)                               # deep ink (outlines)
-NIGHT = (16, 12, 20)                               # Simkart night plate
+NIGHT = (16, 12, 20)                               # Simkarting night plate
 WHITE = (252, 250, 255)
 ARKA_Y = (242, 206, 92)                            # «арка» yellow (as on the car)
 SMP_BLUE = (0, 181, 239)
@@ -205,7 +205,9 @@ def asset_smp(h):
 
 
 def simkart_plate(w, h):
-    """Simkart wordmark on its night plate with a chrome bevel + holo hairline (car tag, without url)."""
+    """Simkarting wordmark on its night plate with a chrome bevel + holo hairline (car tag, without url). The logo is
+    fitted by height (it was and still is: «Симкартинг» at the same letter height fills ~0.86 of the plate's width,
+    «Симкарт» filled 0.64)."""
     S = 4
     W, H = w * S, h * S
     out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -344,7 +346,7 @@ def make_ac_crew():
     smp = fit_box(smp, y1 - y0, x1 - x0 + 2)
     paste(art, smp, (x0 + x1) / 2, (y0 + y1) / 2, angle=ang)
 
-    # C: Симкарт night plate (old small SMP RACING slot, +3 px)
+    # C: Симкартинг night plate (old small SMP RACING slot, +3 px)
     (x0, y0, x1, y1), _ = CREW_SLOTS["C_small"]
     paste(art, simkart_plate((x1 - x0) + 4, (y1 - y0) + 6), (x0 + x1) / 2, (y0 + y1) / 2)
 
