@@ -841,6 +841,7 @@ KEY_FLARE_END = 1.905       # the band keyline ends here at the flare's upper re
 KEY_RESUME_Z = 0.47         # ... and resumes at the bottom of the flare's trailing edge, into the bumper's low band
 KEY_DEFER_Y = 1.25          # round 6: the band keyline behind this y (rear flare) is painted after the stem (its end)
 BAND_LOW_Y = 2.02           # the rear bumper's low band (its height there is the one the recessed corner keeps)
+UF_LOW_KEEP = 0.0100        # round 7: the plain-pink recess starts this far over the low band's edge (keyline + hairline)
 FLARE_LOG = {}
 
 
@@ -5481,9 +5482,21 @@ def paint_body():
     # --- client (top priority): the body surface under / behind the rear flare (the recess between the flare's
     #     trailing edge and the rear bumper, confirmed zone) is plain base pink, shaded: no holo, no keyline, no dash
     #     stubs. Part map + mesh: the rear bumper corner's side-facing skin inboard of the flare, and the rear fender's
-    #     ledge under the flare's top, behind the flare's trailing edge; the holo / lines of the bumper band stop where the
-    #     bumper corner turns into the recess
+    #     ledge under the flare's top, behind the flare's trailing edge; the dashes of the bumper line stop where the
+    #     bumper corner turns into the recess (its low holo band runs on round the corner, see below)
     rec = underflare_mask()
+    # client round 7 («на заднем бампере всё ещё кусок прерывается разноцветный»): the rear bumper's low holo band and
+    # its chrome keyline stopped dead at |x| ~0.70, where the bumper corner turns sideways into the recess - this reset
+    # took the corner's bottom strip (under the band edge, z < ~0.43) back to pink as well, so a pink piece cut the band
+    # between the rear bumper and the flare (rear / rear 3/4 views; in the texture beside the ends of the diffuser band's
+    # tall holo). The low band painted by paint_belly (holo under the bumper strip's band edge at BAND_LOW_Y, the keyline
+    # straddling it) now stays: one band from the rear bumper round the corner to the flare's trailing edge. Only the
+    # recess above it (from UF_LOW_KEEP over the band edge: past the keyline and its dark hairline) is plain pink
+    ui = np.flatnonzero(rec & (PARTF == PID["rear_bumper_corner"]))
+    zl_, _ = band_edge(np.stack([POSF[ui, 0], np.maximum(POSF[ui, 1], BAND_LOW_Y), POSF[ui, 2]], 1))
+    low_ = POSF[ui, 2] < zl_ + UF_LOW_KEEP
+    rec[ui[low_]] = False
+    UNDERFLARE["low_band_kept"] = int(low_.sum())
     # (the loop round the tail lamp runs just above it, under the lamp: its paint and anti-aliased edge stay)
     ri = np.flatnonzero(rec)
     dl_ = np.minimum.reduce([cKDTree(LOOP[s]["C"]).query(POSF[ri])[0] for s in ("L", "R")])
@@ -7405,7 +7418,9 @@ def main():
                    f"and the keyline resumes at its bottom with the rear bumper's low band); the recessed body surface "
                    f"under / behind the flare (rear bumper corner inboard of the "
                    f"flare, the fender's ledge; {UNDERFLARE.get('texels')} texels per car): plain shaded base pink - "
-                   f"no holo, no keyline, no dashes")
+                   f"no holo, no keyline, no dashes - above the rear bumper's low holo band, which (round 7) runs on "
+                   f"with its keyline round the bumper corner to the flare's trailing edge "
+                   f"({UNDERFLARE.get('low_band_kept')} texels of the corner's bottom strip): one band corner to corner")
     for r in LINE_NOTES:
         rep.append("INFO   line:" + r)
     rep.extend("INFO   ends:" + r for r in line_ends())
