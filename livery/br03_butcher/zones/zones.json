@@ -1,0 +1,1384 @@
+{
+ "zones": [
+  {
+   "id": "rear_wing_top",
+   "car_part": "Rear wing main plane, top face (full span; x<2048 = car-right half of the wing)",
+   "half": "center",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1504,
+    48,
+    2586,
+    168
+   ],
+   "safe_center": [
+    2045,
+    104
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "F3 (verified). shot_uv_front: G1 (car right) and I1/J1 read upright on the wing top. v2 \"ЭНГЕЛЬССКИЙ ДОМ МОЛОДЁЖИ\" (unrotated) reads correctly in shot_v2_front. Pros use it: ADR \"SMP ESPORTS\", SMP \"ER ENGINEERING\". Usable height about 110 px (y 48-160), so keep text ≤ ~95 px tall. Clearance 54 px. Unrotated text reads from the front/above; from a chase cam it reads upside down."
+  },
+  {
+   "id": "rear_wing_rear_face",
+   "car_part": "Rear wing rear-facing (trailing) face, seen by following cars",
+   "half": "center",
+   "up_dir": "+y",
+   "forward_dir": "unknown",
+   "text_rotation_pil": 180,
+   "bbox": [
+    1504,
+    166,
+    2584,
+    260
+   ],
+   "safe_center": [
+    2045,
+    214
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "F3 (verified, rot 180). shot_uv_rear: the upper band shows J1, I1, H1, G1 left to right (texture +x = car left), and the grid-label tails sit on its lower edge, so texture +y points up from behind, as rot 180 requires. ADR puts \"-TEAM ADR- 12\" here rotated 180. Strip y 172-258, about 85 px tall. Clearance 46 px."
+  },
+  {
+   "id": "rear_wing_lower_band",
+   "car_part": "Rear wing lower band below the rear face (lower wing element / underside seen from behind)",
+   "half": "center",
+   "up_dir": "-y",
+   "forward_dir": "unknown",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1504,
+    258,
+    2584,
+    384
+   ],
+   "safe_center": [
+    2045,
+    318
+   ],
+   "visibility": "low",
+   "confidence": "low",
+   "evidence": "Same mask island as the rear face (y 258-384). shot_uv_rear: the thin band under the rear face shows J2 blue, I2 orange, H2 teal, G2 pink, left to right, with label fragments in its LOWER half. So from behind, +x = viewer-left and +y = down, which is a mirror image. No rotation alone makes text readable there; use plain colour, or ImageOps.mirror(text) with rot 0. Maps 1 and 3 gave rot 180 by analogy, which is wrong for this band."
+  },
+  {
+   "id": "rear_wing_lower_element",
+   "car_part": "Lower wing element / leading-edge band (y 504-606) plus a 15 px strip at y≈468-490; seen from the front under the wing top",
+   "half": "center",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1504,
+    468,
+    2576,
+    608
+   ],
+   "safe_center": [
+    2045,
+    555
+   ],
+   "visibility": "low",
+   "confidence": "low",
+   "evidence": "Separate islands in the mask and the template photo. shot_uv_front: under the wing top, a band reads magenta over red at viewer-left (G2 over G3) and purple at viewer-right, i.e. normal orientation from the front. No readable labels. Colour / stripe only. Clearance 50 px."
+  },
+  {
+   "id": "roof_top",
+   "car_part": "Roof / roll-hoop dome above the windscreen (number-disc spot)",
+   "half": "center",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1760,
+    820,
+    2338,
+    1404
+   ],
+   "safe_center": [
+    2045,
+    1130
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "F4 (verified): a number disc at (2045,1130) reads upright from the front. v1/v2 \"64\" disc shows there in shot_v1_a and shot_v2_front; SMP KRB roundel at about (2048,1230). Dome x≈1760-2338, y≈820-1404, narrowing to its front tip at y≈1400. Real airbox slot at x 1854-2212, y 906-930. Clearance 198 px, enough for a disc of about 380 px diameter. From a chase cam the disc reads upside down."
+  },
+  {
+   "id": "windscreen_frame_cowl",
+   "car_part": "Thin canopy / windscreen frame arcs and the cowl strip directly under the windscreen (H8 area)",
+   "half": "center",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1584,
+    1300,
+    2512,
+    2002
+   ],
+   "safe_center": [
+    1893,
+    1879
+   ],
+   "visibility": "low",
+   "confidence": "low",
+   "evidence": "Mask and template photo: concentric U-arcs about 40-60 px wide, which do not join at x=2048. shot_uv_front: H8 lime reads under the windscreen, with the nose camera pod at the centre. v2 pinstripes there frame the windscreen in shot_v2_front. Accent colour only. Clearance 60 px."
+  },
+  {
+   "id": "nose_front",
+   "car_part": "Nose front face between the fender pods, above the splitter (team badge / number disc)",
+   "half": "center",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1744,
+    2790,
+    2352,
+    3482
+   ],
+   "safe_center": [
+    2045,
+    3000
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "F5 (verified): a badge at (2045,2925) sits on the nose front, upright from the front (v2 coat of arms in shot_v2_front; SMP eagle at about (2048,2936)). shot_uv_front: H12|I12, H13|I13, H14|I14 upright either side of x=2048, which is the true centre line here. ADR stacks \"TEAM ADR\" at y≈2865, a \"12\" disc at (2048,3105) and \"ER\" at y≈3315. Island narrows downward and ends at y≈3480. Clearance 212 px at the chosen centre (136 px at the F5 point, 267 px at (2045,3057))."
+  },
+  {
+   "id": "engine_cover_side_R",
+   "car_part": "Engine-cover \"shark-fin\" side panel behind the cockpit, car RIGHT (main logo panel)",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    790,
+    196,
+    1348,
+    1698
+   ],
+   "safe_center": [
+    1150,
+    1150
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "F1/F2 (verified: a logo at (1165,1150) rot -90 was visible). shot_uv_carRightSide: E5/E6 on the fin, D6 below with the hole. The v1/v2 \"арка\" (tex x≈980-1320, y≈740-1320) reads upright here in shot_v1_b and shot_v2_rear34. SMP \"ENGINEERING\" and ADR \"SMP ESPORTS\" are placed here. Shape (from the SMP white panel): rear tip (1136,205), top/spine edge x≈1340, lower edge diagonal (1136,220)->(860,820), then x≈850-890 down to y≈1560, front end y≈1700. Real hole at (1024,1366), r≈30 (maps 2/3; map 1's (993,1321) was off). Clearance 194 px at the chosen centre; the maximum is 234 px at (1109,1115). Continuous in UV with rear_haunch_R and sidepod_top_R, with no gap.",
+   "mirror_of": "engine_cover_side_L"
+  },
+  {
+   "id": "engine_cover_side_L",
+   "car_part": "Engine-cover \"shark-fin\" side panel behind the cockpit, car LEFT (main logo panel)",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2734,
+    192,
+    3302,
+    1698
+   ],
+   "safe_center": [
+    2930,
+    1150
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: L5/L6 on the fin with M below (up=-x). v1/v2 \"Симкарт\" (tex x≈2820-2980, y≈680-1440, rot +90) reads upright in shot_v1_a and shot_v2_simkartSide. ADR \"SMP ESPORTS\" is here. Spine edge x≈2744; lower edge (2924,210)->(3225,820), then x≈3200-3250 down to y≈1560. Real hole at (3064,1358), r≈30. Not an exact mirror: the left-side layout is offset about 20-40 px, best-fit axis x≈2038. Clearance 196 px; the maximum is 240 px at (2979,819).",
+   "mirror_of": "engine_cover_side_R"
+  },
+  {
+   "id": "engine_cover_fwd_upper_R",
+   "car_part": "User-outlined forward-upper part of the car-RIGHT fin (subset of engine_cover_side_R)",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    984,
+    860,
+    1348,
+    1698
+   ],
+   "safe_center": [
+    1185,
+    1470
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "The user drew a red outline in shot_v2_rear34_arkaSide around the forward-upper fin. It covers the upper part of the \"рка\" letters, the espresso badge and the fin hole, runs up to the ridge, and stops just behind the \"64\" hoop panel. Mapped to texture via those v2 features, that is about x 985-1345, y 860-1700. It is the most visible part of the fin in 3/4 views. Avoid the hole at (1024,1366). Clearance 161 px.",
+   "mirror_of": "engine_cover_fwd_upper_L"
+  },
+  {
+   "id": "engine_cover_fwd_upper_L",
+   "car_part": "User-outlined forward-upper part of the car-LEFT fin (subset of engine_cover_side_L)",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2734,
+    860,
+    3102,
+    1698
+   ],
+   "safe_center": [
+    2905,
+    1467
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "The user's red outline in shot_v2_simkartSide covers \"Сим\" and \"кар\", the fin hole and the forward-upper fin up to the ridge, behind the \"64\". Mapped: about x 2735-3100, y 860-1700. Hole at (3064,1358). Clearance 163 px.",
+   "mirror_of": "engine_cover_fwd_upper_R"
+  },
+  {
+   "id": "engine_cover_spine_R",
+   "car_part": "Top ridge of the engine cover: the upper-edge band of the car-RIGHT fin island",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    1274,
+    392,
+    1348,
+    1702
+   ],
+   "safe_center": [
+    1311,
+    1250
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "No centre island exists for the engine-cover top (all three maps agree). The two fin islands meet at the ridge along their top edges (x≈1300-1345 here). The x=2048 checker of v2 never appeared on the engine cover (shot_v2_rear34). A spine stripe must therefore be painted twice, here and on the _L edge. Only about 75 px wide: pinstripes, not text. Clearance 37 px.",
+   "mirror_of": "engine_cover_spine_L"
+  },
+  {
+   "id": "engine_cover_spine_L",
+   "car_part": "Top ridge of the engine cover: the upper-edge band of the car-LEFT fin island",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2734,
+    216,
+    2812,
+    1702
+   ],
+   "safe_center": [
+    2773,
+    1180
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "Mirror of the R spine: top edge of the left fin island at x≈2735-2810. Accent stripe only. Clearance 40 px.",
+   "mirror_of": "engine_cover_spine_R"
+  },
+  {
+   "id": "hoop_side_panel_R",
+   "car_part": "Small panel (\"бочка\") at the top-front of the fin, just behind the side window / roll hoop, car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    1000,
+    1672,
+    1372,
+    2028
+   ],
+   "safe_center": [
+    1131,
+    1815
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "F7 (verified island). The v2 \"64\" (tex ≈1132-1240 x 1700-1920, rot -90) shows at the very top of this panel in shot_v2_rear34, clipped at the top. The car-side top edge is x≈1372, so keep content centred LOW, at x≈1120-1140. SMP and ADR put the \"ER\" logo here. The main body is y≈1672-1925, with a hook/tail at y≈1925-2028. Clearance 107 px, so content up to ~200 px.",
+   "mirror_of": "hoop_side_panel_L"
+  },
+  {
+   "id": "hoop_side_panel_L",
+   "car_part": "Small panel (\"бочка\") at the top-front of the fin, just behind the side window / roll hoop, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2672,
+    1690,
+    3048,
+    2046
+   ],
+   "safe_center": [
+    2920,
+    1835
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "v1/v2 \"64\" at tex ≈(2820-2960, 1740-1920) reads at the top of the panel behind the window (shot_v1_a, shot_v2_simkartSide). The top edge is at SMALL x (≈2672), so centre at x≈2915-2930, not at 2890 like v2. SMP has \"ER\" + E-roundel + triangle here. Clearance 101 px.",
+   "mirror_of": "hoop_side_panel_R"
+  },
+  {
+   "id": "cockpit_side_R",
+   "car_part": "Cockpit/canopy side panel behind and below the side window (diagonal \"V\" arm), car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    1380,
+    696,
+    1746,
+    1302
+   ],
+   "safe_center": [
+    1553,
+    861
+   ],
+   "visibility": "medium",
+   "confidence": "high",
+   "evidence": "shot_uv_carRightSide (zoom): G4 beige directly behind the side window, G5 lime under it, H4/H5 above (= roof_side). The arm is ~250 px wide at y 800-950 and narrows to ~80 px below y≈1250, continuing thin to the windscreen chin near (1780,1850). ADR runs a cyan pinstripe along it; SMP has a red accent near (1560,1260). Clearance 124 px at the wide rear end.",
+   "mirror_of": "cockpit_side_L"
+  },
+  {
+   "id": "cockpit_side_L",
+   "car_part": "Cockpit/canopy side panel behind and below the side window (diagonal \"V\" arm), car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2344,
+    700,
+    2706,
+    1302
+   ],
+   "safe_center": [
+    2519,
+    863
+   ],
+   "visibility": "medium",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: J4 (pink) behind the window, J5 beige under it, I5 strip above. Clearance 123 px.",
+   "mirror_of": "cockpit_side_R"
+  },
+  {
+   "id": "roof_side_R",
+   "car_part": "Roof flank above the side window (driver-name strip), car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    1768,
+    960,
+    1906,
+    1302
+   ],
+   "safe_center": [
+    1850,
+    1060
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "Side edge of the roof dome. shot_uv_carRightSide: H4/H5 (pink/purple, an \"H\" glyph) above the side window. ADR places the driver name vertically at about (1815-1905, 1050-1230). Up toward the roof centre = +x, so the side rule holds. Only ~70-110 px wide: small text (driver name). Clearance 52 px.",
+   "mirror_of": "roof_side_L"
+  },
+  {
+   "id": "roof_side_L",
+   "car_part": "Roof flank above the side window (driver-name strip), car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2190,
+    960,
+    2330,
+    1284
+   ],
+   "safe_center": [
+    2232,
+    1060
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "shot_uv_carLeftSide: I5 strip above the side window. ADR second driver name at about (2180-2250, 1050-1220). Clearance 41 px.",
+   "mirror_of": "roof_side_R"
+  },
+  {
+   "id": "rear_wing_endplate_R",
+   "car_part": "Rear-wing endplate (double-sided: outer and inner face share this UV), car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    52,
+    408,
+    340,
+    1200
+   ],
+   "safe_center": [
+    165,
+    600
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "shot_uv_carRightSide: the near endplate shows A3 (lime) with A2 behind, reading bottom-to-top with glyph tops toward the rear (side rule). The far endplate shows the mirrored inner face, so text appears mirrored on the inside. ADR \"12\" at about (170,610); v1/v2 yellow endplate visible in shot_v1_b and shot_v2_rear34. The island sits in the rear-arch cut-out of the big fender island: wide top part y≈410-760, slanted narrow lower part. Clearance 97 px.",
+   "mirror_of": "rear_wing_endplate_L"
+  },
+  {
+   "id": "rear_wing_endplate_L",
+   "car_part": "Rear-wing endplate (double-sided), car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3742,
+    402,
+    4012,
+    1204
+   ],
+   "safe_center": [
+    3881,
+    595
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: P3 (light blue) with P4 ahead and P2 behind; glyph tops toward the rear. ADR \"12\" at about (3880,600); red endplate in shot_v2_simkartSide. Clearance 105 px.",
+   "mirror_of": "rear_wing_endplate_R"
+  },
+  {
+   "id": "rear_fender_rear_R",
+   "car_part": "Rear-fender vertical side face behind the rear wheel (rear corner), car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    12,
+    36,
+    566,
+    426
+   ],
+   "safe_center": [
+    330,
+    245
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "shot_uv_carRightSide: B1 (rearmost), B2 above the rear of the arch and A1/A2 low; C1 only shows as a thin strip on the top edge. SMP puts YOKOHAMA/ABTO here at about (264-348, 188-344). A small physical light/tab sits low near the A1/A2 border. The same UV island continues into rear_haunch_R and rear_deck_R with no gap. Clearance 145 px.",
+   "mirror_of": "rear_fender_rear_L"
+  },
+  {
+   "id": "rear_fender_rear_L",
+   "car_part": "Rear-fender vertical side face behind the rear wheel (rear corner), car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3520,
+    6,
+    4032,
+    426
+   ],
+   "safe_center": [
+    3700,
+    235
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: O1 (blue, rearmost), O2 above the arch, P1/P2 low. SMP YOKOHAMA/ABTO at about (3652-3784, 124-268). Clearance 134 px.",
+   "mirror_of": "rear_fender_rear_R"
+  },
+  {
+   "id": "rear_haunch_R",
+   "car_part": "Rear-fender flank above the rear wheel arch, sweeping up over the fender top to the fin crease, car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    352,
+    424,
+    1036,
+    1408
+   ],
+   "safe_center": [
+    619,
+    1011
+   ],
+   "visibility": "high",
+   "confidence": "medium",
+   "evidence": "shot_uv_carRightSide: B3 (pink) and B4 (red) over the wheel, B5 beige ahead, with the C/D columns seen as a thin strip toward the fin, i.e. the fender top. The v1 yellow crescent (tex 320-760, 320-1380) is the yellow sweep over the rear wheel in shot_v1_b; SMP red/blue crescent. The arch edge is at x≈330-420 (endplate in the pocket). The fin boundary is the SMP white/red edge (1136,220)->(860,820)->x≈850-880. A big area, but the upper part (x>~520) faces up: good for colour sweeps; side text only at x<~520. Clearance 266 px.",
+   "mirror_of": "rear_haunch_L"
+  },
+  {
+   "id": "rear_haunch_L",
+   "car_part": "Rear-fender flank above the rear wheel arch, sweeping up to the fin crease, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3032,
+    424,
+    3792,
+    1400
+   ],
+   "safe_center": [
+    3465,
+    999
+   ],
+   "visibility": "high",
+   "confidence": "medium",
+   "evidence": "shot_uv_carLeftSide: O3 over the wheel, O4/O5 along the haunch, N5 rim strip toward the fin. The v1/v2 red leaf with a white swoosh shows here in shot_v1_a and shot_v2_simkartSide. Clearance 264 px.",
+   "mirror_of": "rear_haunch_R"
+  },
+  {
+   "id": "rear_deck_R",
+   "car_part": "Rear deck: top of the rear fender behind/beside the fin rear tip, under the wing, car RIGHT half",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    564,
+    144,
+    1174,
+    426
+   ],
+   "safe_center": [
+    697,
+    293
+   ],
+   "visibility": "medium",
+   "confidence": "low",
+   "evidence": "Part of the big top-left island (C1-E2). From the side only C1/C2 show on the top edge, so D1-E2 face up: seen from chase/3-4 rear views. SMP and v1 leave it black; v2 fills it yellow. Bbox overlaps the fin rear tip and the haunch, since the surfaces are continuous. For a chase-cam reader use rot 180 instead of the side rule. Clearance 134 px.",
+   "mirror_of": "rear_deck_L"
+  },
+  {
+   "id": "rear_deck_L",
+   "car_part": "Rear deck: top of the rear fender behind/beside the fin rear tip, under the wing, car LEFT half",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2846,
+    112,
+    3522,
+    426
+   ],
+   "safe_center": [
+    3337,
+    285
+   ],
+   "visibility": "medium",
+   "confidence": "low",
+   "evidence": "Mirror of R (unpainted in SMP/v1, red in v2). Clearance 142 px.",
+   "mirror_of": "rear_deck_R"
+  },
+  {
+   "id": "sidepod_side_R",
+   "car_part": "Sidepod vertical side face between the wheels, under the cockpit, car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    336,
+    1468,
+    692,
+    2322
+   ],
+   "safe_center": [
+    517,
+    1763
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "shot_uv_carRightSide: large C7 (red, rear) and C8 (beige, front) read bottom-to-top, with B7/B8 cyan at the bottom edge. ADR puts its vertical \"-TEAM- ADR\" at about (450-645, 1590-1830), exactly here. The upper edge is a real slit/dart at x≈655-700, y 1475-1790 that splits off sidepod_top_R. The lower-front part is cut away diagonally below y≈1900, so the panel is widest at y 1500-1900. Clearance 157 px.",
+   "mirror_of": "sidepod_side_L"
+  },
+  {
+   "id": "sidepod_side_L",
+   "car_part": "Sidepod vertical side face between the wheels, under the cockpit, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3384,
+    1484,
+    3792,
+    2322
+   ],
+   "safe_center": [
+    3529,
+    1757
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: big N8 (front) and N7 (rear), with O7/O8 below. The ADR \"-TEAM- ADR\" is here; v2 white swoosh visible in shot_v2_simkartSide. Clearance 144 px.",
+   "mirror_of": "sidepod_side_R"
+  },
+  {
+   "id": "sidepod_top_R",
+   "car_part": "Sidepod top / shoulder between the sidepod side and the fin, car RIGHT (faces mostly up)",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    690,
+    1562,
+    952,
+    2260
+   ],
+   "safe_center": [
+    820,
+    1900
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "D7/D8 never show in the pure side view (maps 2 and 3), so this is the upper surface across the dart from sidepod_side_R. The v1/v2 black panel with the арка ribbon (tex ≈680-960) is visible on the sidepod shoulder in shot_v1_b and shot_v2_rear34 from 3/4 views. It flows into the fin bottom (D6) with no gap. Clearance 112 px.",
+   "mirror_of": "sidepod_top_L"
+  },
+  {
+   "id": "sidepod_top_L",
+   "car_part": "Sidepod top / shoulder, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3080,
+    1562,
+    3386,
+    2302
+   ],
+   "safe_center": [
+    3250,
+    1900
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "Mirror (M7/M8). v2 white swoosh area. Clearance 136 px.",
+   "mirror_of": "sidepod_top_R"
+  },
+  {
+   "id": "mid_skirt_R",
+   "car_part": "Side skirt / floor-edge strip under the sidepod, car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    1360,
+    1224,
+    1554,
+    2736
+   ],
+   "safe_center": [
+    1450,
+    1660
+   ],
+   "visibility": "low",
+   "confidence": "medium",
+   "evidence": "shot_uv_carRightSide: the bottom strip under the sidepod shows F6 (purple \"6\"), F7 (pink \"7\") and F8 (red, front), which is this long F-column island (maps 1 and 2; map 3 called it a tub wall without evidence). Only y≈1280-2100 was seen; F9-F11 (y 2300-2750) never appear and probably turn inboard. ADR long cyan stripe with chevrons. ~100-190 px wide: stripes only. Clearance 50 px. A thin UV gap at x≈1550 separates it from nose_top_R.",
+   "mirror_of": "mid_skirt_L"
+  },
+  {
+   "id": "mid_skirt_L",
+   "car_part": "Side skirt / floor-edge strip under the sidepod, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2516,
+    1224,
+    2706,
+    2754
+   ],
+   "safe_center": [
+    2610,
+    1660
+   ],
+   "visibility": "low",
+   "confidence": "medium",
+   "evidence": "shot_uv_carLeftSide: K6-K8 along the bottom edge under N7/N8. Island x≈2516-2706. Clearance 46 px.",
+   "mirror_of": "mid_skirt_R"
+  },
+  {
+   "id": "door_panel_R",
+   "car_part": "Side panel directly behind the front wheel (\"door\"): race-number plate spot, car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    12,
+    2248,
+    504,
+    2806
+   ],
+   "safe_center": [
+    260,
+    2575
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "shot_uv_carRightSide: A10/A11 (lower) and B10/B11 (upper) fill the flat panel behind the front wheel, reading bottom-to-top. The pro number spot: ADR white \"12\" plate at about (90-345, 2370-2700). The top edge is the pod crease; a V-dart at x≈470-540 separates it from pod_top_rear_R. Only real defect: a small notch on the bottom edge at about x 18-90, y 2495-2550 (the dark tab seen low on the door). Map 3's \"latch hole\" at (144-264, 2483-2585) is the ADR \"12\" glyph hole in the mask, not geometry. Clearance 178 px.",
+   "mirror_of": "door_panel_L"
+  },
+  {
+   "id": "door_panel_L",
+   "car_part": "Side panel directly behind the front wheel (\"door\"): race-number plate spot, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3554,
+    2236,
+    4040,
+    2812
+   ],
+   "safe_center": [
+    3790,
+    2590
+   ],
+   "visibility": "hero",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: O10/O11 upper, P10/P11 lower. ADR \"12\" plate at about (3660-3960, 2370-2770). Clearance 184 px.",
+   "mirror_of": "door_panel_R"
+  },
+  {
+   "id": "pod_top_rear_R",
+   "car_part": "Front-fender pod top/inboard shoulder behind the front wheel (beside the cockpit), car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    546,
+    2266,
+    1038,
+    2962
+   ],
+   "safe_center": [
+    795,
+    2625
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "C10-D11 lobe of the front-fender island, joined to the door only below y≈2950. Mirror evidence: shot_uv_carLeftSide shows M10 (light blue) as a thin strip along the top above the door, so it faces mostly up. Seen from 3/4, from above and from the cockpit; ADR and SMP leave it plain. Texture +x = inboard here: rot 0 reads from the front, the side rule reads at a grazing angle from the side. Clearance 195 px.",
+   "mirror_of": "pod_top_rear_L"
+  },
+  {
+   "id": "pod_top_rear_L",
+   "car_part": "Front-fender pod top/inboard shoulder behind the front wheel, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3034,
+    2220,
+    3514,
+    2966
+   ],
+   "safe_center": [
+    3273,
+    2643
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "Mirror (M10-N11 region); M10 strip visible above the left door. Clearance 185 px.",
+   "mirror_of": "pod_top_rear_R"
+  },
+  {
+   "id": "front_fender_crown_R",
+   "car_part": "Front-fender pod over and ahead of the front wheel: outer side above the arch (B12/B13) plus the pod top (C12/C13), car RIGHT",
+   "half": "left",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    250,
+    2804,
+    822,
+    3342
+   ],
+   "safe_center": [
+    543,
+    3143
+   ],
+   "visibility": "high",
+   "confidence": "medium",
+   "evidence": "shot_uv_front: \"3\" (B13) and \"C13\" read upright from the front across the pod top. shot_uv_carRightSide: B12 orange above the arch, B13 beige ahead of it. The outer arch cut-out is x≈100-390 (front_skirt_R sits in it); the inner arch cut-out is x≈700-890. rot 0 reads from the front (texture +x = inboard); for the outer-side band x<~512 use rot -90 to read from the side. SMP small badge at about (540,3365). Clearance 148 px.",
+   "mirror_of": "front_fender_crown_L"
+  },
+  {
+   "id": "front_fender_crown_L",
+   "car_part": "Front-fender pod over and ahead of the front wheel (N12-O13), car LEFT",
+   "half": "right",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    3240,
+    2810,
+    3784,
+    3346
+   ],
+   "safe_center": [
+    3521,
+    3189
+   ],
+   "visibility": "high",
+   "confidence": "medium",
+   "evidence": "shot_uv_front: \"N13\" upright on the car-left pod top, with O13 outboard. shot_uv_carLeftSide: O12/O13 over the wheel. For side reading on the outer band use rot +90. Clearance 150 px.",
+   "mirror_of": "front_fender_crown_R"
+  },
+  {
+   "id": "pod_nose_ring_R",
+   "car_part": "Front-fender pod nose: the outer ring around the headlight, from the side ahead of the wheel (A14/B14) round the lamp, car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    132,
+    3340,
+    912,
+    3876
+   ],
+   "safe_center": [
+    215,
+    3557
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "shot_uv_carRightSide: green B14 ahead of the wheel and A14 low front, tilted ~30-45°. shot_uv_front: C14 pink above the lamp, C15 orange below. The outer (A-column) limb is a side surface: SMP puts YOKOHAMA there at about (192-296, 3592-3780), rot -90. The upper/inner arc around the lamp faces forward, where rot 0 reads from the front. The ring is ~120-150 px wide, so small badges only. Clearance 70 px.",
+   "mirror_of": "pod_nose_ring_L"
+  },
+  {
+   "id": "pod_nose_ring_L",
+   "car_part": "Front-fender pod nose: the outer ring around the headlight, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3154,
+    3340,
+    3936,
+    3876
+   ],
+   "safe_center": [
+    3851,
+    3553
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "shot_uv_carLeftSide: O14/O15 on the pod front; shot_uv_front: N14 purple band above the lamp. SMP YOKOHAMA at about (3772-3888, 3560-3736). Clearance 70 px.",
+   "mirror_of": "pod_nose_ring_R"
+  },
+  {
+   "id": "headlight_bezel_L_inTexLeft",
+   "car_part": "Inner diamond bezel ring around the car-LEFT headlight lens. CROSSED: this island lies in the texture-LEFT half",
+   "half": "left",
+   "up_dir": "unknown",
+   "forward_dir": "unknown",
+   "text_rotation_pil": 0,
+   "bbox": [
+    348,
+    3440,
+    726,
+    3934
+   ],
+   "safe_center": [
+    535,
+    3521
+   ],
+   "visibility": "low",
+   "confidence": "high",
+   "evidence": "Re-checked: in shot_v2_front the car-right (yellow) pod has a RED lamp ring and the car-left (red) pod has a YELLOW ring. In tex_v2 the whole left half is yellow, so the ring around the car-left lamp must come from the texture-left half. shot_uv_front confirms it: the ring around the car-left lamp shows B14 lime, C14 pink, B15 mint and C16 yellow, which are this loop's cells. Map 3 found this; maps 1 and 2 had it uncrossed. Thin loop (~60-70 px), colour accent only. Paint it the car-LEFT pod colour.",
+   "mirror_of": "headlight_bezel_R_inTexRight"
+  },
+  {
+   "id": "headlight_bezel_R_inTexRight",
+   "car_part": "Inner diamond bezel ring around the car-RIGHT headlight lens. CROSSED: this island lies in the texture-RIGHT half",
+   "half": "right",
+   "up_dir": "unknown",
+   "forward_dir": "unknown",
+   "text_rotation_pil": 0,
+   "bbox": [
+    3334,
+    3440,
+    3708,
+    3934
+   ],
+   "safe_center": [
+    3529,
+    3523
+   ],
+   "visibility": "low",
+   "confidence": "high",
+   "evidence": "Mirror of headlight_bezel_L_inTexLeft. shot_v2_front: the red ring is around the car-RIGHT lamp. shot_uv_front: N14 purple, O15 teal, N15 pink and N16 red ring the car-right lamp. Paint it the car-RIGHT pod colour.",
+   "mirror_of": "headlight_bezel_L_inTexLeft"
+  },
+  {
+   "id": "front_skirt_R",
+   "car_part": "Side skirt strip under the door panel (between the front wheel and the sidepod), car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    90,
+    2848,
+    272,
+    3412
+   ],
+   "safe_center": [
+    187,
+    3065
+   ],
+   "visibility": "medium",
+   "confidence": "high",
+   "evidence": "shot_uv_carRightSide: a cyan strip under A10/A11 shows only the end digits \"2\" and \"3\" of A12/A13, rotated like the side panels. A separate island packed inside the front-arch cut-out. ADR cyan bar with ticks at about (150-240, 2850-3405). ~180 px wide: thin text or stripes. Clearance 64 px.",
+   "mirror_of": "front_skirt_L"
+  },
+  {
+   "id": "front_skirt_L",
+   "car_part": "Side skirt strip under the door panel, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3784,
+    2800,
+    3988,
+    3388
+   ],
+   "safe_center": [
+    3907,
+    3251
+   ],
+   "visibility": "medium",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: under O10/O11, P12 (blue) and P13 (purple) with rotated \"P\" glyphs. Clearance 66 px.",
+   "mirror_of": "front_skirt_R"
+  },
+  {
+   "id": "rear_lower_side_R",
+   "car_part": "Lower side panel directly ahead of the rear wheel (rear end of the sidepod), car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    1114,
+    2784,
+    1572,
+    3372
+   ],
+   "safe_center": [
+    1377,
+    2927
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "shot_uv_carRightSide: F12 (cyan, upper rear) and F13 (upper front), E12 (pink) and E13 (orange) lower, just ahead of the rear wheel. Real triangular hole at x≈1236-1374, y≈3022-3298. sidepod_vane_R stands over the front-upper part on the car, so the clean areas are the upper-rear band (y<~3000; chosen centre) and the lower leg x≈1120-1240, where ADR runs its vertical \"BR03\". Clearance 98 px.",
+   "mirror_of": "rear_lower_side_L"
+  },
+  {
+   "id": "rear_lower_side_L",
+   "car_part": "Lower side panel directly ahead of the rear wheel, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2564,
+    2764,
+    3022,
+    3372
+   ],
+   "safe_center": [
+    2745,
+    2929
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: K12/K13 upper, L12/L13 lower. Triangular hole at x≈2752-2890, y≈3022-3316; ADR \"BR03\" on the lower leg x≈2830-2980. Clearance 100 px.",
+   "mirror_of": "rear_lower_side_R"
+  },
+  {
+   "id": "sidepod_vane_R",
+   "car_part": "Small vane/flap standing proud of the rear lower side panel, car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    892,
+    2986,
+    1110,
+    3340
+   ],
+   "safe_center": [
+    991,
+    3079
+   ],
+   "visibility": "medium",
+   "confidence": "high",
+   "evidence": "shot_uv_carRightSide: the inset piece over the F13/E13 area shows D12 (green), D13 (mint), E12 and E13, matching this tapered island (x≈892-1110). SMP red. Small: colour, or a logo ≤ ~170 px. Clearance 87 px.",
+   "mirror_of": "sidepod_vane_L"
+  },
+  {
+   "id": "sidepod_vane_L",
+   "car_part": "Small vane/flap standing proud of the rear lower side panel, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3020,
+    2974,
+    3220,
+    3332
+   ],
+   "safe_center": [
+    3113,
+    3073
+   ],
+   "visibility": "medium",
+   "confidence": "high",
+   "evidence": "shot_uv_carLeftSide: the inset piece shows M12/M13 with L12/L13 around it (\"NL13\" overlap). Clearance 91 px.",
+   "mirror_of": "sidepod_vane_R"
+  },
+  {
+   "id": "inlet_surround_R",
+   "car_part": "Frame around the sidepod radiator inlet beside the nose (front-facing, E10-F11), car RIGHT",
+   "half": "left",
+   "up_dir": "unknown",
+   "forward_dir": "unknown",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1096,
+    2380,
+    1404,
+    2766
+   ],
+   "safe_center": [
+    1209,
+    2557
+   ],
+   "visibility": "low",
+   "confidence": "low",
+   "evidence": "Never seen in the side shots. shot_uv_front: the car-right inlet is framed by lime/green (F10/F11) with a purple E11 band above. The ADR mask is blocky here (dark JPEG paint), so the outline is approximate. Orientation unknown: plain colour. Clearance 88 px.",
+   "mirror_of": "inlet_surround_L"
+  },
+  {
+   "id": "inlet_surround_L",
+   "car_part": "Frame around the sidepod radiator inlet (K10-L11), car LEFT",
+   "half": "right",
+   "up_dir": "unknown",
+   "forward_dir": "unknown",
+   "text_rotation_pil": 0,
+   "bbox": [
+    2656,
+    2404,
+    2934,
+    2778
+   ],
+   "safe_center": [
+    2857,
+    2581
+   ],
+   "visibility": "low",
+   "confidence": "low",
+   "evidence": "shot_uv_front: a teal K10/K11 band around the car-left inlet. Clearance 71 px.",
+   "mirror_of": "inlet_surround_R"
+  },
+  {
+   "id": "splitter_endplate_R",
+   "car_part": "Splitter outer end-fence / dive plane ahead of the front wheel, car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    1044,
+    3472,
+    1260,
+    4012
+   ],
+   "safe_center": [
+    1131,
+    3925
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "shot_uv_carRightSide: the low strip at the very front shows E15 (lime) and E16 (mint, \"E1\" at the tip), forward = +y. The island is thin except at its bottom, y≈3850-4010. Clearance 84 px.",
+   "mirror_of": "splitter_endplate_L"
+  },
+  {
+   "id": "splitter_endplate_L",
+   "car_part": "Splitter outer end-fence / dive plane ahead of the front wheel, car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    2848,
+    3502,
+    3054,
+    4016
+   ],
+   "safe_center": [
+    2967,
+    3921
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "shot_uv_carLeftSide: L16 (purple, \"6\") at the tip and L15 behind it. Clearance 82 px.",
+   "mirror_of": "splitter_endplate_R"
+  },
+  {
+   "id": "trim_slivers_R",
+   "car_part": "Thin curved trim slivers (rear-arch front lip / sidepod lower edge), car RIGHT",
+   "half": "left",
+   "up_dir": "+x",
+   "forward_dir": "+y",
+   "text_rotation_pil": -90,
+   "bbox": [
+    42,
+    1258,
+    608,
+    1832
+   ],
+   "safe_center": [
+    65,
+    1727
+   ],
+   "visibility": "low",
+   "confidence": "low",
+   "evidence": "Mask/photo only: islands ≤ ~28 px wide between the haunch and sidepod, not identified on the car. Fill with the neighbouring body colour. Clearance 14 px.",
+   "mirror_of": "trim_slivers_L"
+  },
+  {
+   "id": "trim_slivers_L",
+   "car_part": "Thin curved trim slivers (rear-arch front lip / sidepod lower edge), car LEFT",
+   "half": "right",
+   "up_dir": "-x",
+   "forward_dir": "+y",
+   "text_rotation_pil": 90,
+   "bbox": [
+    3424,
+    1282,
+    4078,
+    1836
+   ],
+   "safe_center": [
+    3481,
+    1427
+   ],
+   "visibility": "low",
+   "confidence": "low",
+   "evidence": "Mirror slivers. Clearance 14 px.",
+   "mirror_of": "trim_slivers_R"
+  },
+  {
+   "id": "nose_top_R",
+   "car_part": "Nose top / front deck between the windscreen base and the nose front, car-RIGHT half",
+   "half": "left",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1552,
+    1960,
+    1992,
+    2746
+   ],
+   "safe_center": [
+    1735,
+    2300
+   ],
+   "visibility": "high",
+   "confidence": "medium",
+   "evidence": "shot_uv_front: H9/H10 on the nose deck left of the camera pod; H8 at the windscreen base. shot_v2_front: yellow half. The two halves are separated by a V/hourglass UV void (x≈1880-2140 at y≈2000, closing to about x 2000-2050 by y≈2500-2790). That void is where the camera pod sits (the user's red circle in shot_v2_front), and the real centre line runs along its edges, not at x=2048. Never centre a logo across it; use mirrored per-half art. rot 0 reads from the front; use 180 for the cockpit cam. Clearance 159 px.",
+   "mirror_of": "nose_top_L"
+  },
+  {
+   "id": "nose_top_L",
+   "car_part": "Nose top / front deck between the windscreen base and the nose front, car-LEFT half",
+   "half": "right",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    2050,
+    1972,
+    2518,
+    2746
+   ],
+   "safe_center": [
+    2341,
+    2300
+   ],
+   "visibility": "high",
+   "confidence": "medium",
+   "evidence": "shot_uv_front: I8/I9 right of the camera pod; red half in shot_v2_front. Island x≈2050-2516 (a gap at x≈2455-2530 below y≈2380 separates mid_skirt_L). Clearance 141 px.",
+   "mirror_of": "nose_top_R"
+  },
+  {
+   "id": "splitter_top_R",
+   "car_part": "Front splitter top surface between the car-RIGHT pod and the nose",
+   "half": "left",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1270,
+    3320,
+    1952,
+    3846
+   ],
+   "safe_center": [
+    1709,
+    3647
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "F6 (verified). shot_uv_front: \"G14\" upright on the splitter left of the nose. The user's blue outline in shot_v2_front marks this plane, i.e. a requested sponsor slot (e.g. MOZA). A U-notch void at x≈1350-1500, y≈3500-3830 (pod footprint) and a thin outboard strip at x≈1280-1380. Keep the nose-tip area x≈1890-2210, y≈3460-3820 clean (F6). Clearance 200 px.",
+   "mirror_of": "splitter_top_L"
+  },
+  {
+   "id": "splitter_top_L",
+   "car_part": "Front splitter top surface between the car-LEFT pod and the nose",
+   "half": "right",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    2140,
+    3320,
+    2832,
+    3846
+   ],
+   "safe_center": [
+    2387,
+    3647
+   ],
+   "visibility": "high",
+   "confidence": "high",
+   "evidence": "F6. shot_uv_front: \"J14\" upright right of the nose; the user's blue outline in shot_v2_front marks this plane too. Clearance 199 px.",
+   "mirror_of": "splitter_top_R"
+  },
+  {
+   "id": "splitter_front_edge_R",
+   "car_part": "Front splitter leading-edge band (front-facing lip), car-RIGHT half",
+   "half": "left",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1282,
+    3844,
+    2050,
+    4020
+   ],
+   "safe_center": [
+    1715,
+    3935
+   ],
+   "visibility": "medium",
+   "confidence": "high",
+   "evidence": "F6. shot_uv_front: F16, G16, H16 | I16, J16, K16 read upright along the bottom edge. ADR places two \"SMP ESPORTS\" logos at about (1715,3890) and (2390,3890). The centre x≈1960-2140 dips to y≈3900, so treat it as two slots (or one long line centred at (2045,3960), ≤ ~100 px tall). Band ≈ y 3845-4020. Clearance 86 px.",
+   "mirror_of": "splitter_front_edge_L"
+  },
+  {
+   "id": "splitter_front_edge_L",
+   "car_part": "Front splitter leading-edge band (front-facing lip), car-LEFT half",
+   "half": "right",
+   "up_dir": "-y",
+   "forward_dir": "+y",
+   "text_rotation_pil": 0,
+   "bbox": [
+    2048,
+    3844,
+    2814,
+    4020
+   ],
+   "safe_center": [
+    2380,
+    3935
+   ],
+   "visibility": "medium",
+   "confidence": "high",
+   "evidence": "F6. Second slot at about (2380,3935); see splitter_front_edge_R. Clearance 82 px.",
+   "mirror_of": "splitter_front_edge_R"
+  },
+  {
+   "id": "mirror_R",
+   "car_part": "Rear-view mirror housing, car RIGHT",
+   "half": "left",
+   "up_dir": "unknown",
+   "forward_dir": "unknown",
+   "text_rotation_pil": 0,
+   "bbox": [
+    1592,
+    2730,
+    1816,
+    2916
+   ],
+   "safe_center": [
+    1673,
+    2823
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "shot_uv_front: the car-right mirror shows G12 cream over G11 red, which this island straddles (y 2816 boundary). SMP white mirror pieces at about (1600-1780, 2760-2880); v2 black mirrors in shot_v2_front. Orientation unclear: colour only. Clearance 61 px.",
+   "mirror_of": "mirror_L"
+  },
+  {
+   "id": "mirror_L",
+   "car_part": "Rear-view mirror housing, car LEFT",
+   "half": "right",
+   "up_dir": "unknown",
+   "forward_dir": "unknown",
+   "text_rotation_pil": 0,
+   "bbox": [
+    2280,
+    2744,
+    2528,
+    2916
+   ],
+   "safe_center": [
+    2447,
+    2831
+   ],
+   "visibility": "medium",
+   "confidence": "medium",
+   "evidence": "shot_uv_front: the car-left mirror shows J11 pink / J12 red. SMP white piece at about (2330-2520, 2760-2880). Clearance 61 px.",
+   "mirror_of": "mirror_R"
+  }
+ ],
+ "notes": "I merged the three maps into one table of 63 zones: 7 centre zones and 28 left/right pairs. Each bbox was tightened against a combined island mask and every safe centre was checked for clearance; the clearance is given in each zone's evidence.\n\n**Conventions**\n- Zone ids ending in _R are the car's RIGHT side, which is the texture's left half (x < 2048). Ids ending in _L are the car's LEFT side (x > 2048). Map 3 used the opposite suffixes, so its zones have been renamed.\n- The `half` field always means the texture half.\n- Side surfaces follow F1: on _R zones up is +x, forward is +y, rotate -90; on _L zones up is -x, forward is +y, rotate +90.\n- Top and front-facing surfaces (wing top, roof, nose top and front, splitter, fender crowns): texture +x is the car's left and +y is forward. Rotation 0 reads from the front, and `up_dir` -y means text-up for a viewer in front. Use 180 for a chase camera or the cockpit view.\n- The wing's rear face uses 180 (F3).\n- The left-side layout is not an exact mirror of the right (offsets of 20-60 px, best-fit axis about x 2038). Use the explicit _L bboxes, not 4096 - x.\n\n**Mask used**\n- It combines three sources: the ADR island mask scaled ×3, the non-black pixels of the original SMP texture, and the template photo warped into texture space.\n- Holes under about 3000 px² are filled, which removes holes left by ADR's dark lettering. The two real holes in the engine-cover side panels are cut back in.\n- Bboxes are accurate to about ±4 px.\n- Where surfaces flow together without a UV gap (rear fender → haunch → engine-cover side, engine-cover side → sidepod top, rear deck), the split follows the edge of the white panel in the original SMP texture. The bboxes in those areas overlap.\n\n**Conflicts resolved**\n1. **Headlight bezel rings are crossed** (map 3 was right). In `shot_v2_front` the car-right (yellow) pod has a red lamp ring and the car-left (red) pod has a yellow one. So the inner diamond loop in the texture's left half rings the car-LEFT lamp. Paint each bezel the opposite half's colour.\n2. **Wing band at y 258-384** appears mirrored from behind: label fragments sit at its bottom and +x is viewer-left. Rotation 180 (maps 1 and 3) is wrong there; use colour only, or a mirrored image with rotation 0.\n3. **Engine-cover side holes** are at (1024,1366) and (3064,1358), not (993,1321).\n4. **Map 3's door \"latch hole\"** is a gap in the mask from ADR's \"12\" lettering. The only real defect is a small notch on the door's bottom edge at x 18-90, y 2495-2550.\n5. **The long strip at x 1360-1554 (and 2516-2706)** is the side skirt under the sidepod: the grid cells F6-F8 are visible there. Map 3 had called it a tub wall.\n6. **Sidepod:** the vertical side (hero) and the top shoulder are split along a real slit at x ≈ 655-700. Maps 1 and 3 put their safe centres on the slit or the shoulder. The new centre is (517,1763), matching where ADR puts \"-TEAM- ADR\".\n7. **Nose top:** the car-right half starts at x 1552 (map 2's 1416 overlapped the skirt). The car-left half ends at x 2516.\n8. **Front splitter leading edge** is split into two slots at (1715,3935) and (2380,3935), matching ADR's two logos.\n9. **Front fender pod** is split into the door, the pod top behind the wheel (C10-D11), the crown over the wheel, the outer ring around the headlight, the bezel and the skirt.\n10. **Added:** `engine_cover_fwd_upper_R` and `_L`, from the user's red outlines in the two v2 side shots. These are the forward-upper part of the engine-cover side panels, about x 985-1345 and 2735-3100, y 860-1700.\n11. **Dropped or merged:**\n    - map 3's unidentified strip (3226-3610, 3934-3994) and blob (3040-3148, 4012-4072)\n    - pieces inside the windscreen (1830-2236, 1446-1726)\n    - the lamp-interior dots\n    - the roll-hoop lip, merged into `roof_top`\n    - the nose tip/underside, which is a keep-clean void (F6), not a zone\n    - the canopy arcs and the cowl, merged into one zone\n\n**Keep-clean areas and limits**\n- The camera-pod void on the centre line from about y 2000 to 2790, where the user drew the red circle. Don't centre logos across it; use mirrored per-half art.\n- Under the nose tip: x 1890-2210, y 3460-3820.\n- The U-notches beside the splitter.\n- The two engine-cover side holes.\n- The triangular cut-outs in the rear lower side panels.\n- The airbox slot on the roof: x 1854-2212, y 906-930.\n- A stripe at x 2048 only lands on the wing, roof, windscreen chin, nose front and splitter. The engine-cover spine has to be painted twice, along the top edge of each side panel.\n\n**Remaining uncertainties**\n- Which wing surfaces the y 258-384 band and the y 468-606 strips are. The 258-384 band's orientation rests on one label-fragment observation.\n- The exact boundaries between rear deck, haunch and engine-cover side, and between the engine-cover side and the sidepod top. Those boundaries come from the SMP paint, not from UV gaps.\n- The sidepod top and the pod top behind the front wheel face up. They were never seen with readable labels; the only evidence is a mirrored strip, so their orientation follows the side rule by assumption.\n- Grid cells F9-F11 and K9-L11 of the side skirts were never seen.\n- The ADR mask is blocky around the radiator inlets, so those outlines are approximate and their orientation is unknown. The same goes for the mirror housings.\n- Two zones have two valid orientations:\n  - The pod nose ring: its side limb uses ±90, and the arc in front of the lamp uses rotation 0 from the front.\n  - The fender crown: rotation 0 reads from the front, and its outer band uses ±90 to read from the side.\n- On the hoop side panel (\"бочка\"), the visible top edge on the car sits lower than the UV edge (F7). The safe centres are biased low (x 1131 on the right, 2920 on the left), but the exact visible limit wasn't measured.\n- The driver-name strips on the roof flanks were given the side rule by inference; ADR's names there are too blurry to confirm.\n- What the user's red and blue outlines are meant to say isn't stated. I assumed they mark the preferred main-logo and sponsor areas. Mapping the red outlines to texture coordinates is accurate to about ±60 px.\n\n**Files** (in `/tmp/claude-0/-home-user-dramatron/2c81f51a-52a4-58df-8bc9-3f535a44fd37/scratchpad/br03new/work/reconcile/`)\n- `zones_final.json` – this table\n- `zones_final_overlay.png` – each zone's region, bbox and clearance circle drawn over the grid\n- `final.py` and `zones_calc.py` – the scripts that compute them\n- `M2048.npy` – the combined, hole-filled mask at 2048 px\n- `zm_<id>.npy` – each zone's mask"
+}
