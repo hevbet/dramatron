@@ -65,7 +65,7 @@ sys.path.insert(0, TOOLS)
 import render_rs3  # noqa: E402
 
 KN5 = render_rs3.DEFAULT_KN5
-SKINS = ("Pozdnyakov_23", "Konopelko_86")
+SKINS = ("Pozdnyakov_23", "Konopelko_86", "Belov_111")
 TEX, TEX_BLUR = "tyre_d.dds", "tyre_d_blur.dds"
 FONT = "/home/user/dramatron/livery/fonts/Exo2-Italic[wght].ttf"
 FONT_VAR = b"ExtraBold Italic"

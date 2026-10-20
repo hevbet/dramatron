@@ -7087,10 +7087,10 @@ def save_dxt5(im, path):
         fh.write(struct.pack("<I", 0))
 
 
-NUMBERS = {"Pozdnyakov": "23", "Konopelko": "86"}      # race number per driver
-NAMES = {"Pozdnyakov": ("Станислав", "Поздняков"), "Konopelko": ("Матвей", "Конопелько")}
+NUMBERS = {"Pozdnyakov": "23", "Konopelko": "86", "Belov": "111"}      # race number per driver
+NAMES = {"Pozdnyakov": ("Станислав", "Поздняков"), "Konopelko": ("Матвей", "Конопелько"), "Belov": ("Никита", "Белов")}
 # skin folder = Surname_Number (also the zip name, ui_skin.json skinname, renders/<skin>, gear/out/<skin>)
-DRIVERS = [(f"{k}_{NUMBERS[k]}", NAMES[k]) for k in ("Pozdnyakov", "Konopelko")]
+DRIVERS = [(f"{k}_{NUMBERS[k]}", NAMES[k]) for k in ("Pozdnyakov", "Konopelko", "Belov")]
 
 
 def skin_number(folder):

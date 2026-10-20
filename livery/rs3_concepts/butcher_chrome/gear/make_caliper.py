@@ -49,7 +49,7 @@ import render_rs3  # noqa: E402
 
 KN5 = render_rs3.DEFAULT_KN5
 TEX = "caliper.dds"
-SKINS = ("Pozdnyakov_23", "Konopelko_86")
+SKINS = ("Pozdnyakov_23", "Konopelko_86", "Belov_111")
 
 # palette (butcher_chrome/make_skin.py): PIG (242,158,178) body, INK (96,18,42), INK_D (40,10,22)
 PIG = np.array((242, 158, 178), np.float32)

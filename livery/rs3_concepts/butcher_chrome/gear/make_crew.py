@@ -52,7 +52,7 @@ FONTS = os.path.join(LIV, "fonts")
 sys.path.insert(0, os.path.join(LIV, "br03_pro"))
 import lib as blib  # noqa: E402  (arka_logo, simkart_logo, save_dxt5)
 
-SKINS = ("Pozdnyakov_23", "Konopelko_86")
+SKINS = ("Pozdnyakov_23", "Konopelko_86", "Belov_111")
 
 # ---------------------------------------------------------------- palette (make_skin.py)
 PIG = np.array((242, 158, 178), np.float32)       # flesh pink, the 917/20 tone
