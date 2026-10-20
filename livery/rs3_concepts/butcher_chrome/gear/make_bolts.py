@@ -98,7 +98,7 @@ import render_rs3  # noqa: E402
 
 KN5 = render_rs3.DEFAULT_KN5
 SKINS = ("Pozdnyakov_23", "Konopelko_86", "Belov_111")
-SKIN_RIMS = {"Pozdnyakov_23": "graphite", "Konopelko_86": "stock", "Belov_111": "stock"}   # per-driver rims (a plain re-run makes both)
+SKIN_RIMS = {"Pozdnyakov_23": "graphite", "Konopelko_86": "stock", "Belov_111": "242,158,178"}   # per-driver rims (a plain re-run makes both)
 RIM, BLUR, DETAIL = "rim_d.dds", "rim_blur.dds", "car_paint_rims.dds"
 
 # palette (butcher_chrome/make_skin.py): PIG (242,158,178) is the body's flesh pink
